@@ -14,13 +14,13 @@ public class OsmGzipImporter extends OsmImporter {
 
     public static final ExtensionFileFilter FILE_FILTER = new ExtensionFileFilter(
             "osm.gz", "osm.gz", tr("OSM Server Files gzip compressed") + " (*.osm.gz)");
-    
+
     public OsmGzipImporter() {
         super(FILE_FILTER);
     }
 
     @Override
     public void importData(File file, ProgressMonitor progressMonitor) throws IOException, IllegalDataException {
-        importData(getGZipInputStream(new FileInputStream(file)), file);
+        importData(getGZipInputStream(new FileInputStream(file)), file, progressMonitor);
     }
 }

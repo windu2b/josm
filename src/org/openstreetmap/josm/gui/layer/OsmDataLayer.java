@@ -37,7 +37,6 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.actions.ExpertToggleAction;
@@ -73,14 +72,12 @@ import org.openstreetmap.josm.data.osm.visitor.paint.relations.MultipolygonCache
 import org.openstreetmap.josm.data.projection.Projection;
 import org.openstreetmap.josm.data.validation.TestError;
 import org.openstreetmap.josm.gui.ExtendedDialog;
-import org.openstreetmap.josm.gui.HelpAwareOptionPane;
-import org.openstreetmap.josm.gui.HelpAwareOptionPane.ButtonSpec;
 import org.openstreetmap.josm.gui.MapView;
 import org.openstreetmap.josm.gui.dialogs.LayerListDialog;
 import org.openstreetmap.josm.gui.dialogs.LayerListPopup;
 import org.openstreetmap.josm.gui.progress.PleaseWaitProgressMonitor;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
-import org.openstreetmap.josm.gui.util.GuiHelper;
+import org.openstreetmap.josm.gui.widgets.JosmTextArea;
 import org.openstreetmap.josm.tools.DateUtils;
 import org.openstreetmap.josm.tools.FilteredCollection;
 import org.openstreetmap.josm.tools.GBC;
@@ -140,6 +137,7 @@ public class OsmDataLayer extends Layer implements Listener, SelectionChangedLis
         public int deletedWays;
         public int deletedRelations;
 
+        @Override
         public void visit(final Node n) {
             nodes++;
             if (n.isDeleted()) {
@@ -147,6 +145,7 @@ public class OsmDataLayer extends Layer implements Listener, SelectionChangedLis
             }
         }
 
+        @Override
         public void visit(final Way w) {
             ways++;
             if (w.isDeleted()) {
@@ -154,6 +153,7 @@ public class OsmDataLayer extends Layer implements Listener, SelectionChangedLis
             }
         }
 
+        @Override
         public void visit(final Relation r) {
             relations++;
             if (r.isDeleted()) {
@@ -165,7 +165,7 @@ public class OsmDataLayer extends Layer implements Listener, SelectionChangedLis
     public interface CommandQueueListener {
         void commandChanged(int queueSize, int redoSize);
     }
-    
+
     /**
      * Listener called when a state of this layer has changed.
      */
@@ -177,9 +177,9 @@ public class OsmDataLayer extends Layer implements Listener, SelectionChangedLis
          */
         void uploadDiscouragedChanged(OsmDataLayer layer, boolean newValue);
     }
-    
+
     private final CopyOnWriteArrayList<LayerStateChangeListener> layerStateChangeListeners = new CopyOnWriteArrayList<LayerStateChangeListener>();
-    
+
     /**
      * Adds a layer state change listener
      *
@@ -191,7 +191,7 @@ public class OsmDataLayer extends Layer implements Listener, SelectionChangedLis
             layerStateChangeListeners.addIfAbsent(listener);
         }
     }
-    
+
     /**
      * Removes a layer property change listener
      *
@@ -261,7 +261,7 @@ public class OsmDataLayer extends Layer implements Listener, SelectionChangedLis
     protected Icon getBaseIcon() {
         return ImageProvider.get("layer", "osmdata_small");
     }
-    
+
     /**
      * TODO: @return Return a dynamic drawn icon of the map data. The icon is
      *         updated by a background thread to not disturb the running programm.
@@ -357,12 +357,13 @@ public class OsmDataLayer extends Layer implements Listener, SelectionChangedLis
     public void mergeFrom(final DataSet from) {
         mergeFrom(from, null);
     }
-    
+
     /**
      * merges the primitives in dataset <code>from</code> into the dataset of
      * this layer
      *
      * @param from  the source data set
+     * @param progressMonitor the progress monitor, can be {@code null}
      */
     public void mergeFrom(final DataSet from, ProgressMonitor progressMonitor) {
         final DataSetMerger visitor = new DataSetMerger(data,from);
@@ -406,59 +407,17 @@ public class OsmDataLayer extends Layer implements Listener, SelectionChangedLis
             }
         }
         // repaint to make sure new data is displayed properly.
-        Main.map.mapView.repaint();
-        warnNumNewConflicts(numNewConflicts);
-    }
-
-    /**
-     * Warns the user about the number of detected conflicts
-     *
-     * @param numNewConflicts the number of detected conflicts
-     */
-    protected void warnNumNewConflicts(int numNewConflicts) {
-        if (numNewConflicts == 0) return;
-
-        String msg1 = trn(
-                "There was {0} conflict detected.",
-                "There were {0} conflicts detected.",
-                numNewConflicts,
-                numNewConflicts
-        );
-
-        final StringBuffer sb = new StringBuffer();
-        sb.append("<html>").append(msg1).append("</html>");
-        if (numNewConflicts > 0) {
-            final ButtonSpec[] options = new ButtonSpec[] {
-                    new ButtonSpec(
-                            tr("OK"),
-                            ImageProvider.get("ok"),
-                            tr("Click to close this dialog and continue editing"),
-                            null /* no specific help */
-                    )
-            };
-            GuiHelper.runInEDT(new Runnable() {
-                @Override
-                public void run() {
-                    HelpAwareOptionPane.showOptionDialog(
-                            Main.parent,
-                            sb.toString(),
-                            tr("Conflicts detected"),
-                            JOptionPane.WARNING_MESSAGE,
-                            null, /* no icon */
-                            options,
-                            options[0],
-                            ht("/Concepts/Conflict#WarningAboutDetectedConflicts")
-                    );
-                    Main.map.conflictDialog.unfurlDialog();
-                    Main.map.repaint();
-                }
-            });
+        if (Main.map != null && Main.map.mapView != null) {
+            Main.map.mapView.repaint();
+        }
+        // warn about new conflicts
+        if (numNewConflicts > 0 && Main.map != null && Main.map.conflictDialog != null) {
+            Main.map.conflictDialog.warnNumNewConflicts(numNewConflicts);
         }
     }
 
-
     @Override public boolean isMergable(final Layer other) {
-        // isUploadDiscouraged commented to allow merging between normal layers and discouraged layers with a warning (see #7684) 
+        // isUploadDiscouraged commented to allow merging between normal layers and discouraged layers with a warning (see #7684)
         return other instanceof OsmDataLayer;// && (isUploadDiscouraged() == ((OsmDataLayer)other).isUploadDiscouraged());
     }
 
@@ -498,7 +457,7 @@ public class OsmDataLayer extends Layer implements Listener, SelectionChangedLis
     @Override public Object getInfoComponent() {
         final DataCountVisitor counter = new DataCountVisitor();
         for (final OsmPrimitive osm : data.allPrimitives()) {
-            osm.visit(counter);
+            osm.accept(counter);
         }
         final JPanel p = new JPanel(new GridBagLayout());
 
@@ -551,8 +510,13 @@ public class OsmDataLayer extends Layer implements Listener, SelectionChangedLis
                 LayerListDialog.getInstance().createMergeLayerAction(this),
                 new LayerSaveAction(this),
                 new LayerSaveAsAction(this),
-                new LayerGpxExportAction(this),
-                new ConvertToGpxLayerAction(),
+        }));
+        if (ExpertToggleAction.isExpert()) {
+            actions.addAll(Arrays.asList(new Action[]{
+                    new LayerGpxExportAction(this),
+                    new ConvertToGpxLayerAction()}));
+        }
+        actions.addAll(Arrays.asList(new Action[]{
                 SeparatorLayerAction.INSTANCE,
                 new RenameLayerAction(getAssociatedFile(), this)}));
         if (ExpertToggleAction.isExpert() && Main.pref.getBoolean("data.layer.upload_discouragement.menu_item", false)) {
@@ -562,7 +526,7 @@ public class OsmDataLayer extends Layer implements Listener, SelectionChangedLis
                 new ConsistencyTestAction(),
                 SeparatorLayerAction.INSTANCE,
                 new LayerListPopup.InfoAction(this)}));
-        return actions.toArray(new Action[0]);
+        return actions.toArray(new Action[actions.size()]);
     }
 
     public static GpxData toGpxData(DataSet data, File file) {
@@ -608,12 +572,11 @@ public class OsmDataLayer extends Layer implements Listener, SelectionChangedLis
             if (n.isIncomplete() || n.isDeleted() || doneNodes.contains(n)) {
                 continue;
             }
-            String name = n.get("name");
-            if (name == null) {
-                continue;
-            }
             WayPoint wpt = new WayPoint(n.getCoor());
-            wpt.attr.put("name", name);
+            String name = n.get("name");
+            if (name != null) {
+                wpt.attr.put("name", name);
+            }
             if (!n.isTimestampEmpty()) {
                 wpt.attr.put("time", DateUtils.fromDate(n.getTimestamp()));
                 wpt.setTime();
@@ -637,6 +600,7 @@ public class OsmDataLayer extends Layer implements Listener, SelectionChangedLis
             super(tr("Convert to GPX layer"), ImageProvider.get("converttogpx"));
             putValue("help", ht("/Action/ConvertToGpxLayer"));
         }
+        @Override
         public void actionPerformed(ActionEvent e) {
             Main.main.addLayer(new GpxLayer(toGpxData(), tr("Converted from: {0}", getName())));
             Main.main.removeLayer(OsmDataLayer.this);
@@ -733,6 +697,7 @@ public class OsmDataLayer extends Layer implements Listener, SelectionChangedLis
             super(tr("Dataset consistency test"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             String result = DatasetConsistencyTest.runTests(data);
             if (result.length() == 0) {
@@ -740,7 +705,7 @@ public class OsmDataLayer extends Layer implements Listener, SelectionChangedLis
             } else {
                 JPanel p = new JPanel(new GridBagLayout());
                 p.add(new JLabel(tr("Following problems found:")), GBC.eol());
-                JTextArea info = new JTextArea(result, 20, 60);
+                JosmTextArea info = new JosmTextArea(result, 20, 60);
                 info.setCaretPosition(0);
                 info.setEditable(false);
                 p.add(new JScrollPane(info), GBC.eop());
@@ -755,12 +720,14 @@ public class OsmDataLayer extends Layer implements Listener, SelectionChangedLis
         DataSet.removeSelectionListener(this);
     }
 
+    @Override
     public void processDatasetEvent(AbstractDatasetChangedEvent event) {
         isChanged = true;
         setRequiresSaveToFile(true);
         setRequiresUploadToServer(true);
     }
 
+    @Override
     public void selectionChanged(Collection<? extends OsmPrimitive> newSelection) {
         isChanged = true;
     }
@@ -820,7 +787,7 @@ public class OsmDataLayer extends Layer implements Listener, SelectionChangedLis
         }
         return true;
     }
-    
+
     /**
      * Check the data set if it would be empty on save. It is empty, if it contains
      * no objects (after all objects that are created and deleted without being

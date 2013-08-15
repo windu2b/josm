@@ -24,10 +24,12 @@ public class BoundingXYVisitor extends AbstractVisitor {
 
     private ProjectionBounds bounds = null;
 
+    @Override
     public void visit(Node n) {
         visit(n.getEastNorth());
     }
 
+    @Override
     public void visit(Way w) {
         if (w.isIncomplete()) return;
         for (Node n : w.getNodes()) {
@@ -35,11 +37,12 @@ public class BoundingXYVisitor extends AbstractVisitor {
         }
     }
 
+    @Override
     public void visit(Relation e) {
         // only use direct members
         for (RelationMember m : e.getMembers()) {
             if (!m.isRelation()) {
-                m.getMember().visit(this);
+                m.getMember().accept(this);
             }
         }
     }
@@ -129,7 +132,7 @@ public class BoundingXYVisitor extends AbstractVisitor {
             if (p == null) {
                 continue;
             }
-            p.visit(this);
+            p.accept(this);
         }
     }
 }

@@ -14,6 +14,7 @@ import javax.swing.SwingUtilities;
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.actions.upload.ApiPreconditionCheckerHook;
 import org.openstreetmap.josm.actions.upload.DiscardTagsHook;
+import org.openstreetmap.josm.actions.upload.FixDataHook;
 import org.openstreetmap.josm.actions.upload.RelationUploadOrderHook;
 import org.openstreetmap.josm.actions.upload.UploadHook;
 import org.openstreetmap.josm.actions.upload.ValidateUploadHook;
@@ -52,7 +53,16 @@ public class UploadAction extends JosmAction{
     private static final LinkedList<UploadHook> uploadHooks = new LinkedList<UploadHook>();
     private static final LinkedList<UploadHook> lateUploadHooks = new LinkedList<UploadHook>();
     static {
+        /**
+         * Calls validator before upload.
+         */
         uploadHooks.add(new ValidateUploadHook());
+
+        /**
+         * Fixes database errors
+         */
+        uploadHooks.add(new FixDataHook());
+
         /**
          * Checks server capabilities before upload.
          */
@@ -144,7 +154,7 @@ public class UploadAction extends JosmAction{
                 HelpUtil.ht("/Action/Upload#PrimitivesParticipateInConflicts")
         );
     }
-    
+
     /**
      * returns true if the user wants to cancel, false if they
      * want to continue
@@ -217,6 +227,7 @@ public class UploadAction extends JosmAction{
         // after these events.
         // TODO: find better way to initialize the comment field
         SwingUtilities.invokeLater(new Runnable() {
+            @Override
             public void run() {
                 dialog.setDefaultChangesetTags(layer.data.getChangeSetTags());
             }
@@ -242,6 +253,7 @@ public class UploadAction extends JosmAction{
         );
     }
 
+    @Override
     public void actionPerformed(ActionEvent e) {
         if (!isEnabled())
             return;

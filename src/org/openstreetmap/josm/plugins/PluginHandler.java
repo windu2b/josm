@@ -33,6 +33,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.jar.JarFile;
 
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
@@ -43,7 +44,6 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
 import javax.swing.UIManager;
 
 import org.openstreetmap.josm.Main;
@@ -51,12 +51,12 @@ import org.openstreetmap.josm.data.Version;
 import org.openstreetmap.josm.gui.HelpAwareOptionPane;
 import org.openstreetmap.josm.gui.HelpAwareOptionPane.ButtonSpec;
 import org.openstreetmap.josm.gui.JMultilineLabel;
-import org.openstreetmap.josm.gui.MapFrame;
 import org.openstreetmap.josm.gui.download.DownloadSelection;
 import org.openstreetmap.josm.gui.help.HelpUtil;
 import org.openstreetmap.josm.gui.preferences.PreferenceSettingFactory;
 import org.openstreetmap.josm.gui.progress.NullProgressMonitor;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
+import org.openstreetmap.josm.gui.widgets.JosmTextArea;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
 import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.I18n;
@@ -101,6 +101,7 @@ public class PluginHandler {
             new DeprecatedPlugin("ghost", IN_CORE),
             new DeprecatedPlugin("validator", IN_CORE),
             new DeprecatedPlugin("multipoly", IN_CORE),
+            new DeprecatedPlugin("multipoly-convert", IN_CORE),
             new DeprecatedPlugin("remotecontrol", IN_CORE),
             new DeprecatedPlugin("imagery", IN_CORE),
             new DeprecatedPlugin("slippymap", IN_CORE),
@@ -111,6 +112,7 @@ public class PluginHandler {
             new DeprecatedPlugin("Curves", tr("replaced by new {0} plugin","utilsplugin2")),
             new DeprecatedPlugin("epsg31287", tr("replaced by new {0} plugin", "proj4j")),
             new DeprecatedPlugin("licensechange", tr("no longer required")),
+            new DeprecatedPlugin("restart", IN_CORE)
         });
     }
 
@@ -142,13 +144,14 @@ public class PluginHandler {
             }
         }
 
+        @Override
         public int compareTo(DeprecatedPlugin o) {
             return name.compareTo(o.name);
         }
     }
 
     final public static String [] UNMAINTAINED_PLUGINS = new String[] {"gpsbabelgui", "Intersect_way"};
-    
+
     /**
      * Default time-based update interval, in days (pluginmanager.time-based-update.interval)
      */
@@ -277,7 +280,7 @@ public class PluginHandler {
             long tim = System.currentTimeMillis();
             long last = Main.pref.getLong("pluginmanager.lastupdate", 0);
             Integer maxTime = Main.pref.getInteger("pluginmanager.time-based-update.interval", DEFAULT_TIME_BASED_UPDATE_INTERVAL);
-            long d = (tim - last) / (24 * 60 * 60 * 1000l);
+            long d = (tim - last) / (24 * 60 * 60 * 1000L);
             if ((last <= 0) || (maxTime <= 0)) {
                 Main.pref.put("pluginmanager.lastupdate", Long.toString(tim));
             } else if (d > maxTime) {
@@ -423,7 +426,13 @@ public class PluginHandler {
             return false;
         }
 
-        return checkRequiredPluginsPreconditions(parent, plugins, plugin);
+        // Add all plugins already loaded (to include early plugins when checking late ones)
+        Collection<PluginInformation> allPlugins = new HashSet<PluginInformation>(plugins);
+        for (PluginProxy proxy : pluginList) {
+            allPlugins.add(proxy.getPluginInformation());
+        }
+
+        return checkRequiredPluginsPreconditions(parent, allPlugins, plugin, true);
     }
 
     /**
@@ -433,20 +442,24 @@ public class PluginHandler {
      * @param parent The parent Component used to display error popup
      * @param plugins the collection of all loaded plugins
      * @param plugin the plugin for which preconditions are checked
+     * @param local Determines if the local or up-to-date plugin dependencies are to be checked.
      * @return true, if the preconditions are met; false otherwise
+     * @since 5601
      */
-    public static boolean checkRequiredPluginsPreconditions(Component parent, Collection<PluginInformation> plugins, PluginInformation plugin) {
+    public static boolean checkRequiredPluginsPreconditions(Component parent, Collection<PluginInformation> plugins, PluginInformation plugin, boolean local) {
+
+        String requires = local ? plugin.localrequires : plugin.requires;
 
         // make sure the dependencies to other plugins are not broken
         //
-        if(plugin.requires != null){
+        if (requires != null) {
             Set<String> pluginNames = new HashSet<String>();
             for (PluginInformation pi: plugins) {
                 pluginNames.add(pi.name);
             }
             Set<String> missingPlugins = new HashSet<String>();
-            for (String requiredPlugin : plugin.requires.split(";")) {
-                requiredPlugin = requiredPlugin.trim();
+            List<String> requiredPlugins = local ? plugin.getLocalRequiredPlugins() : plugin.getRequiredPlugins();
+            for (String requiredPlugin : requiredPlugins) {
                 if (!pluginNames.contains(requiredPlugin)) {
                     missingPlugins.add(requiredPlugin);
                 }
@@ -470,7 +483,14 @@ public class PluginHandler {
         // iterate all plugins and collect all libraries of all plugins:
         List<URL> allPluginLibraries = new LinkedList<URL>();
         File pluginDir = Main.pref.getPluginsDirectory();
-        for (PluginInformation info : plugins) {
+
+        // Add all plugins already loaded (to include early plugins in the classloader, allowing late plugins to rely on early ones)
+        Collection<PluginInformation> allPlugins = new HashSet<PluginInformation>(plugins);
+        for (PluginProxy proxy : pluginList) {
+            allPlugins.add(proxy.getPluginInformation());
+        }
+
+        for (PluginInformation info : allPlugins) {
             if (info.libraries == null) {
                 continue;
             }
@@ -501,11 +521,22 @@ public class PluginHandler {
             Class<?> klass = plugin.loadClass(pluginClassLoader);
             if (klass != null) {
                 System.out.println(tr("loading plugin ''{0}'' (version {1})", plugin.name, plugin.localversion));
-                pluginList.add(plugin.load(klass));
+                PluginProxy pluginProxy = plugin.load(klass);
+                pluginList.add(pluginProxy);
+                Main.addMapFrameListener(pluginProxy);
             }
             msg = null;
-        } catch(PluginException e) {
-            e.printStackTrace();
+        } catch (PluginException e) {
+            System.err.println(e.getMessage());
+            Throwable cause = e.getCause();
+            if (cause != null) {
+                msg = cause.getLocalizedMessage();
+                if (msg != null) {
+                    System.err.println("Cause: " + cause.getClass().getName()+": " + msg);
+                } else {
+                    cause.printStackTrace();
+                }
+            }
             if (e.getCause() instanceof ClassNotFoundException) {
                 msg = tr("<html>Could not load plugin {0} because the plugin<br>main class ''{1}'' was not found.<br>"
                         + "Delete from preferences?</html>", plugin.name, plugin.className);
@@ -544,6 +575,7 @@ public class PluginHandler {
             Collections.sort(
                     toLoad,
                     new Comparator<PluginInformation>() {
+                        @Override
                         public int compare(PluginInformation o1, PluginInformation o2) {
                             if (o1.stage < o2.stage) return -1;
                             if (o1.stage == o2.stage) return 0;
@@ -730,6 +762,36 @@ public class PluginHandler {
         );
     }
 
+    private static Set<PluginInformation> findRequiredPluginsToDownload(
+            Collection<PluginInformation> pluginsToUpdate, List<PluginInformation> allPlugins, Set<PluginInformation> pluginsToDownload) {
+        Set<PluginInformation> result = new HashSet<PluginInformation>();
+        for (PluginInformation pi : pluginsToUpdate) {
+            for (String name : pi.getRequiredPlugins()) {
+                try {
+                    PluginInformation installedPlugin = PluginInformation.findPlugin(name);
+                    if (installedPlugin == null) {
+                        // New required plugin is not installed, find its PluginInformation
+                        PluginInformation reqPlugin = null;
+                        for (PluginInformation pi2 : allPlugins) {
+                            if (pi2.getName().equals(name)) {
+                                reqPlugin = pi2;
+                                break;
+                            }
+                        }
+                        // Required plugin is known but not already on download list
+                        if (reqPlugin != null && !pluginsToDownload.contains(reqPlugin)) {
+                            result.add(reqPlugin);
+                        }
+                    }
+                } catch (PluginException e) {
+                    System.out.println(tr("Warning: failed to find plugin {0}", name));
+                    e.printStackTrace();
+                }
+            }
+        }
+        return result;
+    }
+
     /**
      * Updates the plugins in <code>plugins</code>.
      *
@@ -756,8 +818,11 @@ public class PluginHandler {
                     Main.pref.getPluginSites()
             );
             Future<?> future = service.submit(task1);
+            List<PluginInformation> allPlugins = null;
+
             try {
                 future.get();
+                allPlugins = task1.getAvailablePlugins();
                 plugins = buildListOfPluginsToLoad(parent,monitor.createSubTaskMonitor(1, false));
             } catch(ExecutionException e) {
                 System.out.println(tr("Warning: failed to download plugin information list"));
@@ -779,11 +844,29 @@ public class PluginHandler {
             }
 
             if (!pluginsToUpdate.isEmpty()) {
+
+                Set<PluginInformation> pluginsToDownload = new HashSet<PluginInformation>(pluginsToUpdate);
+
+                if (allPlugins != null) {
+                    // Updated plugins may need additional plugin dependencies currently not installed
+                    //
+                    Set<PluginInformation> additionalPlugins = findRequiredPluginsToDownload(pluginsToUpdate, allPlugins, pluginsToDownload);
+                    pluginsToDownload.addAll(additionalPlugins);
+
+                    // Iterate on required plugins, if they need themselves another plugins (i.e A needs B, but B needs C)
+                    while (!additionalPlugins.isEmpty()) {
+                        // Install the additional plugins to load them later
+                        plugins.addAll(additionalPlugins);
+                        additionalPlugins = findRequiredPluginsToDownload(additionalPlugins, allPlugins, pluginsToDownload);
+                        pluginsToDownload.addAll(additionalPlugins);
+                    }
+                }
+
                 // try to update the locally installed plugins
                 //
                 PluginDownloadTask task2 = new PluginDownloadTask(
                         monitor.createSubTaskMonitor(1,false),
-                        pluginsToUpdate,
+                        pluginsToDownload,
                         tr("Update plugins")
                 );
 
@@ -799,6 +882,11 @@ public class PluginHandler {
                     alertFailedPluginUpdate(parent, pluginsToUpdate);
                     return plugins;
                 }
+
+                // Update Plugin info for downloaded plugins
+                //
+                refreshLocalUpdatedPluginInfo(task2.getDownloadedPlugins());
+
                 // notify user if downloading a locally installed plugin failed
                 //
                 if (! task2.getFailedPlugins().isEmpty()) {
@@ -851,18 +939,6 @@ public class PluginHandler {
         return ret == 0;
     }
 
-    /**
-     * Notified loaded plugins about a new map frame
-     *
-     * @param old the old map frame
-     * @param map the new map frame
-     */
-    public static void notifyMapFrameChanged(MapFrame old, MapFrame map) {
-        for (PluginProxy plugin : pluginList) {
-            plugin.mapFrameInitialized(old, map);
-        }
-    }
-
     public static Object getPlugin(String name) {
         for (PluginProxy plugin : pluginList)
             if(plugin.getPluginInformation().name.equals(name))
@@ -898,6 +974,7 @@ public class PluginHandler {
             return;
 
         final File[] files = pluginDir.listFiles(new FilenameFilter() {
+            @Override
             public boolean accept(File dir, String name) {
                 return name.endsWith(".jar.new");
             }});
@@ -913,12 +990,80 @@ public class PluginHandler {
                     continue;
                 }
             }
+            try {
+                // Check the plugin is a valid and accessible JAR file before installing it (fix #7754)
+                new JarFile(updatedPlugin).close();
+            } catch (Exception e) {
+                if (dowarn) {
+                    System.err.println(tr("Warning: failed to install plugin ''{0}'' from temporary download file ''{1}''. {2}", plugin.toString(), updatedPlugin.toString(), e.getLocalizedMessage()));
+                }
+                continue;
+            }
+            // Install plugin
             if (!updatedPlugin.renameTo(plugin) && dowarn) {
                 System.err.println(tr("Warning: failed to install plugin ''{0}'' from temporary download file ''{1}''. Renaming failed.", plugin.toString(), updatedPlugin.toString()));
                 System.err.println(tr("Warning: failed to install already downloaded plugin ''{0}''. Skipping installation. JOSM is still going to load the old plugin version.", pluginName));
             }
         }
         return;
+    }
+
+    /**
+     * Determines if the specified file is a valid and accessible JAR file.
+     * @param jar The fil to check
+     * @return true if file can be opened as a JAR file.
+     * @since 5723
+     */
+    public static boolean isValidJar(File jar) {
+        if (jar != null && jar.exists() && jar.canRead()) {
+            try {
+                new JarFile(jar).close();
+            } catch (Exception e) {
+                return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Replies the updated jar file for the given plugin name.
+     * @param name The plugin name to find.
+     * @return the updated jar file for the given plugin name. null if not found or not readable.
+     * @since 5601
+     */
+    public static File findUpdatedJar(String name) {
+        File pluginDir = Main.pref.getPluginsDirectory();
+        // Find the downloaded file. We have tried to install the downloaded plugins
+        // (PluginHandler.installDownloadedPlugins). This succeeds depending on the platform.
+        File downloadedPluginFile = new File(pluginDir, name + ".jar.new");
+        if (!isValidJar(downloadedPluginFile)) {
+            downloadedPluginFile = new File(pluginDir, name + ".jar");
+            if (!isValidJar(downloadedPluginFile)) {
+                return null;
+            }
+        }
+        return downloadedPluginFile;
+    }
+
+    /**
+     * Refreshes the given PluginInformation objects with new contents read from their corresponding jar file.
+     * @param updatedPlugins The PluginInformation objects to update.
+     * @since 5601
+     */
+    public static void refreshLocalUpdatedPluginInfo(Collection<PluginInformation> updatedPlugins) {
+        if (updatedPlugins == null) return;
+        for (PluginInformation pi : updatedPlugins) {
+            File downloadedPluginFile = findUpdatedJar(pi.name);
+            if (downloadedPluginFile == null) {
+                continue;
+            }
+            try {
+                pi.updateFromJar(new PluginInformation(downloadedPluginFile, pi.name));
+            } catch(PluginException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     private static boolean confirmDeactivatingPluginAfterException(PluginProxy plugin) {
@@ -977,7 +1122,7 @@ public class PluginHandler {
         int pos = stack.length;
         for (PluginProxy p : pluginList) {
             String baseClass = p.getPluginInformation().className;
-            baseClass = baseClass.substring(0, baseClass.lastIndexOf("."));
+            baseClass = baseClass.substring(0, baseClass.lastIndexOf('.'));
             for (int elpos = 0; elpos < pos; ++elpos) {
                 if (stack[elpos].getClassName().startsWith(baseClass)) {
                     pos = elpos;
@@ -1037,7 +1182,7 @@ public class PluginHandler {
         for (final PluginProxy pp : pluginList) {
             PluginInformation pi = pp.getPluginInformation();
             pl.remove(pi.name);
-            pl.add(pi.name + " (" + (pi.localversion != null && !pi.localversion.equals("")
+            pl.add(pi.name + " (" + (pi.localversion != null && !pi.localversion.isEmpty()
                     ? pi.localversion : "unknown") + ")");
         }
         Collections.sort(pl);
@@ -1052,10 +1197,11 @@ public class PluginHandler {
         for (final PluginProxy p : pluginList) {
             final PluginInformation info = p.getPluginInformation();
             String name = info.name
-            + (info.version != null && !info.version.equals("") ? " Version: " + info.version : "");
+            + (info.version != null && !info.version.isEmpty() ? " Version: " + info.version : "");
             pluginTab.add(new JLabel(name), GBC.std());
             pluginTab.add(Box.createHorizontalGlue(), GBC.std().fill(GBC.HORIZONTAL));
             pluginTab.add(new JButton(new AbstractAction(tr("Information")) {
+                @Override
                 public void actionPerformed(ActionEvent event) {
                     StringBuilder b = new StringBuilder();
                     for (Entry<String, String> e : info.attr.entrySet()) {
@@ -1064,7 +1210,7 @@ public class PluginHandler {
                         b.append(e.getValue());
                         b.append("\n");
                     }
-                    JTextArea a = new JTextArea(10, 40);
+                    JosmTextArea a = new JosmTextArea(10, 40);
                     a.setEditable(false);
                     a.setText(b.toString());
                     a.setCaretPosition(0);
@@ -1073,7 +1219,7 @@ public class PluginHandler {
                 }
             }), GBC.eol());
 
-            JTextArea description = new JTextArea((info.description == null ? tr("no description available")
+            JosmTextArea description = new JosmTextArea((info.description == null ? tr("no description available")
                     : info.description));
             description.setEditable(false);
             description.setFont(new JLabel().getFont().deriveFont(Font.ITALIC));

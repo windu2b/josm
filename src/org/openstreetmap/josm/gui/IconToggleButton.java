@@ -6,7 +6,6 @@ import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 
-import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.Icon;
 import javax.swing.JToggleButton;
@@ -60,6 +59,7 @@ public class IconToggleButton extends JToggleButton implements HideableButton, P
         ExpertToggleAction.addExpertModeChangeListener(this);
     }
 
+    @Override
     public void propertyChange(PropertyChangeEvent evt) {
         if (evt.getPropertyName().equals("active")) {
             setSelected((Boolean)evt.getNewValue());
@@ -69,6 +69,7 @@ public class IconToggleButton extends JToggleButton implements HideableButton, P
         }
     }
 
+    @Override
     public void destroy() {
         Action action = getAction();
         if (action instanceof Destroyable) {

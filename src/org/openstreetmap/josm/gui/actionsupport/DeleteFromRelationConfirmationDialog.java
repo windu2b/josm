@@ -8,11 +8,9 @@ import static org.openstreetmap.josm.tools.I18n.trn;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -21,21 +19,16 @@ import java.util.HashSet;
 import java.util.Set;
 
 import javax.swing.AbstractAction;
-import javax.swing.BorderFactory;
 import javax.swing.JDialog;
-import javax.swing.JEditorPane;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
-import javax.swing.UIManager;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 import javax.swing.table.DefaultTableColumnModel;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumn;
-import javax.swing.text.html.HTMLEditorKit;
-import javax.swing.text.html.StyleSheet;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.osm.NameFormatter;
@@ -46,13 +39,14 @@ import org.openstreetmap.josm.gui.OsmPrimitivRenderer;
 import org.openstreetmap.josm.gui.SideButton;
 import org.openstreetmap.josm.gui.help.ContextSensitiveHelpAction;
 import org.openstreetmap.josm.gui.help.HelpUtil;
+import org.openstreetmap.josm.gui.widgets.HtmlPanel;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.WindowGeometry;
 
 /**
  * This dialog is used to get a user confirmation that a collection of primitives can be removed
  * from their parent relations.
- *
+ * @since 2308
  */
 public class DeleteFromRelationConfirmationDialog extends JDialog implements TableModelListener {
     /** the unique instance of this dialog */
@@ -61,7 +55,7 @@ public class DeleteFromRelationConfirmationDialog extends JDialog implements Tab
     /**
      * Replies the unique instance of this dialog
      *
-     * @return
+     * @return The unique instance of this dialog
      */
     static public DeleteFromRelationConfirmationDialog getInstance() {
         if (instance == null) {
@@ -72,44 +66,9 @@ public class DeleteFromRelationConfirmationDialog extends JDialog implements Tab
 
     /** the data model */
     private RelationMemberTableModel model;
-    private JEditorPane jepMessage;
+    private HtmlPanel htmlPanel;
     private boolean canceled;
     private SideButton btnOK;
-
-    protected JPanel buildMessagePanel() {
-        JPanel pnl = new JPanel(new BorderLayout());
-        jepMessage = new JEditorPane("text/html", "");
-        jepMessage.setOpaque(false);
-        jepMessage.setEditable(false);
-        Font f = UIManager.getFont("Label.font");
-        StyleSheet ss = new StyleSheet();
-        String rule = MessageFormat.format(
-                "font-family: ''{0}'';font-size: {1,number}pt; font-weight: {2}; font-style: {3}",
-                f.getName(),
-                f.getSize(),
-                f.isBold() ? "bold" : "normal",
-                        f.isItalic() ? "italic" : "normal"
-        );
-        rule = "body {" + rule + "}";
-        rule = MessageFormat.format(
-                "font-family: ''{0}'';font-size: {1,number}pt; font-weight: {2}; font-style: {3}",
-                f.getName(),
-                f.getSize(),
-                "bold",
-                f.isItalic() ? "italic" : "normal"
-        );
-        rule = "strong {" + rule + "}";
-        ss.addRule(rule);
-        ss.addRule("a {text-decoration: underline; color: blue}");
-        HTMLEditorKit kit = new HTMLEditorKit();
-        kit.setStyleSheet(ss);
-        jepMessage.setEditorKit(kit);
-
-        pnl.setLayout(new BorderLayout());
-        pnl.add(jepMessage, BorderLayout.CENTER);
-        pnl.setBorder(BorderFactory.createEmptyBorder(5,5,5,5));
-        return pnl;
-    }
 
     protected JPanel buildRelationMemberTablePanel() {
         JTable table = new JTable(model, new RelationMemberTableColumnModel());
@@ -133,7 +92,7 @@ public class DeleteFromRelationConfirmationDialog extends JDialog implements Tab
         model = new RelationMemberTableModel();
         model.addTableModelListener(this);
         getContentPane().setLayout(new BorderLayout());
-        getContentPane().add(buildMessagePanel(), BorderLayout.NORTH);
+        getContentPane().add(htmlPanel = new HtmlPanel(), BorderLayout.NORTH);
         getContentPane().add(buildRelationMemberTablePanel(), BorderLayout.CENTER);
         getContentPane().add(buildButtonPanel(), BorderLayout.SOUTH);
 
@@ -155,7 +114,7 @@ public class DeleteFromRelationConfirmationDialog extends JDialog implements Tab
         } else {
             msg = tr("<html>Please confirm to remove <strong>{0} objects</strong> from <strong>{1} relations</strong>.</html>", numObjectsToDelete,numParentRelations);
         }
-        jepMessage.setText(msg);
+        htmlPanel.getEditorPane().setText(msg);
         invalidate();
     }
 
@@ -168,6 +127,9 @@ public class DeleteFromRelationConfirmationDialog extends JDialog implements Tab
         }
     }
 
+    /**
+     * Constructs a new {@code DeleteFromRelationConfirmationDialog}.
+     */
     public DeleteFromRelationConfirmationDialog() {
         super(JOptionPane.getFrameForComponent(Main.parent), "", ModalityType.DOCUMENT_MODAL);
         build();
@@ -206,12 +168,13 @@ public class DeleteFromRelationConfirmationDialog extends JDialog implements Tab
                     )
             ).applySafe(this);
             setCanceled(false);
-        } else if(!visible && isShowing()) {
+        } else if (isShowing()) { // Avoid IllegalComponentStateException like in #8775
             new WindowGeometry(this).remember(getClass().getName() + ".geometry");
         }
         super.setVisible(visible);
     }
 
+    @Override
     public void tableChanged(TableModelEvent e) {
         updateMessage();
         updateTitle();
@@ -224,6 +187,9 @@ public class DeleteFromRelationConfirmationDialog extends JDialog implements Tab
     public static class RelationMemberTableModel extends DefaultTableModel {
         private ArrayList<RelationToChildReference> data;
 
+        /**
+         * Constructs a new {@code RelationMemberTableModel}.
+         */
         public RelationMemberTableModel() {
             data = new ArrayList<RelationToChildReference>();
         }
@@ -239,6 +205,7 @@ public class DeleteFromRelationConfirmationDialog extends JDialog implements Tab
                     data,
                     new Comparator<RelationToChildReference>() {
                         private NameFormatter nf = DefaultNameFormatter.getInstance();
+                        @Override
                         public int compare(RelationToChildReference o1, RelationToChildReference o2) {
                             int cmp = o1.getChild().getDisplayName(nf).compareTo(o2.getChild().getDisplayName(nf));
                             if (cmp != 0) return cmp;
@@ -298,6 +265,10 @@ public class DeleteFromRelationConfirmationDialog extends JDialog implements Tab
             return null;
         }
 
+        @Override
+        public boolean isCellEditable(int row, int column) {
+            return false;
+        }
     }
 
     private static class RelationMemberTableColumnModel extends DefaultTableColumnModel{
@@ -352,6 +323,7 @@ public class DeleteFromRelationConfirmationDialog extends JDialog implements Tab
             putValue(SHORT_DESCRIPTION, tr("Click to close the dialog and remove the object from the relations"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             setCanceled(false);
             setVisible(false);
@@ -365,6 +337,7 @@ public class DeleteFromRelationConfirmationDialog extends JDialog implements Tab
             putValue(SHORT_DESCRIPTION, tr("Click to close the dialog and to abort deleting the objects"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             setCanceled(true);
             setVisible(false);

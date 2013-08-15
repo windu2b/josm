@@ -36,7 +36,7 @@ public class ImageDisplay extends JComponent {
 
     /** The image currently displayed */
     private Image image = null;
-    
+
     /** The image currently displayed */
     private boolean errorLoading = false;
 
@@ -66,6 +66,7 @@ public class ImageDisplay extends JComponent {
             this.orientation = orientation == null ? -1 : orientation;
         }
 
+        @Override
         public void run() {
             Image img = Toolkit.getDefaultToolkit().createImage(file.getPath());
             tracker.addImage(img, 1);
@@ -98,10 +99,10 @@ public class ImageDisplay extends JComponent {
                 if (!error) {
                     ImageDisplay.this.image = img;
                     visibleRect = new Rectangle(0, 0, img.getWidth(null), img.getHeight(null));
-    
+
                     final int w = (int) visibleRect.getWidth();
                     final int h = (int) visibleRect.getHeight();
-    
+
                     outer: {
                         final int hh, ww, q;
                         final double ax, ay;
@@ -130,13 +131,13 @@ public class ImageDisplay extends JComponent {
                         default:
                             break outer;
                         }
-    
+
                         final BufferedImage rot = new BufferedImage(ww, hh, BufferedImage.TYPE_INT_RGB);
                         final AffineTransform xform = AffineTransform.getQuadrantRotateInstance(q, ax, ay);
                         final Graphics2D g = rot.createGraphics();
                         g.drawImage(image, xform, null);
                         g.dispose();
-    
+
                         visibleRect.setSize(ww, hh);
                         image.flush();
                         ImageDisplay.this.image = rot;
@@ -154,11 +155,12 @@ public class ImageDisplay extends JComponent {
     private class ImgDisplayMouseListener implements MouseListener, MouseWheelListener, MouseMotionListener {
 
         boolean mouseIsDragging = false;
-        long lastTimeForMousePoint = 0l;
+        long lastTimeForMousePoint = 0L;
         Point mousePointInImg = null;
 
         /** Zoom in and out, trying to preserve the point of the image that was under the mouse cursor
          * at the same place */
+        @Override
         public void mouseWheelMoved(MouseWheelEvent e) {
             File file;
             Image image;
@@ -231,6 +233,7 @@ public class ImageDisplay extends JComponent {
         }
 
         /** Center the display on the point that has been clicked */
+        @Override
         public void mouseClicked(MouseEvent e) {
             // Move the center to the clicked point.
             File file;
@@ -268,6 +271,7 @@ public class ImageDisplay extends JComponent {
 
         /** Initialize the dragging, either with button 1 (simple dragging) or button 3 (selection of
          * a picture part) */
+        @Override
         public void mousePressed(MouseEvent e) {
             if (image == null) {
                 mouseIsDragging = false;
@@ -302,6 +306,7 @@ public class ImageDisplay extends JComponent {
             }
         }
 
+        @Override
         public void mouseDragged(MouseEvent e) {
             if (! mouseIsDragging && selectedRect == null)
                 return;
@@ -350,6 +355,7 @@ public class ImageDisplay extends JComponent {
 
         }
 
+        @Override
         public void mouseReleased(MouseEvent e) {
             if (! mouseIsDragging && selectedRect == null)
                 return;
@@ -413,12 +419,15 @@ public class ImageDisplay extends JComponent {
             }
         }
 
+        @Override
         public void mouseEntered(MouseEvent e) {
         }
 
+        @Override
         public void mouseExited(MouseEvent e) {
         }
 
+        @Override
         public void mouseMoved(MouseEvent e) {
         }
 
@@ -529,7 +538,7 @@ public class ImageDisplay extends JComponent {
                 int ascent = metrics.getAscent();
                 Color bkground = new Color(255, 255, 255, 128);
                 int lastPos = 0;
-                int pos = osdText.indexOf("\n");
+                int pos = osdText.indexOf('\n');
                 int x = 3;
                 int y = 3;
                 String line;
@@ -542,7 +551,7 @@ public class ImageDisplay extends JComponent {
                     g.drawString(line, x, y + ascent);
                     y += (int) lineSize.getHeight();
                     lastPos = pos + 1;
-                    pos = osdText.indexOf("\n", lastPos);
+                    pos = osdText.indexOf('\n', lastPos);
                 }
 
                 line = osdText.substring(lastPos);

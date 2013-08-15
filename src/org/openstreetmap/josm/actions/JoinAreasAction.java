@@ -41,11 +41,11 @@ import org.openstreetmap.josm.data.osm.Relation;
 import org.openstreetmap.josm.data.osm.RelationMember;
 import org.openstreetmap.josm.data.osm.TagCollection;
 import org.openstreetmap.josm.data.osm.Way;
+import org.openstreetmap.josm.gui.Notification;
 import org.openstreetmap.josm.gui.conflict.tags.CombinePrimitiveResolverDialog;
 import org.openstreetmap.josm.tools.Geometry;
 import org.openstreetmap.josm.tools.Pair;
 import org.openstreetmap.josm.tools.Shortcut;
-
 
 /**
  * Join Areas (i.e. closed ways and multipolygons)
@@ -54,7 +54,6 @@ public class JoinAreasAction extends JosmAction {
     // This will be used to commit commands and unite them into one large command sequence at the end
     private LinkedList<Command> cmds = new LinkedList<Command>();
     private int cmdsCount = 0;
-
 
     /**
      * This helper class describes join ares action result.
@@ -106,9 +105,12 @@ public class JoinAreasAction extends JosmAction {
     }
 
 
-    //HelperClass
-    //saves a way and the "inside" side
-    // insideToTheLeft: if true left side is "in", false -right side is "in". Left and right are determined along the orientation of way.
+    /**
+     * HelperClass - saves a way and the "inside" side.
+     *
+     * insideToTheLeft: if true left side is "in", false -right side is "in".
+     * Left and right are determined along the orientation of way.
+     */
     public static class WayInPolygon {
         public final Way way;
         public boolean insideToTheRight;
@@ -196,7 +198,7 @@ public class JoinAreasAction extends JosmAction {
         }
 
         public boolean hasWays() {
-            return availableWays.size() > 0;
+            return !availableWays.isEmpty();
         }
 
         public WayInPolygon startNewWay(WayInPolygon way) {
@@ -313,18 +315,25 @@ public class JoinAreasAction extends JosmAction {
      * Gets called whenever the shortcut is pressed or the menu entry is selected
      * Checks whether the selected objects are suitable to join and joins them if so
      */
+    @Override
     public void actionPerformed(ActionEvent e) {
         LinkedList<Way> ways = new LinkedList<Way>(Main.main.getCurrentDataSet().getSelectedWays());
 
         if (ways.isEmpty()) {
-            JOptionPane.showMessageDialog(Main.parent, tr("Please select at least one closed way that should be joined."));
+            new Notification(
+                    tr("Please select at least one closed way that should be joined."))
+                    .setIcon(JOptionPane.INFORMATION_MESSAGE)
+                    .show();
             return;
         }
 
         List<Node> allNodes = new ArrayList<Node>();
         for (Way way : ways) {
             if (!way.isClosed()) {
-                JOptionPane.showMessageDialog(Main.parent, tr("One of the selected ways is not closed and therefore cannot be joined."));
+                new Notification(
+                        tr("One of the selected ways is not closed and therefore cannot be joined."))
+                        .setIcon(JOptionPane.INFORMATION_MESSAGE)
+                        .show();
                 return;
             }
 
@@ -352,7 +361,10 @@ public class JoinAreasAction extends JosmAction {
             return;
 
         if (!testJoin(areas)) {
-            JOptionPane.showMessageDialog(Main.parent, tr("No intersection found. Nothing was changed."));
+            new Notification(
+                    tr("No intersection found. Nothing was changed."))
+                    .setIcon(JOptionPane.INFORMATION_MESSAGE)
+                    .show();
             return;
         }
 
@@ -374,7 +386,10 @@ public class JoinAreasAction extends JosmAction {
                 ds.setSelected(allWays);
                 Main.map.mapView.repaint();
             } else {
-                JOptionPane.showMessageDialog(Main.parent, tr("No intersection found. Nothing was changed."));
+                new Notification(
+                        tr("No intersection found. Nothing was changed."))
+                        .setIcon(JOptionPane.INFORMATION_MESSAGE)
+                        .show();
             }
         }
         catch (UserCancelException exception) {
@@ -388,8 +403,8 @@ public class JoinAreasAction extends JosmAction {
 
     /**
      * Tests if the areas have some intersections to join.
-     * @param areas
-     * @return
+     * @param areas Areas to test
+     * @return @{code true} if areas are joinable
      */
     private boolean testJoin(List<Multipolygon> areas) {
         List<Way> allStartingWays = new ArrayList<Way>();
@@ -401,12 +416,12 @@ public class JoinAreasAction extends JosmAction {
 
         //find intersection points
         Set<Node> nodes = Geometry.addIntersections(allStartingWays, true, cmds);
-        return nodes.size() > 0;
+        return !nodes.isEmpty();
     }
 
     /**
      * Will join two or more overlapping areas
-     * @param areas - list of areas to join
+     * @param areas list of areas to join
      * @return new area formed.
      */
     private JoinAreasResult joinAreas(List<Multipolygon> areas) throws UserCancelException {
@@ -451,7 +466,7 @@ public class JoinAreasAction extends JosmAction {
         }
 
         // Don't warn now, because it will really look corrupted
-        boolean warnAboutRelations = relations.size() > 0 && allStartingWays.size() > 1;
+        boolean warnAboutRelations = !relations.isEmpty() && allStartingWays.size() > 1;
 
         ArrayList<WayInPolygon> preparedWays = new ArrayList<WayInPolygon>();
 
@@ -504,15 +519,22 @@ public class JoinAreasAction extends JosmAction {
         commitCommands(marktr("Delete relations"));
 
         // Delete the discarded inner ways
-        if (discardedWays.size() > 0) {
-            cmds.add(DeleteCommand.delete(Main.map.mapView.getEditLayer(), discardedWays, true));
-            commitCommands(marktr("Delete Ways that are not part of an inner multipolygon"));
+        if (!discardedWays.isEmpty()) {
+            Command deleteCmd = DeleteCommand.delete(Main.map.mapView.getEditLayer(), discardedWays, true);
+            if (deleteCmd != null) {
+                cmds.add(deleteCmd);
+                commitCommands(marktr("Delete Ways that are not part of an inner multipolygon"));
+            }
         }
 
         makeCommitsOneAction(marktr("Joined overlapping areas"));
 
         if (warnAboutRelations) {
-            JOptionPane.showMessageDialog(Main.parent, tr("Some of the ways were part of relations that have been modified. Please verify no errors have been introduced."));
+            new Notification(
+                    tr("Some of the ways were part of relations that have been modified.<br>Please verify no errors have been introduced."))
+                    .setIcon(JOptionPane.INFORMATION_MESSAGE)
+                    .setDuration(Notification.TIME_LONG)
+                    .show();
         }
 
         result.hasChanges = true;
@@ -523,9 +545,8 @@ public class JoinAreasAction extends JosmAction {
 
     /**
      * Checks if tags of two given ways differ, and presents the user a dialog to solve conflicts
-     * @param Way First way to check
-     * @param Way Second Way to check
-     * @return boolean True if all conflicts are resolved, False if conflicts remain.
+     * @param polygons ways to check
+     * @return {@code true} if all conflicts are resolved, {@code false} if conflicts remain.
      */
     private boolean resolveTagConflicts(List<Multipolygon> polygons) {
 
@@ -552,8 +573,8 @@ public class JoinAreasAction extends JosmAction {
 
     /**
      * This method removes duplicate points (if any) from the input way.
-     * @param way the way to process
-     * @return true if any changes where made
+     * @param ways the ways to process
+     * @return {@code true} if any changes where made
      */
     private boolean removeDuplicateNodes(List<Way> ways) {
         //TODO: maybe join nodes with JoinNodesAction, rather than reconnect the ways.
@@ -615,7 +636,7 @@ public class JoinAreasAction extends JosmAction {
 
     /**
      * Commits the command list with a description
-     * @param String The description of what the commands do
+     * @param description The description of what the commands do
      */
     private void commitCommands(String description) {
         switch(cmds.size()) {
@@ -795,7 +816,7 @@ public class JoinAreasAction extends JosmAction {
             }
 
             //if odd number of crossings, invert orientation
-            if (intersectionCount % 2 == 1) {
+            if (intersectionCount % 2 != 0) {
                 curWayInsideToTheRight = !curWayInsideToTheRight;
             }
 
@@ -861,9 +882,9 @@ public class JoinAreasAction extends JosmAction {
 
 
     /**
-     * This method finds witch ways are outer and witch are inner.
-     * @param boundaryWays
-     * @return
+     * This method finds which ways are outer and which are inner.
+     * @param boundaries list of joined boundaries to search in
+     * @return outer ways
      */
     private List<AssembledMultipolygon> findPolygons(Collection<AssembledPolygon> boundaries) {
 
@@ -882,6 +903,7 @@ public class JoinAreasAction extends JosmAction {
 
     /**
      * Collects outer way and corresponding inner ways from all boundaries.
+     * @param level depth level
      * @param boundaryWays
      * @return the outermostWay.
      */
@@ -917,7 +939,7 @@ public class JoinAreasAction extends JosmAction {
             PolygonLevel polLev = new PolygonLevel(pol, level);
 
             //process inner ways
-            if (innerCandidates.size() > 0) {
+            if (!innerCandidates.isEmpty()) {
                 List<PolygonLevel> innerList = findOuterWaysImpl(level + 1, innerCandidates);
                 result.addAll(innerList);
 
@@ -936,9 +958,9 @@ public class JoinAreasAction extends JosmAction {
 
     /**
      * Finds all ways that form inner or outer boundaries.
-     * @param Collection<Way> A list of (splitted) ways that form a multigon and share common end nodes on intersections.
-     * @param Collection<Way> this list is filled with ways that are to be discarded
-     * @return Collection<Collection<Way>> A list of ways that form the outer and inner boundaries of the multigon.
+     * @param multigonWays A list of (splitted) ways that form a multigon and share common end nodes on intersections.
+     * @param discardedResult this list is filled with ways that are to be discarded
+     * @return A list of ways that form the outer and inner boundaries of the multigon.
      */
     public static List<AssembledPolygon> findBoundaryPolygons(Collection<WayInPolygon> multigonWays, List<Way> discardedResult) {
         //first find all discardable ways, by getting outer shells.
@@ -1033,7 +1055,7 @@ public class JoinAreasAction extends JosmAction {
 
     /**
      * This method checks if polygons have several touching parts and splits them in several polygons.
-     * @param polygon the polygon to process.
+     * @param polygons the polygons to process.
      */
     public static List<AssembledPolygon> fixTouchingPolygons(List<AssembledPolygon> polygons)
     {
@@ -1071,9 +1093,9 @@ public class JoinAreasAction extends JosmAction {
 
     /**
      * Tests if way is inside other way
-     * @param outside
-     * @param inside
-     * @return
+     * @param outside outer polygon description
+     * @param inside inner polygon description
+     * @return {@code true} if inner is inside outer
      */
     public static boolean wayInsideWay(AssembledPolygon inside, AssembledPolygon outside) {
         Set<Node> outsideNodes = new HashSet<Node>(outside.getNodes());
@@ -1092,8 +1114,8 @@ public class JoinAreasAction extends JosmAction {
 
     /**
      * Joins the lists of ways.
-     * @param Collection<Way> The list of outer ways that belong to that multigon.
-     * @return Way The newly created outer way
+     * @param polygon The list of outer ways that belong to that multigon.
+     * @return The newly created outer way
      */
     private Multipolygon  joinPolygon(AssembledMultipolygon polygon) throws UserCancelException {
         Multipolygon result = new Multipolygon(joinWays(polygon.outerWay.ways));
@@ -1107,8 +1129,8 @@ public class JoinAreasAction extends JosmAction {
 
     /**
      * Joins the outer ways and deletes all short ways that can't be part of a multipolygon anyway.
-     * @param Collection<Way> The list of outer ways that belong to that multigon.
-     * @return Way The newly created outer way
+     * @param ways The list of outer ways that belong to that multigon.
+     * @return The newly created outer way
      */
     private Way joinWays(List<WayInPolygon> ways) throws UserCancelException {
 
@@ -1135,8 +1157,8 @@ public class JoinAreasAction extends JosmAction {
 
     /**
      * Joins a list of ways (using CombineWayAction and ReverseWayAction as specified in WayInPath)
-     * @param ArrayList<Way> The list of ways to join and reverse
-     * @return Way The newly created way
+     * @param ways The list of ways to join and reverse
+     * @return The newly created way
      */
     private Way joinOrientedWays(List<WayInPolygon> ways) throws UserCancelException{
         if (ways.size() < 2)
@@ -1206,7 +1228,10 @@ public class JoinAreasAction extends JosmAction {
             }
 
             if (outerWays.size() > 1) {
-                JOptionPane.showMessageDialog(Main.parent, tr("Sorry. Cannot handle multipolygon relations with multiple outer ways."));
+                new Notification(
+                        tr("Sorry. Cannot handle multipolygon relations with multiple outer ways."))
+                        .setIcon(JOptionPane.INFORMATION_MESSAGE)
+                        .show();
                 return null;
             }
 
@@ -1216,24 +1241,36 @@ public class JoinAreasAction extends JosmAction {
             innerWays.retainAll(selectedWays);
 
             if (processedOuterWays.contains(outerWay)) {
-                JOptionPane.showMessageDialog(Main.parent, tr("Sorry. Cannot handle way that is outer in multiple multipolygon relations."));
+                new Notification(
+                        tr("Sorry. Cannot handle way that is outer in multiple multipolygon relations."))
+                        .setIcon(JOptionPane.INFORMATION_MESSAGE)
+                        .show();
                 return null;
             }
 
             if (processedInnerWays.contains(outerWay)) {
-                JOptionPane.showMessageDialog(Main.parent, tr("Sorry. Cannot handle way that is both inner and outer in multipolygon relations."));
+                new Notification(
+                        tr("Sorry. Cannot handle way that is both inner and outer in multipolygon relations."))
+                        .setIcon(JOptionPane.INFORMATION_MESSAGE)
+                        .show();
                 return null;
             }
 
             for (Way way :innerWays)
             {
                 if (processedOuterWays.contains(way)) {
-                    JOptionPane.showMessageDialog(Main.parent, tr("Sorry. Cannot handle way that is both inner and outer in multipolygon relations."));
+                    new Notification(
+                            tr("Sorry. Cannot handle way that is both inner and outer in multipolygon relations."))
+                            .setIcon(JOptionPane.INFORMATION_MESSAGE)
+                            .show();
                     return null;
                 }
 
                 if (processedInnerWays.contains(way)) {
-                    JOptionPane.showMessageDialog(Main.parent, tr("Sorry. Cannot handle way that is inner in multiple multipolygon relations."));
+                    new Notification(
+                            tr("Sorry. Cannot handle way that is inner in multiple multipolygon relations."))
+                            .setIcon(JOptionPane.INFORMATION_MESSAGE)
+                            .show();
                     return null;
                 }
             }
@@ -1262,9 +1299,9 @@ public class JoinAreasAction extends JosmAction {
 
     /**
      * This method filters the list of relations that form the multipolygons.
-     * @param relations
-     * @param polygons
-     * @return
+     * @param relations all relations
+     * @param polygons polygons for filtering
+     * @return relations which don't form the polygons
      */
     private List<Relation> filterOwnMultipolygonRelations(Collection<Relation> relations, List<Multipolygon> polygons) {
 
@@ -1285,12 +1322,12 @@ public class JoinAreasAction extends JosmAction {
 
     /**
      * Will add own multipolygon relation to the "previously existing" relations. Fixup is done by fixRelations
-     * @param Collection<Way> List of already closed inner ways
-     * @param Way The outer way
-     * @param ArrayList<RelationRole> The list of relation with roles to add own relation to
+     * @param inner List of already closed inner ways
+     * @param outer The outer way
+     * @return The list of relation with roles to add own relation to
      */
     private RelationRole addOwnMultigonRelation(Collection<Way> inner, Way outer) {
-        if (inner.size() == 0) return null;
+        if (inner.isEmpty()) return null;
         // Create new multipolygon relation and add all inner ways to it
         Relation newRel = new Relation();
         newRel.put("type", "multipolygon");
@@ -1306,8 +1343,8 @@ public class JoinAreasAction extends JosmAction {
 
     /**
      * Removes a given OsmPrimitive from all relations
-     * @param OsmPrimitive Element to remove from all relations
-     * @return ArrayList<RelationRole> List of relations with roles the primitives was part of
+     * @param osm Element to remove from all relations
+     * @return List of relations with roles the primitives was part of
      */
     private ArrayList<RelationRole> removeFromAllRelations(OsmPrimitive osm) {
         ArrayList<RelationRole> result = new ArrayList<RelationRole>();
@@ -1343,9 +1380,10 @@ public class JoinAreasAction extends JosmAction {
      * Adds the previously removed relations again to the outer way. If there are multiple multipolygon
      * relations where the joined areas were in "outer" role a new relation is created instead with all
      * members of both. This function depends on multigon relations to be valid already, it won't fix them.
-     * @param ArrayList<RelationRole> List of relations with roles the (original) ways were part of
-     * @param Way The newly created outer area/way
-     * @param relationsToDelete - set of relations to delete.
+     * @param rels List of relations with roles the (original) ways were part of
+     * @param outer The newly created outer area/way
+     * @param ownMultipol elements to directly add as outer
+     * @param relationsToDelete set of relations to delete.
      */
     private void fixRelations(ArrayList<RelationRole> rels, Way outer, RelationRole ownMultipol, Set<Relation> relationsToDelete) {
         ArrayList<RelationRole> multiouters = new ArrayList<RelationRole>();
@@ -1365,7 +1403,7 @@ public class JoinAreasAction extends JosmAction {
             cmds.add(new ChangeCommand(r.rel, newRel));
         }
 
-        Relation newRel = null;
+        Relation newRel;
         switch (multiouters.size()) {
         case 0:
             return;
@@ -1397,7 +1435,8 @@ public class JoinAreasAction extends JosmAction {
     }
 
     /**
-     * @param Collection<Way> The List of Ways to remove all tags from
+     * Remove all tags from the all the way
+     * @param ways The List of Ways to remove all tags from
      */
     private void stripTags(Collection<Way> ways) {
         for (Way w : ways) {
@@ -1408,7 +1447,8 @@ public class JoinAreasAction extends JosmAction {
     }
 
     /**
-     * @param Way The Way to remove all tags from
+     * Remove all tags from the way
+     * @param x The Way to remove all tags from
      */
     private void stripTags(Way x) {
         if (x.getKeys() == null)
@@ -1423,7 +1463,7 @@ public class JoinAreasAction extends JosmAction {
     /**
      * Takes the last cmdsCount actions back and combines them into a single action
      * (for when the user wants to undo the join action)
-     * @param String The commit message to display
+     * @param message The commit message to display
      */
     private void makeCommitsOneAction(String message) {
         UndoRedoHandler ur = Main.main.undoRedo;

@@ -12,8 +12,10 @@ import java.util.List;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.gui.MapFrame;
+import org.openstreetmap.josm.gui.MapFrameListener;
 import org.openstreetmap.josm.gui.download.DownloadSelection;
 import org.openstreetmap.josm.gui.preferences.PreferenceSetting;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * For all purposes of loading dynamic resources, the Plugin's class loader should be used
@@ -36,7 +38,7 @@ import org.openstreetmap.josm.gui.preferences.PreferenceSetting;
  *
  * @author Immanuel.Scholz
  */
-public abstract class Plugin {
+public abstract class Plugin implements MapFrameListener {
 
     /**
      * This is the info available for this plugin. You can access this from your
@@ -68,7 +70,7 @@ public abstract class Plugin {
     /**
      * Sets the plugin information object for this plugin
      *
-     * @parma info the plugin information object
+     * @param info the plugin information object
      */
     public void setPluginInformation(PluginInformation info) {
         this.info = info;
@@ -81,11 +83,7 @@ public abstract class Plugin {
         return new File(Main.pref.getPluginsDirectory(), info.name).getPath();
     }
 
-    /**
-     * Called after Main.mapFrame is initalized. (After the first data is loaded).
-     * You can use this callback to tweak the newFrame to your needs, as example install
-     * an alternative Painter.
-     */
+    @Override
     public void mapFrameInitialized(MapFrame oldFrame, MapFrame newFrame) {}
 
     /**
@@ -109,14 +107,22 @@ public abstract class Plugin {
         if (!pluginDir.exists()) {
             pluginDir.mkdirs();
         }
-        FileOutputStream out = new FileOutputStream(new File(pluginDirName, to));
-        InputStream in = getClass().getResourceAsStream(from);
-        byte[] buffer = new byte[8192];
-        for(int len = in.read(buffer); len > 0; len = in.read(buffer)) {
-            out.write(buffer, 0, len);
+        FileOutputStream out = null;
+        InputStream in = null;
+        try {
+            out = new FileOutputStream(new File(pluginDirName, to));
+            in = getClass().getResourceAsStream(from);
+            if (in == null) {
+                throw new IOException("Resource not found: "+from);
+            }
+            byte[] buffer = new byte[8192];
+            for(int len = in.read(buffer); len > 0; len = in.read(buffer)) {
+                out.write(buffer, 0, len);
+            }
+        } finally {
+            Utils.close(in);
+            Utils.close(out);
         }
-        in.close();
-        out.close();
     }
 
     /**

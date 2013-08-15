@@ -12,11 +12,12 @@ import javax.xml.xpath.XPathExpression;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
+import org.w3c.dom.Element;
+
 import org.openstreetmap.josm.gui.layer.Layer;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
 import org.openstreetmap.josm.io.GpxImporter;
 import org.openstreetmap.josm.io.IllegalDataException;
-import org.w3c.dom.Element;
 
 public class GpxTracksSessionImporter implements SessionLayerImporter {
 
@@ -31,13 +32,12 @@ public class GpxTracksSessionImporter implements SessionLayerImporter {
             XPath xpath = xPathFactory.newXPath();
             XPathExpression fileExp = xpath.compile("file/text()");
             String fileStr = (String) fileExp.evaluate(elem, XPathConstants.STRING);
-            if (fileStr == null || fileStr.equals("")) {
+            if (fileStr == null || fileStr.isEmpty()) {
                 throw new IllegalDataException(tr("File name expected for layer no. {0}", support.getLayerIndex()));
             }
 
-            GpxImporter importer = new GpxImporter();
             InputStream in = support.getInputStream(fileStr);
-            GpxImporter.GpxImporterData importData = importer.loadLayers(in, support.getFile(fileStr), support.getLayerName(), null, progressMonitor);
+            GpxImporter.GpxImporterData importData = GpxImporter.loadLayers(in, support.getFile(fileStr), support.getLayerName(), null, progressMonitor);
 
             support.addPostLayersTask(importData.getPostLayerTask());
             return importData.getGpxLayer();

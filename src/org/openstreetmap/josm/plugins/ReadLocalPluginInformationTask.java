@@ -24,11 +24,11 @@ import org.xml.sax.SAXException;
  * This is an asynchronous task for reading plugin information from the files
  * in the local plugin repositories.
  *
- * It scans the files in the local plugins repository (see {@link Preferences#getPluginsDirectory()}
+ * It scans the files in the local plugins repository (see {@link org.openstreetmap.josm.data.Preferences#getPluginsDirectory()}
  * and extracts plugin information from three kind of files:
  * <ul>
- *   <li>.jar-files, assuming that they represent plugin jars</li>
- *   <li>.jar.new-files, assuming that these are downloaded but not yet installed plugins</li>
+ *   <li>.jar files, assuming that they represent plugin jars</li>
+ *   <li>.jar.new files, assuming that these are downloaded but not yet installed plugins</li>
  *   <li>cached lists of available plugins, downloaded for instance from
  *   <a href="http://josm.openstreetmap.de/plugins">http://josm.openstreetmap.de/plugins</a></li>
  * </ul>
@@ -62,27 +62,18 @@ public class ReadLocalPluginInformationTask extends PleaseWaitRunnable {
                 pluginName
         );
         if (!availablePlugins.containsKey(info.getName())) {
-            info.localversion = info.version;
-            info.localmainversion = info.mainversion;
+            info.updateLocalInfo(info);
             availablePlugins.put(info.getName(), info);
         } else {
             PluginInformation current = availablePlugins.get(info.getName());
-            current.localversion = info.version;
-            current.localmainversion = info.mainversion;
-            if (info.icon != null) {
-                current.icon = info.icon;
-            }
-            current.early = info.early;
-            current.className = info.className;
-            current.libraries = info.libraries;
-            current.stage = info.stage;
-            current.requires = info.requires;
+            current.updateFromJar(info);
         }
     }
 
     protected void scanSiteCacheFiles(ProgressMonitor monitor, File pluginsDirectory) {
         File[] siteCacheFiles = pluginsDirectory.listFiles(
                 new FilenameFilter() {
+                    @Override
                     public boolean accept(File dir, String name) {
                         return name.matches("^([0-9]+-)?site.*\\.txt$");
                     }
@@ -108,6 +99,7 @@ public class ReadLocalPluginInformationTask extends PleaseWaitRunnable {
     protected void scanIconCacheFiles(ProgressMonitor monitor, File pluginsDirectory) {
         File[] siteCacheFiles = pluginsDirectory.listFiles(
                 new FilenameFilter() {
+                    @Override
                     public boolean accept(File dir, String name) {
                         return name.matches("^([0-9]+-)?site.*plugin-icons\\.zip$");
                     }
@@ -136,6 +128,7 @@ public class ReadLocalPluginInformationTask extends PleaseWaitRunnable {
     protected void scanPluginFiles(ProgressMonitor monitor, File pluginsDirectory) {
         File[] pluginFiles = pluginsDirectory.listFiles(
                 new FilenameFilter() {
+                    @Override
                     public boolean accept(File dir, String name) {
                         return name.endsWith(".jar") || name.endsWith(".jar.new");
                     }
@@ -156,9 +149,9 @@ public class ReadLocalPluginInformationTask extends PleaseWaitRunnable {
                     String pluginName = fname.substring(0, fname.length() - 8);
                     processJarFile(f, pluginName);
                 }
-            } catch(PluginException e){
+            } catch (PluginException e){
+                System.err.println(e.getMessage());
                 System.err.println(tr("Warning: Failed to scan file ''{0}'' for plugin information. Skipping.", fname));
-                e.printStackTrace();
             }
             monitor.worked(1);
         }

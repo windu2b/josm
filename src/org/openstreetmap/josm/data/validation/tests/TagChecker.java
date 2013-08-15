@@ -56,6 +56,8 @@ import org.openstreetmap.josm.gui.preferences.ValidatorPreference;
 import org.openstreetmap.josm.gui.preferences.map.TaggingPresetPreference;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
 import org.openstreetmap.josm.gui.tagging.TaggingPreset;
+import org.openstreetmap.josm.gui.tagging.TaggingPresetItem;
+import org.openstreetmap.josm.gui.tagging.TaggingPresetItems.KeyedItem;
 import org.openstreetmap.josm.io.MirroredInputStream;
 import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.MultiMap;
@@ -242,7 +244,7 @@ public class TagChecker extends Test
                             ignoreDataEndsWith.add(line);
                         } else if (key.equals("K:")) {
                             IgnoreKeyPair tmp = new IgnoreKeyPair();
-                            int mid = line.indexOf("=");
+                            int mid = line.indexOf('=');
                             tmp.key = line.substring(0, mid);
                             tmp.value = line.substring(mid+1);
                             ignoreDataKeyPair.add(tmp);
@@ -300,10 +302,16 @@ public class TagChecker extends Test
                 presetsValueData.putVoid(a);
             }
             for (TaggingPreset p : presets) {
-                for (TaggingPreset.Item i : p.data) {
-                    if (i instanceof TaggingPreset.KeyedItem) {
-                        TaggingPreset.KeyedItem ky = (TaggingPreset.KeyedItem) i;
-                        presetsValueData.putAll(ky.key, ky.getValues());
+                for (TaggingPresetItem i : p.data) {
+                    if (i instanceof KeyedItem) {
+                        KeyedItem ky = (KeyedItem) i;
+                        if (ky.key != null && ky.getValues() != null) {
+                            try {
+                                presetsValueData.putAll(ky.key, ky.getValues());
+                            } catch (NullPointerException e) {
+                                System.err.println(p+": Unable to initialize "+ky);
+                            }
+                        }
                     }
                 }
             }
@@ -393,7 +401,7 @@ public class TagChecker extends Test
                         tr(s, key), MessageFormat.format(s, key), INVALID_KEY, p) );
                 withErrors.put(p, "IPK");
             }
-            if (checkKeys && key.indexOf(" ") >= 0 && !withErrors.contains(p, "IPK")) {
+            if (checkKeys && key.indexOf(' ') >= 0 && !withErrors.contains(p, "IPK")) {
                 errors.add( new TestError(this, Severity.WARNING, tr("Invalid white space in property key"),
                         tr(s, key), MessageFormat.format(s, key), INVALID_KEY_SPACE, p) );
                 withErrors.put(p, "IPK");
@@ -410,9 +418,9 @@ public class TagChecker extends Test
             }
             if (checkValues && value != null && value.length() > 0 && presetsValueData != null) {
                 final Set<String> values = presetsValueData.get(key);
-                final boolean keyInPresets = values != null;  
+                final boolean keyInPresets = values != null;
                 final boolean tagInPresets = values != null && (values.isEmpty() || values.contains(prop.getValue()));
-                
+
                 boolean ignore = false;
                 for (String a : ignoreDataStartsWith) {
                     if (key.startsWith(a)) {
@@ -429,7 +437,7 @@ public class TagChecker extends Test
                         ignore = true;
                     }
                 }
-                
+
                 if (!tagInPresets) {
                     for (IgnoreKeyPair a : ignoreDataKeyPair) {
                         if (key.equals(a.key) && value.equals(a.value)) {
@@ -437,7 +445,7 @@ public class TagChecker extends Test
                         }
                     }
                 }
-                
+
                 if (!ignore) {
                     if (!keyInPresets) {
                         String i = marktr("Key ''{0}'' not in presets.");
@@ -813,7 +821,7 @@ public class TagChecker extends Test
                 }
                 return noMatch;
             }
-        };
+        }
 
         public String getData(String str) {
             Matcher m = Pattern.compile(" *# *([^#]+) *$").matcher(str);

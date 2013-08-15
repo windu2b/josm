@@ -101,6 +101,7 @@ public class QuadBuckets<T extends OsmPrimitive> implements Collection<T>
             // a significant performance penalty -- 50% in my
             // testing.  Child access is one of the single
             // hottest code paths in this entire class.
+            @SuppressWarnings("unchecked")
             QBLevel[] result = (QBLevel[]) Array.newInstance(this.getClass(), QuadTiling.TILES_PER_LEVEL);
             result[NW_INDEX] = nw;
             result[NE_INDEX] = ne;
@@ -174,7 +175,7 @@ public class QuadBuckets<T extends OsmPrimitive> implements Collection<T>
             if (content == null)
                 return false;
             boolean ret = this.content.remove(o);
-            if (this.content.size() == 0) {
+            if (this.content.isEmpty()) {
                 this.content = null;
             }
             if (this.canRemove()) {
@@ -491,7 +492,7 @@ public class QuadBuckets<T extends OsmPrimitive> implements Collection<T>
         }
         boolean canRemove()
         {
-            if (content != null && content.size() > 0)
+            if (content != null && !content.isEmpty())
                 return false;
             if (this.hasChildren())
                 return false;
@@ -507,6 +508,7 @@ public class QuadBuckets<T extends OsmPrimitive> implements Collection<T>
     {
         clear();
     }
+    @Override
     public void clear()  {
         root = new QBLevel();
         search_cache = null;
@@ -516,12 +518,14 @@ public class QuadBuckets<T extends OsmPrimitive> implements Collection<T>
             out("root: " + root + " level: " + root.level + " bbox: " + root.bbox());
         }*/
     }
+    @Override
     public boolean add(T n) {
         root.add(n);
         size++;
         return true;
     }
 
+    @Override
     public boolean retainAll(Collection<?> objects)
     {
         for (T o : this) {
@@ -533,6 +537,7 @@ public class QuadBuckets<T extends OsmPrimitive> implements Collection<T>
         }
         return true;
     }
+    @Override
     public boolean removeAll(Collection<?> objects)
     {
         boolean changed = false;
@@ -541,6 +546,7 @@ public class QuadBuckets<T extends OsmPrimitive> implements Collection<T>
         }
         return changed;
     }
+    @Override
     public boolean addAll(Collection<? extends T> objects)
     {
         boolean changed = false;
@@ -549,6 +555,7 @@ public class QuadBuckets<T extends OsmPrimitive> implements Collection<T>
         }
         return changed;
     }
+    @Override
     public boolean containsAll(Collection<?> objects)
     {
         for (Object o : objects) {
@@ -557,6 +564,7 @@ public class QuadBuckets<T extends OsmPrimitive> implements Collection<T>
         }
         return true;
     }
+    @Override
     public boolean remove(Object o) {
         @SuppressWarnings("unchecked") T t = (T) o;
         search_cache = null; // Search cache might point to one of removed buckets
@@ -567,6 +575,7 @@ public class QuadBuckets<T extends OsmPrimitive> implements Collection<T>
         } else
             return false;
     }
+    @Override
     public boolean contains(Object o) {
         @SuppressWarnings("unchecked") T t = (T) o;
         QBLevel bucket = root.findBucket(t.getBBox());
@@ -584,10 +593,12 @@ public class QuadBuckets<T extends OsmPrimitive> implements Collection<T>
         }*/
         return a;
     }
+    @Override
     public Object[] toArray()
     {
         return this.toArrayList().toArray();
     }
+    @Override
     public <A> A[] toArray(A[] template)
     {
         return this.toArrayList().toArray(template);
@@ -625,6 +636,7 @@ public class QuadBuckets<T extends OsmPrimitive> implements Collection<T>
             }*/
             iterated_over = 0;
         }
+        @Override
         public boolean hasNext()
         {
             if (this.peek() == null)
@@ -659,6 +671,7 @@ public class QuadBuckets<T extends OsmPrimitive> implements Collection<T>
                 return null;
             return current_node.content.get(content_index);
         }
+        @Override
         public T next()
         {
             T ret = peek();
@@ -674,6 +687,7 @@ public class QuadBuckets<T extends OsmPrimitive> implements Collection<T>
             }
             return ret;
         }
+        @Override
         public void remove()
         {
             // two uses
@@ -685,14 +699,17 @@ public class QuadBuckets<T extends OsmPrimitive> implements Collection<T>
             current_node.remove_content(object);
         }
     }
+    @Override
     public Iterator<T> iterator()
     {
         return new QuadBucketIterator(this);
     }
+    @Override
     public int size() {
         return size;
     }
 
+    @Override
     public boolean isEmpty()
     {
         if (this.size() == 0)

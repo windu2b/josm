@@ -28,7 +28,6 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
-import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
 import javax.swing.RowFilter;
@@ -47,6 +46,7 @@ import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.gui.widgets.JosmComboBox;
 import org.openstreetmap.josm.gui.widgets.SelectAllOnFocusGainedDecorator;
 import org.openstreetmap.josm.tools.Shortcut;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 
 /**
  * This is the keyboard preferences content.
@@ -137,13 +137,20 @@ public class PrefJPanel extends JPanel {
 
     JTable shortcutTable = new JTable();
 
-    private JTextField filterField = new JTextField();
+    private JosmTextField filterField = new JosmTextField();
 
     /** Creates new form prefJPanel */
     // Ain't those auto-generated comments helpful or what? <g>
     public PrefJPanel(AbstractTableModel model) {
         this.model = model;
         initComponents();
+    }
+
+    /**
+     * Show only shortcuts with descriptions coontaing given substring
+     */
+    public void filter(String substring) {
+        filterField.setText(substring);
     }
 
     private class ShortcutTableCellRenderer extends DefaultTableCellRenderer {
@@ -153,7 +160,7 @@ public class PrefJPanel extends JPanel {
         public ShortcutTableCellRenderer(boolean name) {
             this.name = name;
         }
-        
+
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value, boolean
                 isSelected, boolean hasFocus, int row, int column) {
@@ -178,7 +185,7 @@ public class PrefJPanel extends JPanel {
             return label;
         }
     }
-    
+
     private void initComponents() {
         JPanel listPane = new JPanel();
         JScrollPane listScrollPane = new JScrollPane();
@@ -283,6 +290,7 @@ public class PrefJPanel extends JPanel {
         public CbAction (PrefJPanel panel) {
             this.panel = panel;
         }
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             ListSelectionModel lsm = panel.shortcutTable.getSelectionModel(); // can't use e here
             if (!lsm.isSelectionEmpty()) {
@@ -312,6 +320,7 @@ public class PrefJPanel extends JPanel {
                 panel.tfKey.setEnabled(false);
             }
         }
+        @Override
         public void actionPerformed(java.awt.event.ActionEvent e) {
             ListSelectionModel lsm = panel.shortcutTable.getSelectionModel();
             if (lsm != null && !lsm.isSelectionEmpty()) {
@@ -377,8 +386,11 @@ public class PrefJPanel extends JPanel {
             catch (ClassCastException ex2) { /* eliminate warning */  }
         }
 
+        @Override
         public void changedUpdate(DocumentEvent arg0) { filter(); }
+        @Override
         public void insertUpdate(DocumentEvent arg0) {  filter(); }
+        @Override
         public void removeUpdate(DocumentEvent arg0) { filter(); }
     }
 

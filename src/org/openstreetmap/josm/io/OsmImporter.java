@@ -18,12 +18,13 @@ import org.openstreetmap.josm.gui.layer.OsmDataLayer;
 import org.openstreetmap.josm.gui.progress.NullProgressMonitor;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
 import org.openstreetmap.josm.gui.util.GuiHelper;
+import org.openstreetmap.josm.tools.Utils;
 
 public class OsmImporter extends FileImporter {
 
     public static final ExtensionFileFilter FILE_FILTER = new ExtensionFileFilter(
             "osm,xml", "osm", tr("OSM Server Files") + " (*.osm *.xml)");
-    
+
     public static class OsmImporterData {
 
         private OsmDataLayer layer;
@@ -51,25 +52,43 @@ public class OsmImporter extends FileImporter {
         super(filter);
     }
 
+    /**
+     * Imports OSM data from file
+     * @param file file to read data from
+     * @param progressMonitor handler for progress monitoring and canceling
+     */
     @Override
     public void importData(File file, ProgressMonitor progressMonitor) throws IOException, IllegalDataException {
         FileInputStream in = null;
         try {
             in = new FileInputStream(file);
-            importData(in, file);
+            importData(in, file, progressMonitor);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
             throw new IOException(tr("File ''{0}'' does not exist.", file.getName()));
         } finally {
-            if (in != null) {
-                in.close();
-            }
+            Utils.close(in);
         }
     }
 
+    /**
+     * Imports OSM data from stream
+     * @param in input stream
+     * @param associatedFile filename of data
+     */
     protected void importData(InputStream in, final File associatedFile) throws IllegalDataException {
+        importData(in, associatedFile, NullProgressMonitor.INSTANCE);
+    }
+
+    /**
+     * Imports OSM data from stream
+     * @param in input stream
+     * @param associatedFile filename of data (layer name will be generated from name of file)
+     * @param pm handler for progress monitoring and canceling
+     */
+    protected void importData(InputStream in, final File associatedFile, ProgressMonitor pm) throws IllegalDataException {
         final OsmImporterData data = loadLayer(in, associatedFile,
-                associatedFile == null ? OsmDataLayer.createNewName() : associatedFile.getName(), NullProgressMonitor.INSTANCE);
+                associatedFile == null ? OsmDataLayer.createNewName() : associatedFile.getName(), pm);
 
         // FIXME: remove UI stuff from IO subsystem
         GuiHelper.runInEDT(new Runnable() {
@@ -84,7 +103,10 @@ public class OsmImporter extends FileImporter {
 
     /**
      * Load osm data layer from InputStream.
-     * associatedFile can be null if the stream does not come from a file.
+     * @param in input stream
+     * @param associatedFile filename of data (can be <code>null</code> if the stream does not come from a file)
+     * @param layerName name of generated layer
+     * @param progressMonitor handler for progress monitoring and canceling
      */
     public OsmImporterData loadLayer(InputStream in, final File associatedFile, final String layerName, ProgressMonitor progressMonitor) throws IllegalDataException {
         final DataSet dataSet = parseDataSet(in, progressMonitor);

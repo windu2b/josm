@@ -10,6 +10,7 @@ import org.openstreetmap.josm.data.Bounds;
 import org.openstreetmap.josm.data.gpx.GpxData;
 import org.openstreetmap.josm.data.osm.DataSet;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
+import org.openstreetmap.josm.tools.Utils;
 import org.xml.sax.SAXException;
 
 public class BoundingBoxDownloader extends OsmServerReader {
@@ -43,7 +44,7 @@ public class BoundingBoxDownloader extends OsmServerReader {
             progressMonitor.setTicks(0);
             GpxReader reader = new GpxReader(in);
             gpxParsedProperly = reader.parse(false);
-            GpxData currentGpx = reader.data;
+            GpxData currentGpx = reader.getGpxData();
             if (result == null) {
                 result = currentGpx;
             } else if (currentGpx.hasTrackPoints()) {
@@ -51,13 +52,13 @@ public class BoundingBoxDownloader extends OsmServerReader {
             } else{
                 done = true;
             }
-            in.close();
+            Utils.close(in);
             activeConnection = null;
         }
         result.fromServer = true;
         return result;
     }
-    
+
     /**
      * Retrieve raw gps waypoints from the server API.
      * @return A list of all primitives retrieved. Currently, the list of lists
@@ -129,7 +130,7 @@ public class BoundingBoxDownloader extends OsmServerReader {
                 if (ds2 == null)
                     return null;
                 ds.mergeFrom(ds2);
-                
+
             } else {
                 // Simple request
                 in = getInputStream(getRequestForBbox(lon1, lat1, lon2, lat2), progressMonitor.createSubTaskMonitor(9, false));
@@ -144,9 +145,7 @@ public class BoundingBoxDownloader extends OsmServerReader {
             throw new OsmTransferException(e);
         } finally {
             progressMonitor.finishTask();
-            if (in != null) {
-                try {in.close();} catch(IOException e) {}
-            }
+            Utils.close(in);
             activeConnection = null;
         }
     }

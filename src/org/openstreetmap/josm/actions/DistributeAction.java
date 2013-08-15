@@ -1,13 +1,16 @@
 // License: GPL. Copyright 2009 by Immanuel Scholz and others
 package org.openstreetmap.josm.actions;
 
-import static org.openstreetmap.josm.tools.I18n.tr;
 import static org.openstreetmap.josm.gui.help.HelpUtil.ht;
+import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.Set;
 
 import javax.swing.JOptionPane;
 
@@ -18,6 +21,7 @@ import org.openstreetmap.josm.command.SequenceCommand;
 import org.openstreetmap.josm.data.osm.Node;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.osm.Way;
+import org.openstreetmap.josm.gui.Notification;
 import org.openstreetmap.josm.tools.Shortcut;
 
 /**
@@ -27,6 +31,9 @@ import org.openstreetmap.josm.tools.Shortcut;
  */
 public final class DistributeAction extends JosmAction {
 
+    /**
+     * Constructs a new {@code DistributeAction}.
+     */
     public DistributeAction() {
         super(tr("Distribute Nodes"), "distribute", tr("Distribute the selected nodes to equal distances along a line."),
                 Shortcut.registerShortcut("tools:distribute", tr("Tool: {0}", tr("Distribute Nodes")), KeyEvent.VK_B,
@@ -39,6 +46,7 @@ public final class DistributeAction extends JosmAction {
      * that are furthest apart, and then to distribute all other selected
      * nodes along the straight line between these nodes.
      */
+    @Override
     public void actionPerformed(ActionEvent e) {
         if (!isEnabled())
             return;
@@ -52,7 +60,7 @@ public final class DistributeAction extends JosmAction {
             }
         // special case if no single nodes are selected and exactly one way is:
         // then use the way's nodes
-        if ((nodes.size() == 0) && (sel.size() == 1)) {
+        if (nodes.isEmpty() && (sel.size() == 1)) {
             for (OsmPrimitive osm : sel)
                 if (osm instanceof Way) {
                     nodes.addAll(((Way)osm).getNodes());
@@ -60,13 +68,19 @@ public final class DistributeAction extends JosmAction {
                 }
         }
 
+        Set<Node> ignoredNodes = removeNodesWithoutCoordinates(nodes);
+        ignoredNodes.addAll(removeNodesWithoutCoordinates(itnodes));
+        if (!ignoredNodes.isEmpty()) {
+            Main.warn(tr("Ignoring {0} nodes with null coordinates", ignoredNodes.size()));
+            ignoredNodes.clear();
+        }
+
         if (nodes.size() < 3) {
-            JOptionPane.showMessageDialog(
-                    Main.parent,
-                    tr("Please select at least three nodes."),
-                    tr("Information"),
-                    JOptionPane.INFORMATION_MESSAGE
-            );
+            new Notification(
+                    tr("Please select at least three nodes."))
+                    .setIcon(JOptionPane.INFORMATION_MESSAGE)
+                    .setDuration(Notification.TIME_SHORT)
+                    .show();
             return;
         }
 
@@ -107,7 +121,7 @@ public final class DistributeAction extends JosmAction {
 
         // Current number of node
         int pos = 0;
-        while (nodes.size() > 0) {
+        while (!nodes.isEmpty()) {
             pos++;
             Node s = null;
 
@@ -134,6 +148,18 @@ public final class DistributeAction extends JosmAction {
         // Do it!
         Main.main.undoRedo.add(new SequenceCommand(tr("Distribute Nodes"), cmds));
         Main.map.repaint();
+    }
+
+    private Set<Node> removeNodesWithoutCoordinates(Collection<Node> col) {
+        Set<Node> result = new HashSet<Node>();
+        for (Iterator<Node> it = col.iterator(); it.hasNext();) {
+            Node n = it.next();
+            if (n.getCoor() == null) {
+                it.remove();
+                result.add(n);
+            }
+        }
+        return result;
     }
 
     @Override

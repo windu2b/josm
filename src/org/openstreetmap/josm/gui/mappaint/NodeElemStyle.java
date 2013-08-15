@@ -13,7 +13,7 @@ import org.openstreetmap.josm.data.osm.Node;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.osm.Relation;
 import org.openstreetmap.josm.data.osm.visitor.paint.MapPaintSettings;
-import org.openstreetmap.josm.data.osm.visitor.paint.MapPainter;
+import org.openstreetmap.josm.data.osm.visitor.paint.StyledMapRenderer;
 import org.openstreetmap.josm.gui.mappaint.BoxTextElemStyle.BoxProvider;
 import org.openstreetmap.josm.gui.mappaint.BoxTextElemStyle.SimpleBoxProvider;
 import org.openstreetmap.josm.gui.mappaint.MapPaintStyles.IconReference;
@@ -23,7 +23,7 @@ import org.openstreetmap.josm.tools.Utils;
 /**
  * applies for Nodes and turn restriction relations
  */
-public class NodeElemStyle extends ElemStyle {
+public class NodeElemStyle extends ElemStyle implements StyleKeys {
     public MapImage mapImage;
     public Symbol symbol;
 
@@ -103,7 +103,7 @@ public class NodeElemStyle extends ElemStyle {
     private static NodeElemStyle create(Environment env, float default_major_z_index, boolean allowDefault) {
         Cascade c = env.mc.getCascade(env.layer);
 
-        MapImage mapImage = createIcon(env);
+        MapImage mapImage = createIcon(env, ICON_KEYS);
         Symbol symbol = null;
         if (mapImage == null) {
             symbol = createSymbol(env);
@@ -117,25 +117,26 @@ public class NodeElemStyle extends ElemStyle {
         return new NodeElemStyle(c, mapImage, symbol, default_major_z_index);
     }
 
-    private static MapImage createIcon(Environment env) {
+    public static MapImage createIcon(final Environment env, final String[] keys) {
         Cascade c = env.mc.getCascade(env.layer);
-        Cascade c_def = env.mc.getCascade("default");
 
-        final IconReference iconRef = c.get(ICON_IMAGE, null, IconReference.class);
+        final IconReference iconRef = c.get(keys[ICON_IMAGE_IDX], null, IconReference.class);
         if (iconRef == null)
             return null;
 
-        Float widthOnDefault = c_def.get("icon-width", null, Float.class);
+        Cascade c_def = env.mc.getCascade("default");
+
+        Float widthOnDefault = c_def.get(keys[ICON_WIDTH_IDX], null, Float.class);
         if (widthOnDefault != null && widthOnDefault <= 0) {
             widthOnDefault = null;
         }
-        Float widthF = getWidth(c, "icon-width", widthOnDefault);
+        Float widthF = getWidth(c, keys[ICON_WIDTH_IDX], widthOnDefault);
 
-        Float heightOnDefault = c_def.get("icon-height", null, Float.class);
+        Float heightOnDefault = c_def.get(keys[ICON_HEIGHT_IDX], null, Float.class);
         if (heightOnDefault != null && heightOnDefault <= 0) {
             heightOnDefault = null;
         }
-        Float heightF = getWidth(c, "icon-height", heightOnDefault);
+        Float heightF = getWidth(c, keys[ICON_HEIGHT_IDX], heightOnDefault);
 
         int width = widthF == null ? -1 : Math.round(widthF);
         int height = heightF == null ? -1 : Math.round(heightF);
@@ -146,7 +147,7 @@ public class NodeElemStyle extends ElemStyle {
         mapImage.height = height;
 
         mapImage.alpha = Math.min(255, Math.max(0, Integer.valueOf(Main.pref.getInteger("mappaint.icon-image-alpha", 255))));
-        Integer pAlpha = Utils.color_float2int(c.get("icon-opacity", null, float.class));
+        Integer pAlpha = Utils.color_float2int(c.get(keys[ICON_OPACITY_IDX], null, float.class));
         if (pAlpha != null) {
             mapImage.alpha = pAlpha;
         }
@@ -229,7 +230,7 @@ public class NodeElemStyle extends ElemStyle {
     }
 
     @Override
-    public void paintPrimitive(OsmPrimitive primitive, MapPaintSettings settings, MapPainter painter, boolean selected, boolean member) {
+    public void paintPrimitive(OsmPrimitive primitive, MapPaintSettings settings, StyledMapRenderer painter, boolean selected, boolean member) {
         if (primitive instanceof Node) {
             Node n = (Node) primitive;
             if (mapImage != null && painter.isShowIcons()) {

@@ -33,6 +33,7 @@ import org.openstreetmap.josm.data.osm.TagCollection;
 import org.openstreetmap.josm.data.osm.Way;
 import org.openstreetmap.josm.data.preferences.BooleanProperty;
 import org.openstreetmap.josm.gui.ExtendedDialog;
+import org.openstreetmap.josm.gui.Notification;
 import org.openstreetmap.josm.gui.conflict.tags.CombinePrimitiveResolverDialog;
 import org.openstreetmap.josm.gui.util.GuiHelper;
 import org.openstreetmap.josm.tools.Pair;
@@ -64,14 +65,11 @@ public class CombineWayAction extends JosmAction {
     }
 
     protected static void warnCombiningImpossible() {
-        String msg = tr("Could not combine ways "
+        String msg = tr("Could not combine ways<br>"
                 + "(They could not be merged into a single string of nodes)");
-        JOptionPane.showMessageDialog(
-                Main.parent,
-                msg,
-                tr("Information"),
-                JOptionPane.INFORMATION_MESSAGE
-        );
+        new Notification(msg)
+                .setIcon(JOptionPane.INFORMATION_MESSAGE)
+                .show();
         return;
     }
 
@@ -153,7 +151,7 @@ public class CombineWayAction extends JosmAction {
                 List<Way> unreversedTagWays = new ArrayList<Way>(ways);
                 unreversedTagWays.removeAll(reversedWays);
                 ReverseWayTagCorrector reverseWayTagCorrector = new ReverseWayTagCorrector();
-                List<Way> reversedTagWays = new ArrayList<Way>();
+                List<Way> reversedTagWays = new ArrayList<Way>(reversedWays.size());
                 Collection<Command> changePropertyCommands =  null;
                 for (Way w : reversedWays) {
                     Way wnew = new Way(w);
@@ -190,18 +188,18 @@ public class CombineWayAction extends JosmAction {
         return new Pair<Way, Command>(targetWay, sequenceCommand);
     }
 
+    @Override
     public void actionPerformed(ActionEvent event) {
         if (getCurrentDataSet() == null)
             return;
         Collection<OsmPrimitive> selection = getCurrentDataSet().getSelected();
         Set<Way> selectedWays = OsmPrimitive.getFilteredSet(selection, Way.class);
         if (selectedWays.size() < 2) {
-            JOptionPane.showMessageDialog(
-                    Main.parent,
-                    tr("Please select at least two ways to combine."),
-                    tr("Information"),
-                    JOptionPane.INFORMATION_MESSAGE
-            );
+            new Notification(
+                    tr("Please select at least two ways to combine."))
+                    .setIcon(JOptionPane.INFORMATION_MESSAGE)
+                    .setDuration(Notification.TIME_SHORT)
+                    .show();
             return;
         }
         // combine and update gui
@@ -219,6 +217,7 @@ public class CombineWayAction extends JosmAction {
         if(selectedWay != null)
         {
             Runnable guiTask = new Runnable() {
+                @Override
                 public void run() {
                     getCurrentDataSet().setSelected(selectedWay);
                 }
@@ -494,7 +493,7 @@ public class CombineWayAction extends JosmAction {
         }
 
         protected Set<Node> getNodes(Stack<NodePair> pairs) {
-            HashSet<Node> nodes = new LinkedHashSet<Node>();
+            HashSet<Node> nodes = new LinkedHashSet<Node>(2*pairs.size());
             for (NodePair pair: pairs) {
                 nodes.add(pair.getA());
                 nodes.add(pair.getB());
@@ -514,7 +513,7 @@ public class CombineWayAction extends JosmAction {
         }
 
         protected Set<Node> getNodes() {
-            Set<Node> nodes = new LinkedHashSet<Node>();
+            Set<Node> nodes = new LinkedHashSet<Node>(2 * edges.size());
             for (NodePair pair: edges) {
                 nodes.add(pair.getA());
                 nodes.add(pair.getB());

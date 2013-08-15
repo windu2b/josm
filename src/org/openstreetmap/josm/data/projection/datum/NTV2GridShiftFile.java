@@ -25,6 +25,8 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import org.openstreetmap.josm.tools.Utils;
+
 /**
  * Models the NTv2 format Grid Shift File and exposes methods to shift
  * coordinate values using the Sub Grids contained in the file.
@@ -76,6 +78,9 @@ public class NTV2GridShiftFile implements Serializable {
     private NTV2SubGrid[] topLevelSubGrid;
     private NTV2SubGrid lastSubGrid;
 
+    /**
+     * Constructs a new {@code NTV2GridShiftFile}.
+     */
     public NTV2GridShiftFile() {
     }
 
@@ -89,7 +94,7 @@ public class NTV2GridShiftFile implements Serializable {
      *
      * @param in Grid Shift File InputStream
      * @param loadAccuracy is Accuracy data to be loaded as well as shift data?
-     * @throws Exception
+     * @throws IOException
      */
     public void loadGridShiftFile(InputStream in, boolean loadAccuracy ) throws IOException {
         byte[] b8 = new byte[8];
@@ -150,7 +155,7 @@ public class NTV2GridShiftFile implements Serializable {
         topLevelSubGrid = createSubGridTree(subGrid);
         lastSubGrid = topLevelSubGrid[0];
 
-        in.close();
+        Utils.close(in);
     }
 
     /**
@@ -181,7 +186,7 @@ public class NTV2GridShiftFile implements Serializable {
         NTV2SubGrid[] nullArray = new NTV2SubGrid[0];
         for (int i = 0; i < subGrid.length; i++) {
             ArrayList<NTV2SubGrid> subSubGrids = subGridMap.get(subGrid[i].getSubGridName());
-            if (subSubGrids.size() > 0) {
+            if (!subSubGrids.isEmpty()) {
                 NTV2SubGrid[] subGridArray = subSubGrids.toArray(nullArray);
                 subGrid[i].setSubGridArray(subGridArray);
             }

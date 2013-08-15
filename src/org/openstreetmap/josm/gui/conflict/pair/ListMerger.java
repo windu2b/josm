@@ -4,21 +4,16 @@ package org.openstreetmap.josm.gui.conflict.pair;
 import static org.openstreetmap.josm.tools.I18n.tr;
 import static org.openstreetmap.josm.tools.I18n.trn;
 
-import java.awt.Adjustable;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
-import java.awt.event.AdjustmentEvent;
-import java.awt.event.AdjustmentListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Observable;
 import java.util.Observer;
@@ -42,15 +37,15 @@ import org.openstreetmap.josm.data.osm.PrimitiveId;
 import org.openstreetmap.josm.data.osm.Relation;
 import org.openstreetmap.josm.data.osm.Way;
 import org.openstreetmap.josm.gui.layer.OsmDataLayer;
+import org.openstreetmap.josm.gui.util.AdjustmentSynchronizer;
 import org.openstreetmap.josm.gui.widgets.JosmComboBox;
 import org.openstreetmap.josm.gui.widgets.OsmPrimitivesTable;
-import org.openstreetmap.josm.tools.CheckParameterUtil;
 import org.openstreetmap.josm.tools.ImageProvider;
 
 /**
  * A UI component for resolving conflicts in two lists of entries of type T.
  *
- * @param T  the type of the entries
+ * @param <T>  the type of the entries
  * @see ListMergeModel
  */
 public abstract class ListMerger<T extends PrimitiveId> extends JPanel implements PropertyChangeListener, Observer {
@@ -412,6 +407,10 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
         wireActionsToSelectionModels();
     }
 
+    /**
+     * Constructs a new {@code ListMerger}.
+     * @param model
+     */
     public ListMerger(ListMergeModel<T> model) {
         this.model = model;
         model.addObserver(this);
@@ -420,27 +419,37 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     }
 
     /**
-     * Action for copying selected nodes in the list of my nodes to the list of merged
-     * nodes. Inserts the nodes at the beginning of the list of merged nodes.
-     *
+     * Base class of all other Copy* inner classes.
      */
-    class CopyStartLeftAction extends AbstractAction implements ListSelectionListener {
-
-        public CopyStartLeftAction() {
-            ImageIcon icon = ImageProvider.get("dialogs/conflict", "copystartleft.png");
+    abstract class CopyAction extends AbstractAction implements ListSelectionListener {
+        
+        protected CopyAction(String icon_name, String action_name, String short_description) {
+            ImageIcon icon = ImageProvider.get("dialogs/conflict", icon_name+".png");
             putValue(Action.SMALL_ICON, icon);
             if (icon == null) {
-                putValue(Action.NAME, tr("> top"));
+                putValue(Action.NAME, action_name);
             }
-            putValue(Action.SHORT_DESCRIPTION, tr("Copy my selected nodes to the start of the merged node list"));
+            putValue(Action.SHORT_DESCRIPTION, short_description);
             setEnabled(false);
         }
+    }
+    
+    /**
+     * Action for copying selected nodes in the list of my nodes to the list of merged
+     * nodes. Inserts the nodes at the beginning of the list of merged nodes.
+     */
+    class CopyStartLeftAction extends CopyAction {
 
-        public void actionPerformed(ActionEvent arg0) {
-            int [] rows = myEntriesTable.getSelectedRows();
-            model.copyMyToTop(rows);
+        public CopyStartLeftAction() {
+            super("copystartleft", tr("> top"), tr("Copy my selected nodes to the start of the merged node list"));
         }
 
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            model.copyMyToTop(myEntriesTable.getSelectedRows());
+        }
+
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             setEnabled(!myEntriesTable.getSelectionModel().isSelectionEmpty());
         }
@@ -449,25 +458,19 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     /**
      * Action for copying selected nodes in the list of my nodes to the list of merged
      * nodes. Inserts the nodes at the end of the list of merged nodes.
-     *
      */
-    class CopyEndLeftAction extends AbstractAction implements ListSelectionListener {
+    class CopyEndLeftAction extends CopyAction {
 
         public CopyEndLeftAction() {
-            ImageIcon icon = ImageProvider.get("dialogs/conflict", "copyendleft.png");
-            putValue(Action.SMALL_ICON, icon);
-            if (icon == null) {
-                putValue(Action.NAME, tr("> bottom"));
-            }
-            putValue(Action.SHORT_DESCRIPTION, tr("Copy my selected elements to the end of the list of merged elements."));
-            setEnabled(false);
+            super("copyendleft", tr("> bottom"), tr("Copy my selected elements to the end of the list of merged elements."));
         }
 
-        public void actionPerformed(ActionEvent arg0) {
-            int [] rows = myEntriesTable.getSelectedRows();
-            model.copyMyToEnd(rows);
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            model.copyMyToEnd(myEntriesTable.getSelectedRows());
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             setEnabled(!myEntriesTable.getSelectionModel().isSelectionEmpty());
         }
@@ -476,33 +479,29 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     /**
      * Action for copying selected nodes in the list of my nodes to the list of merged
      * nodes. Inserts the nodes before the first selected row in the list of merged nodes.
-     *
      */
-    class CopyBeforeCurrentLeftAction extends AbstractAction implements ListSelectionListener {
+    class CopyBeforeCurrentLeftAction extends CopyAction {
 
         public CopyBeforeCurrentLeftAction() {
-            ImageIcon icon = ImageProvider.get("dialogs/conflict", "copybeforecurrentleft.png");
-            putValue(Action.SMALL_ICON, icon);
-            if (icon == null) {
-                putValue(Action.NAME, "> before");
-            }
-            putValue(Action.SHORT_DESCRIPTION, tr("Copy my selected elements before the first selected element in the list of merged elements."));
-            setEnabled(false);
+            super("copybeforecurrentleft", tr("> before"), 
+                    tr("Copy my selected elements before the first selected element in the list of merged elements."));
         }
 
-        public void actionPerformed(ActionEvent arg0) {
-            int [] myRows = myEntriesTable.getSelectedRows();
+        @Override
+        public void actionPerformed(ActionEvent e) {
             int [] mergedRows = mergedEntriesTable.getSelectedRows();
             if (mergedRows == null || mergedRows.length == 0)
                 return;
+            int [] myRows = myEntriesTable.getSelectedRows();
             int current = mergedRows[0];
             model.copyMyBeforeCurrent(myRows, current);
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             setEnabled(
                     !myEntriesTable.getSelectionModel().isSelectionEmpty()
-                    && ! mergedEntriesTable.getSelectionModel().isSelectionEmpty()
+                    && !mergedEntriesTable.getSelectionModel().isSelectionEmpty()
             );
         }
     }
@@ -510,135 +509,115 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     /**
      * Action for copying selected nodes in the list of my nodes to the list of merged
      * nodes. Inserts the nodes after the first selected row in the list of merged nodes.
-     *
      */
-    class CopyAfterCurrentLeftAction extends AbstractAction implements ListSelectionListener {
+    class CopyAfterCurrentLeftAction extends CopyAction {
 
         public CopyAfterCurrentLeftAction() {
-            ImageIcon icon = ImageProvider.get("dialogs/conflict", "copyaftercurrentleft.png");
-            putValue(Action.SMALL_ICON, icon);
-            if (icon == null) {
-                putValue(Action.NAME, "> after");
-            }
-            putValue(Action.SHORT_DESCRIPTION, tr("Copy my selected elements after the first selected element in the list of merged elements."));
-            setEnabled(false);
+            super("copyaftercurrentleft", tr("> after"), 
+                    tr("Copy my selected elements after the first selected element in the list of merged elements."));
         }
 
-        public void actionPerformed(ActionEvent arg0) {
-            int [] myRows = myEntriesTable.getSelectedRows();
+        @Override
+        public void actionPerformed(ActionEvent e) {
             int [] mergedRows = mergedEntriesTable.getSelectedRows();
             if (mergedRows == null || mergedRows.length == 0)
                 return;
+            int [] myRows = myEntriesTable.getSelectedRows();
             int current = mergedRows[0];
             model.copyMyAfterCurrent(myRows, current);
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             setEnabled(
                     !myEntriesTable.getSelectionModel().isSelectionEmpty()
-                    && ! mergedEntriesTable.getSelectionModel().isSelectionEmpty()
+                    && !mergedEntriesTable.getSelectionModel().isSelectionEmpty()
             );
         }
     }
 
-    class CopyStartRightAction extends AbstractAction implements ListSelectionListener {
+    class CopyStartRightAction extends CopyAction {
 
         public CopyStartRightAction() {
-            ImageIcon icon = ImageProvider.get("dialogs/conflict", "copystartright.png");
-            putValue(Action.SMALL_ICON, icon);
-            if (icon == null) {
-                putValue(Action.NAME, "< top");
-            }
-            putValue(Action.SHORT_DESCRIPTION, tr("Copy their selected element to the start of the list of merged elements."));
-            setEnabled(false);
+            super("copystartright", tr("< top"), tr("Copy their selected element to the start of the list of merged elements."));
         }
 
-        public void actionPerformed(ActionEvent arg0) {
-            int [] rows = theirEntriesTable.getSelectedRows();
-            model.copyTheirToTop(rows);
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            model.copyTheirToTop(theirEntriesTable.getSelectedRows());
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             setEnabled(!theirEntriesTable.getSelectionModel().isSelectionEmpty());
         }
     }
 
-    class CopyEndRightAction extends AbstractAction implements ListSelectionListener {
+    class CopyEndRightAction extends CopyAction {
 
         public CopyEndRightAction() {
-            ImageIcon icon = ImageProvider.get("dialogs/conflict", "copyendright.png");
-            putValue(Action.SMALL_ICON, icon);
-            if (icon == null) {
-                putValue(Action.NAME, "< bottom");
-            }
-            putValue(Action.SHORT_DESCRIPTION, tr("Copy their selected elements to the end of the list of merged elements."));
-            setEnabled(false);
+            super("copyendright", tr("< bottom"), tr("Copy their selected elements to the end of the list of merged elements."));
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
-            int [] rows = theirEntriesTable.getSelectedRows();
-            model.copyTheirToEnd(rows);
+            model.copyTheirToEnd(theirEntriesTable.getSelectedRows());
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             setEnabled(!theirEntriesTable.getSelectionModel().isSelectionEmpty());
         }
     }
 
-    class CopyBeforeCurrentRightAction extends AbstractAction implements ListSelectionListener {
+    class CopyBeforeCurrentRightAction extends CopyAction {
 
         public CopyBeforeCurrentRightAction() {
-            ImageIcon icon = ImageProvider.get("dialogs/conflict", "copybeforecurrentright.png");
-            putValue(Action.SMALL_ICON, icon);
-            if (icon == null) {
-                putValue(Action.NAME, "< before");
-            }
-            putValue(Action.SHORT_DESCRIPTION, tr("Copy their selected elements before the first selected element in the list of merged elements."));
-            setEnabled(false);
+            super("copybeforecurrentright", tr("< before"), 
+                    tr("Copy their selected elements before the first selected element in the list of merged elements."));
         }
 
-        public void actionPerformed(ActionEvent arg0) {
-            int [] myRows = theirEntriesTable.getSelectedRows();
+        @Override
+        public void actionPerformed(ActionEvent e) {
             int [] mergedRows = mergedEntriesTable.getSelectedRows();
             if (mergedRows == null || mergedRows.length == 0)
                 return;
+            int [] myRows = theirEntriesTable.getSelectedRows();
             int current = mergedRows[0];
             model.copyTheirBeforeCurrent(myRows, current);
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             setEnabled(
                     !theirEntriesTable.getSelectionModel().isSelectionEmpty()
-                    && ! mergedEntriesTable.getSelectionModel().isSelectionEmpty()
+                    && !mergedEntriesTable.getSelectionModel().isSelectionEmpty()
             );
         }
     }
 
-    class CopyAfterCurrentRightAction extends AbstractAction implements ListSelectionListener {
+    class CopyAfterCurrentRightAction extends CopyAction {
 
         public CopyAfterCurrentRightAction() {
-            ImageIcon icon = ImageProvider.get("dialogs/conflict", "copyaftercurrentright.png");
-            putValue(Action.SMALL_ICON, icon);
-            if (icon == null) {
-                putValue(Action.NAME, "< after");
-            }
-            putValue(Action.SHORT_DESCRIPTION, tr("Copy their selected element after the first selected element in the list of merged elements"));
-            setEnabled(false);
+            super("copyaftercurrentright", tr("< after"), 
+                    tr("Copy their selected element after the first selected element in the list of merged elements"));
         }
 
-        public void actionPerformed(ActionEvent arg0) {
-            int [] myRows = theirEntriesTable.getSelectedRows();
+        @Override
+        public void actionPerformed(ActionEvent e) {
             int [] mergedRows = mergedEntriesTable.getSelectedRows();
             if (mergedRows == null || mergedRows.length == 0)
                 return;
+            int [] myRows = theirEntriesTable.getSelectedRows();
             int current = mergedRows[0];
             model.copyTheirAfterCurrent(myRows, current);
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             setEnabled(
                     !theirEntriesTable.getSelectionModel().isSelectionEmpty()
-                    && ! mergedEntriesTable.getSelectionModel().isSelectionEmpty()
+                    && !mergedEntriesTable.getSelectionModel().isSelectionEmpty()
             );
         }
     }
@@ -651,6 +630,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
             putValue(Action.SHORT_DESCRIPTION, tr("Copy all my elements to the target"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             model.copyAll(ListRole.MY_ENTRIES);
             model.setFrozen(true);
@@ -660,10 +640,12 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
             setEnabled(model.getMergedEntries().isEmpty() && !model.isFrozen());
         }
 
+        @Override
         public void update(Observable o, Object arg) {
             updateEnabledState();
         }
 
+        @Override
         public void propertyChange(PropertyChangeEvent evt) {
             updateEnabledState();
         }
@@ -677,6 +659,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
             putValue(Action.SHORT_DESCRIPTION, tr("Copy all their elements to the target"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             model.copyAll(ListRole.THEIR_ENTRIES);
             model.setFrozen(true);
@@ -686,10 +669,12 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
             setEnabled(model.getMergedEntries().isEmpty() && !model.isFrozen());
         }
 
+        @Override
         public void update(Observable o, Object arg) {
             updateEnabledState();
         }
 
+        @Override
         public void propertyChange(PropertyChangeEvent evt) {
             updateEnabledState();
         }
@@ -707,11 +692,13 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
             setEnabled(false);
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             int [] rows = mergedEntriesTable.getSelectedRows();
             model.moveUpMerged(rows);
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             int [] rows = mergedEntriesTable.getSelectedRows();
             setEnabled(
@@ -739,11 +726,13 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
             setEnabled(false);
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             int [] rows = mergedEntriesTable.getSelectedRows();
             model.moveDownMerged(rows);
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             int [] rows = mergedEntriesTable.getSelectedRows();
             setEnabled(
@@ -771,11 +760,13 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
             setEnabled(false);
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             int [] rows = mergedEntriesTable.getSelectedRows();
             model.removeMerged(rows);
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             int [] rows = mergedEntriesTable.getSelectedRows();
             setEnabled(
@@ -802,6 +793,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
             setEnabled(true);
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             // do nothing
         }
@@ -817,6 +809,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
             btn.addItemListener(this);
             addPropertyChangeListener(
                     new PropertyChangeListener() {
+                        @Override
                         public void propertyChange(PropertyChangeEvent evt) {
                             if (evt.getPropertyName().equals(PROP_SELECTED)) {
                                 btn.setSelected((Boolean)evt.getNewValue());
@@ -826,6 +819,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
             );
         }
 
+        @Override
         public void itemStateChanged(ItemEvent e) {
             int state = e.getStateChange();
             if (state == ItemEvent.SELECTED) {
@@ -866,6 +860,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
         }
     }
 
+    @Override
     public void propertyChange(PropertyChangeEvent evt) {
         if (evt.getPropertyName().equals(ListMergeModel.FROZEN_PROP)) {
             handlePropertyChangeFrozen((Boolean)evt.getOldValue(), (Boolean)evt.getNewValue());
@@ -876,6 +871,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
         return model;
     }
 
+    @Override
     public void update(Observable o, Object arg) {
         lblMyVersion.setText(
                 trn("My version ({0} entry)", "My version ({0} entries)", model.getMyEntriesSize(), model.getMyEntriesSize())
@@ -887,150 +883,13 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
                 trn("Their version ({0} entry)", "Their version ({0} entries)", model.getTheirEntriesSize(), model.getTheirEntriesSize())
         );
     }
-    
+
     public void unlinkAsListener() {
         myEntriesTable.unlinkAsListener();
         mergedEntriesTable.unlinkAsListener();
         theirEntriesTable.unlinkAsListener();
     }
 
-    /**
-     * Synchronizes scrollbar adjustments between a set of
-     * {@link Adjustable}s. Whenever the adjustment of one of
-     * the registerd Adjustables is updated the adjustment of
-     * the other registered Adjustables is adjusted too.
-     *
-     */
-    class AdjustmentSynchronizer implements AdjustmentListener {
-
-        private final  ArrayList<Adjustable> synchronizedAdjustables;
-        private final  HashMap<Adjustable, Boolean> enabledMap;
-
-        private final Observable observable;
-
-        public AdjustmentSynchronizer() {
-            synchronizedAdjustables = new ArrayList<Adjustable>();
-            enabledMap = new HashMap<Adjustable, Boolean>();
-            observable = new Observable();
-        }
-
-        /**
-         * registers an {@link Adjustable} for participation in synchronized
-         * scrolling.
-         *
-         * @param adjustable the adjustable
-         */
-        public void participateInSynchronizedScrolling(Adjustable adjustable) {
-            if (adjustable == null)
-                return;
-            if (synchronizedAdjustables.contains(adjustable))
-                return;
-            synchronizedAdjustables.add(adjustable);
-            setParticipatingInSynchronizedScrolling(adjustable, true);
-            adjustable.addAdjustmentListener(this);
-        }
-
-        /**
-         * event handler for {@link AdjustmentEvent}s
-         *
-         */
-        public void adjustmentValueChanged(AdjustmentEvent e) {
-            if (! enabledMap.get(e.getAdjustable()))
-                return;
-            for (Adjustable a : synchronizedAdjustables) {
-                if (a != e.getAdjustable() && isParticipatingInSynchronizedScrolling(a)) {
-                    a.setValue(e.getValue());
-                }
-            }
-        }
-
-        /**
-         * sets whether adjustable participates in adjustment synchronization
-         * or not
-         *
-         * @param adjustable the adjustable
-         */
-        protected void setParticipatingInSynchronizedScrolling(Adjustable adjustable, boolean isParticipating) {
-            CheckParameterUtil.ensureParameterNotNull(adjustable, "adjustable");
-            if (! synchronizedAdjustables.contains(adjustable))
-                throw new IllegalStateException(tr("Adjustable {0} not registered yet. Cannot set participation in synchronized adjustment.", adjustable));
-
-            enabledMap.put(adjustable, isParticipating);
-            observable.notifyObservers();
-        }
-
-        /**
-         * returns true if an adjustable is participating in synchronized scrolling
-         *
-         * @param adjustable the adjustable
-         * @return true, if the adjustable is participating in synchronized scrolling, false otherwise
-         * @throws IllegalStateException thrown, if adjustable is not registered for synchronized scrolling
-         */
-        protected boolean isParticipatingInSynchronizedScrolling(Adjustable adjustable) throws IllegalStateException {
-            if (! synchronizedAdjustables.contains(adjustable))
-                throw new IllegalStateException(tr("Adjustable {0} not registered yet.", adjustable));
-
-            return enabledMap.get(adjustable);
-        }
-
-        /**
-         * wires a {@link JCheckBox} to  the adjustment synchronizer, in such a way  that:
-         * <li>
-         *   <ol>state changes in the checkbox control whether the adjustable participates
-         *      in synchronized adjustment</ol>
-         *   <ol>state changes in this {@link AdjustmentSynchronizer} are reflected in the
-         *      {@link JCheckBox}</ol>
-         * </li>
-         *
-         *
-         * @param view  the checkbox to control whether an adjustable participates in synchronized
-         *      adjustment
-         * @param adjustable the adjustable
-         * @exception IllegalArgumentException thrown, if view is null
-         * @exception IllegalArgumentException thrown, if adjustable is null
-         */
-        protected void adapt(final JCheckBox view, final Adjustable adjustable) throws IllegalStateException {
-            CheckParameterUtil.ensureParameterNotNull(adjustable, "adjustable");
-            CheckParameterUtil.ensureParameterNotNull(view, "view");
-
-            if (! synchronizedAdjustables.contains(adjustable)) {
-                participateInSynchronizedScrolling(adjustable);
-            }
-
-            // register an item lister with the check box
-            //
-            view.addItemListener(new ItemListener() {
-                public void itemStateChanged(ItemEvent e) {
-                    switch(e.getStateChange()) {
-                    case ItemEvent.SELECTED:
-                        if (!isParticipatingInSynchronizedScrolling(adjustable)) {
-                            setParticipatingInSynchronizedScrolling(adjustable, true);
-                        }
-                        break;
-                    case ItemEvent.DESELECTED:
-                        if (isParticipatingInSynchronizedScrolling(adjustable)) {
-                            setParticipatingInSynchronizedScrolling(adjustable, false);
-                        }
-                        break;
-                    }
-                }
-            });
-
-            observable.addObserver(
-                    new Observer() {
-                        public void update(Observable o, Object arg) {
-                            boolean sync = isParticipatingInSynchronizedScrolling(adjustable);
-                            if (view.isSelected() != sync) {
-                                view.setSelected(sync);
-                            }
-                        }
-                    }
-            );
-            setParticipatingInSynchronizedScrolling(adjustable, true);
-            view.setSelected(true);
-        }
-    }
-    
     protected final <P extends OsmPrimitive> OsmDataLayer findLayerFor(P primitive) {
         if (primitive != null) {
             List<OsmDataLayer> layers = Main.map.mapView.getLayersOfType(OsmDataLayer.class);

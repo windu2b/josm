@@ -3,11 +3,9 @@ package org.openstreetmap.josm.gui.dialogs;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
 
-import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.GridBagLayout;
-import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
@@ -37,6 +35,7 @@ import javax.swing.tree.TreePath;
 import javax.swing.tree.TreeSelectionModel;
 
 import org.openstreetmap.josm.Main;
+import org.openstreetmap.josm.actions.AutoScaleAction;
 import org.openstreetmap.josm.command.Command;
 import org.openstreetmap.josm.command.PseudoCommand;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
@@ -72,11 +71,15 @@ public class CommandStackDialog extends ToggleDialog implements CommandQueueList
     // after undo/redo command
     private UndoRedoType lastOperation = UndoRedoType.UNDO;
 
+    // Actions for context menu and Enter key
+    private SelectAction selectAction = new SelectAction();
+    private SelectAndZoomAction selectAndZoomAction = new SelectAndZoomAction();
+
     public CommandStackDialog(final MapFrame mapFrame) {
         super(tr("Command Stack"), "commandstack", tr("Open a list of all commands (undo buffer)."),
                 Shortcut.registerShortcut("subwindow:commandstack", tr("Toggle: {0}",
                 tr("Command Stack")), KeyEvent.VK_O, Shortcut.ALT_SHIFT), 100, true);
-        undoTree.addMouseListener(new PopupMenuHandler());
+        undoTree.addMouseListener(new MouseEventHandler());
         undoTree.setRootVisible(false);
         undoTree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
         undoTree.setShowsRootHandles(true);
@@ -85,8 +88,8 @@ public class CommandStackDialog extends ToggleDialog implements CommandQueueList
         undoSelectionListener = new UndoRedoSelectionListener(undoTree);
         undoTree.getSelectionModel().addTreeSelectionListener(undoSelectionListener);
         InputMapUtils.unassignCtrlShiftUpDown(undoTree, JComponent.WHEN_FOCUSED);
-        
-        redoTree.addMouseListener(new PopupMenuHandler());
+
+        redoTree.addMouseListener(new MouseEventHandler());
         redoTree.setRootVisible(false);
         redoTree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
         redoTree.setShowsRootHandles(true);
@@ -106,7 +109,6 @@ public class CommandStackDialog extends ToggleDialog implements CommandQueueList
         treesPanel.add(Box.createRigidArea(new Dimension(0, 0)), GBC.std().weight(0, 1));
         treesPanel.setBackground(redoTree.getBackground());
 
-        SelectAction selectAction = new SelectAction();
         wireUpdateEnabledStateUpdater(selectAction, undoTree);
         wireUpdateEnabledStateUpdater(selectAction, redoTree);
 
@@ -121,9 +123,9 @@ public class CommandStackDialog extends ToggleDialog implements CommandQueueList
             new SideButton(undoAction),
             new SideButton(redoAction)
         }));
-        
-        InputMapUtils.addEnterAction(undoTree, selectAction);
-        InputMapUtils.addEnterAction(redoTree, selectAction);
+
+        InputMapUtils.addEnterAction(undoTree, selectAndZoomAction);
+        InputMapUtils.addEnterAction(redoTree, selectAndZoomAction);
     }
 
     private static class CommandCellRenderer extends DefaultTreeCellRenderer {
@@ -151,6 +153,7 @@ public class CommandStackDialog extends ToggleDialog implements CommandQueueList
             this.source = source;
         }
 
+        @Override
         public void valueChanged(TreeSelectionEvent e) {
             if (source == undoTree) {
                 redoTree.getSelectionModel().removeTreeSelectionListener(redoSelectionListener);
@@ -179,24 +182,29 @@ public class CommandStackDialog extends ToggleDialog implements CommandQueueList
         addShowNotifyListener(updater);
 
         tree.addTreeSelectionListener(new TreeSelectionListener() {
+            @Override
             public void valueChanged(TreeSelectionEvent e) {
                 updater.updateEnabledState();
             }
         });
 
         tree.getModel().addTreeModelListener(new TreeModelListener() {
+            @Override
             public void treeNodesChanged(TreeModelEvent e) {
                 updater.updateEnabledState();
             }
 
+            @Override
             public void treeNodesInserted(TreeModelEvent e) {
                 updater.updateEnabledState();
             }
 
+            @Override
             public void treeNodesRemoved(TreeModelEvent e) {
                 updater.updateEnabledState();
             }
 
+            @Override
             public void treeStructureChanged(TreeModelEvent e) {
                 updater.updateEnabledState();
             }
@@ -301,6 +309,28 @@ public class CommandStackDialog extends ToggleDialog implements CommandQueueList
         return node;
     }
 
+    /**
+     * Return primitives that are affected by some command
+     * @param path GUI elements
+     * @return collection of affected primitives, onluy usable ones
+     */
+    protected static FilteredCollection<OsmPrimitive> getAffectedPrimitives(TreePath path) {
+        PseudoCommand c = ((CommandListMutableTreeNode) path.getLastPathComponent()).getCommand();
+        final OsmDataLayer currentLayer = Main.map.mapView.getEditLayer();
+        FilteredCollection<OsmPrimitive> prims = new FilteredCollection<OsmPrimitive>(
+                c.getParticipatingPrimitives(),
+                new Predicate<OsmPrimitive>(){
+                    @Override
+                    public boolean evaluate(OsmPrimitive o) {
+                        OsmPrimitive p = currentLayer.data.getPrimitiveById(o);
+                        return p != null && p.isUsable();
+                    }
+                }
+        );
+        return prims;
+    }
+
+    @Override
     public void commandChanged(int queueSize, int redoSize) {
         if (!isVisible())
             return;
@@ -317,6 +347,7 @@ public class CommandStackDialog extends ToggleDialog implements CommandQueueList
 
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             TreePath path;
             undoTree.getSelectionPath();
@@ -328,32 +359,36 @@ public class CommandStackDialog extends ToggleDialog implements CommandQueueList
                 throw new IllegalStateException();
 
             if (Main.map == null || Main.map.mapView == null || Main.map.mapView.getEditLayer() == null) return;
-            PseudoCommand c = ((CommandListMutableTreeNode) path.getLastPathComponent()).getCommand();
-
-            final OsmDataLayer currentLayer = Main.map.mapView.getEditLayer();
-
-            FilteredCollection<OsmPrimitive> prims = new FilteredCollection<OsmPrimitive>(
-                    c.getParticipatingPrimitives(),
-                    new Predicate<OsmPrimitive>(){
-                        public boolean evaluate(OsmPrimitive o) {
-                            OsmPrimitive p = currentLayer.data.getPrimitiveById(o);
-                            return p != null && p.isUsable();
-                        }
-                    }
-            );
-            Main.map.mapView.getEditLayer().data.setSelected(prims);
+            Main.map.mapView.getEditLayer().data.setSelected( getAffectedPrimitives(path));
         }
 
+        @Override
         public void updateEnabledState() {
             setEnabled(!undoTree.isSelectionEmpty() || !redoTree.isSelectionEmpty());
         }
 
     }
 
+    public class SelectAndZoomAction extends SelectAction {
+        public SelectAndZoomAction() {
+            super();
+            putValue(NAME,tr("Select and zoom"));
+            putValue(SHORT_DESCRIPTION, tr("Selects the objects that take part in this command (unless currently deleted), then and zooms to it"));
+            putValue(SMALL_ICON, ImageProvider.get("dialogs/autoscale","selection"));
+        }
+
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            super.actionPerformed(e);
+            if (Main.map == null || Main.map.mapView == null || Main.map.mapView.getEditLayer() == null) return;
+            AutoScaleAction.autoScale("selection");
+        }
+    }
+
     /**
      * undo / redo switch to reduce duplicate code
      */
-    protected enum UndoRedoType {UNDO, REDO};
+    protected enum UndoRedoType {UNDO, REDO}
 
     /**
      * Action to undo or redo all commands up to (and including) the seleced item.
@@ -385,6 +420,7 @@ public class CommandStackDialog extends ToggleDialog implements CommandQueueList
             }
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             lastOperation = type;
             TreePath path = tree.getSelectionPath();
@@ -409,37 +445,31 @@ public class CommandStackDialog extends ToggleDialog implements CommandQueueList
             Main.map.repaint();
         }
 
+        @Override
         public void updateEnabledState() {
             // do not allow execution if nothing is selected or a sub command was selected
             setEnabled(!tree.isSelectionEmpty() && tree.getSelectionPath().getPathCount()==2);
         }
     }
 
-    class PopupMenuHandler extends PopupMenuLauncher {
-        @Override
-        public void launch(MouseEvent evt) {
-            Point p = evt.getPoint();
-            JTree tree = (JTree) evt.getSource();
-            int row = tree.getRowForLocation(p.x, p.y);
-            if (row != -1) {
-                TreePath path = tree.getPathForLocation(p.x, p.y);
-                // right click on unselected element -> select it first
-                if (!tree.isPathSelected(path)) {
-                    tree.setSelectionPath(path);
-                }
-                TreePath[] selPaths = tree.getSelectionPaths();
+    class MouseEventHandler extends PopupMenuLauncher {
 
-                CommandStackPopup menu = new CommandStackPopup(selPaths);
-                menu.show(tree, p.x, p.y-3);
+        public MouseEventHandler() {
+            super(new CommandStackPopup());
+        }
+
+        @Override
+        public void mouseClicked(MouseEvent evt) {
+            if (isDoubleClick(evt)) {
+                selectAndZoomAction.actionPerformed(null);
             }
         }
     }
 
     private class CommandStackPopup extends JPopupMenu {
-        private TreePath[] sel;
-        public CommandStackPopup(TreePath[] sel){
-            this.sel = sel;
-            add(new SelectAction());
+        public CommandStackPopup(){
+            add(selectAction);
+            add(selectAndZoomAction);
         }
     }
 }

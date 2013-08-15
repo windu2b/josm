@@ -10,7 +10,6 @@ import java.util.EventObject;
 
 import javax.swing.ComboBoxEditor;
 import javax.swing.JTable;
-import javax.swing.JTextField;
 import javax.swing.event.CellEditorListener;
 import javax.swing.table.TableCellEditor;
 import javax.swing.text.AttributeSet;
@@ -21,6 +20,8 @@ import javax.swing.text.StyleConstants;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.gui.util.TableCellEditorSupport;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
+
 
 /**
  * AutoCompletingTextField is an text field with autocompletion behaviour. It
@@ -31,7 +32,10 @@ import org.openstreetmap.josm.gui.util.TableCellEditorSupport;
  *
  *
  */
-public class AutoCompletingTextField extends JTextField implements ComboBoxEditor, TableCellEditor {
+public class AutoCompletingTextField extends JosmTextField implements ComboBoxEditor, TableCellEditor {
+
+    private Integer maxChars;
+
     /**
      * The document model for the editor
      */
@@ -43,6 +47,17 @@ public class AutoCompletingTextField extends JTextField implements ComboBoxEdito
          */
         @Override
         public void insertString(int offs, String str, AttributeSet a) throws BadLocationException {
+
+            // If a maximum number of characters is specified, avoid to exceed it
+            if (maxChars != null && str != null && getLength() + str.length() > maxChars) {
+                int allowedLength = maxChars-getLength();
+                if (allowedLength > 0) {
+                    str = str.substring(0, allowedLength);
+                } else {
+                    return;
+                }
+            }
+
             if (autoCompletionList == null) {
                 super.insertString(offs, str, a);
                 return;
@@ -134,7 +149,7 @@ public class AutoCompletingTextField extends JTextField implements ComboBoxEdito
 
                     @Override
                     public void keyReleased(KeyEvent e) {
-                        if (getText().equals("")) {
+                        if (getText().isEmpty()) {
                             applyFilter("");
                         }
                     }
@@ -178,20 +193,32 @@ public class AutoCompletingTextField extends JTextField implements ComboBoxEdito
         this.autoCompletionList = autoCompletionList;
     }
 
+    @Override
     public Component getEditorComponent() {
         return this;
     }
 
+    @Override
     public Object getItem() {
         return getText();
     }
 
+    @Override
     public void setItem(Object anObject) {
         if (anObject == null) {
             setText("");
         } else {
             setText(anObject.toString());
         }
+    }
+
+    /**
+     * Sets the maximum number of characters allowed.
+     * @param max maximum number of characters allowed
+     * @since 5579
+     */
+    public void setMaxChars(Integer max) {
+        maxChars = max;
     }
 
     /* ------------------------------------------------------------------------------------ */
@@ -201,6 +228,7 @@ public class AutoCompletingTextField extends JTextField implements ComboBoxEdito
     private TableCellEditorSupport tableCellEditorSupport;
     private String originalValue;
 
+    @Override
     public void addCellEditorListener(CellEditorListener l) {
         tableCellEditorSupport.addCellEditorListener(l);
     }
@@ -213,32 +241,39 @@ public class AutoCompletingTextField extends JTextField implements ComboBoxEdito
         setText(originalValue);
     }
 
+    @Override
     public void removeCellEditorListener(CellEditorListener l) {
         tableCellEditorSupport.removeCellEditorListener(l);
     }
+    @Override
     public void cancelCellEditing() {
         restoreOriginalValue();
         tableCellEditorSupport.fireEditingCanceled();
 
     }
 
+    @Override
     public Object getCellEditorValue() {
         return getText();
     }
 
+    @Override
     public boolean isCellEditable(EventObject anEvent) {
         return true;
     }
 
+    @Override
     public boolean shouldSelectCell(EventObject anEvent) {
         return true;
     }
 
+    @Override
     public boolean stopCellEditing() {
         tableCellEditorSupport.fireEditingStopped();
         return true;
     }
 
+    @Override
     public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
         setText( value == null ? "" : value.toString());
         rememberOriginalValue(getText());

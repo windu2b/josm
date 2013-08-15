@@ -24,7 +24,6 @@ import javax.swing.ButtonGroup;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
-import javax.swing.JTextField;
 import javax.swing.UIManager;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -33,6 +32,7 @@ import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.gui.JMultilineLabel;
 import org.openstreetmap.josm.io.OsmApi;
 import org.openstreetmap.josm.tools.ImageProvider;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 
 /**
  * UploadStrategySelectionPanel is a panel for selecting an upload strategy.
@@ -55,7 +55,7 @@ public class UploadStrategySelectionPanel extends JPanel implements PropertyChan
     private Map<UploadStrategy, JRadioButton> rbStrategy;
     private Map<UploadStrategy, JLabel> lblNumRequests;
     private Map<UploadStrategy, JMultilineLabel> lblStrategies;
-    private JTextField tfChunkSize;
+    private JosmTextField tfChunkSize;
     private JPanel pnlMultiChangesetPolicyPanel;
     private JRadioButton rbFillOneChangeset;
     private JRadioButton rbUseMultipleChangesets;
@@ -135,7 +135,7 @@ public class UploadStrategySelectionPanel extends JPanel implements PropertyChan
         gc.weightx = 0.0;
         gc.weighty = 0.0;
         gc.gridwidth = 1;
-        pnl.add(tfChunkSize = new JTextField(4), gc);
+        pnl.add(tfChunkSize = new JosmTextField(4), gc);
         gc.gridx = 3;
         gc.gridy = 2;
         gc.weightx = 1.0;
@@ -373,6 +373,7 @@ public class UploadStrategySelectionPanel extends JPanel implements PropertyChan
         tfChunkSize.requestFocusInWindow();
     }
 
+    @Override
     public void propertyChange(PropertyChangeEvent evt) {
         if (evt.getPropertyName().equals(UploadedObjectsSummaryPanel.NUM_OBJECTS_TO_UPLOAD_PROP)) {
             setNumUploadedObjects((Integer)evt.getNewValue());
@@ -380,24 +381,26 @@ public class UploadStrategySelectionPanel extends JPanel implements PropertyChan
     }
 
     static class TextFieldFocusHandler implements FocusListener {
+        @Override
         public void focusGained(FocusEvent e) {
             Component c = e.getComponent();
-            if (c instanceof JTextField) {
-                JTextField tf = (JTextField)c;
+            if (c instanceof JosmTextField) {
+                JosmTextField tf = (JosmTextField)c;
                 tf.selectAll();
             }
         }
+        @Override
         public void focusLost(FocusEvent e) {}
     }
 
     class ChunkSizeInputVerifier implements DocumentListener, PropertyChangeListener {
-        protected void setErrorFeedback(JTextField tf, String message) {
+        protected void setErrorFeedback(JosmTextField tf, String message) {
             tf.setBorder(BorderFactory.createLineBorder(Color.RED, 1));
             tf.setToolTipText(message);
             tf.setBackground(BG_COLOR_ERROR);
         }
 
-        protected void clearErrorFeedback(JTextField tf, String message) {
+        protected void clearErrorFeedback(JosmTextField tf, String message) {
             tf.setBorder(UIManager.getBorder("TextField.border"));
             tf.setToolTipText(message);
             tf.setBackground(UIManager.getColor("TextField.background"));
@@ -425,18 +428,22 @@ public class UploadStrategySelectionPanel extends JPanel implements PropertyChan
             }
         }
 
+        @Override
         public void changedUpdate(DocumentEvent arg0) {
             valiateChunkSize();
         }
 
+        @Override
         public void insertUpdate(DocumentEvent arg0) {
             valiateChunkSize();
         }
 
+        @Override
         public void removeUpdate(DocumentEvent arg0) {
             valiateChunkSize();
         }
 
+        @Override
         public void propertyChange(PropertyChangeEvent evt) {
             if (evt.getSource() == tfChunkSize
                     && evt.getPropertyName().equals("enabled")
@@ -453,6 +460,7 @@ public class UploadStrategySelectionPanel extends JPanel implements PropertyChan
             firePropertyChange(UPLOAD_STRATEGY_SPECIFICATION_PROP, null, getUploadStrategySpecification());
         }
 
+        @Override
         public void itemStateChanged(ItemEvent e) {
             UploadStrategy strategy = getUploadStrategy();
             if (strategy == null) return;
@@ -467,12 +475,15 @@ public class UploadStrategySelectionPanel extends JPanel implements PropertyChan
             notifyStrategy();
         }
 
+        @Override
         public void focusGained(FocusEvent arg0) {}
 
+        @Override
         public void focusLost(FocusEvent arg0) {
             notifyStrategy();
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             notifyStrategy();
         }

@@ -13,7 +13,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
 import javax.swing.BorderFactory;
 import javax.swing.JLabel;
@@ -236,10 +235,12 @@ public class FilterTableModel extends AbstractTableModel {
         return filters.get(i);
     }
 
+    @Override
     public int getRowCount() {
         return filters.size();
     }
 
+    @Override
     public int getColumnCount() {
         return 5;
     }
@@ -306,6 +307,7 @@ public class FilterTableModel extends AbstractTableModel {
         }
     }
 
+    @Override
     public Object getValueAt(int row, int column) {
         Filter f = filters.get(row);
         switch (column) {

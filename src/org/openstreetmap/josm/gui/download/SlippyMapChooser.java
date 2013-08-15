@@ -5,9 +5,7 @@ package org.openstreetmap.josm.gui.download;
 import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.awt.Dimension;
-import java.awt.Graphics;
 import java.awt.Toolkit;
-
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 
@@ -38,16 +36,19 @@ public class SlippyMapChooser extends JPanel implements DownloadSelection, Prope
         pnlSlippyMapBBoxChooser.addPropertyChangeListener(this);
     }
 
+    @Override
     public void addGui(final DownloadDialog gui) {
         iGui = gui;
         iGui.addDownloadAreaSelector(pnlSlippyMapBBoxChooser, tr("Slippy map"));
     }
 
+    @Override
     public void setDownloadArea(Bounds area) {
         pnlSlippyMapBBoxChooser.setBoundingBox(area);
         repaint();
     }
 
+    @Override
     public void propertyChange(PropertyChangeEvent evt) {
         if (evt.getPropertyName().equals(BBoxChooser.BBOX_PROP)) {
             if (iGui != null) {
@@ -64,7 +65,7 @@ public class SlippyMapChooser extends JPanel implements DownloadSelection, Prope
                 // make the each dimension 90% of the absolute display size
                 w = iScreenSize.width * 90 / 100;
                 h = iScreenSize.height * 90 / 100;
-                iDownloadDialogDimension = iGui.getSize(); 
+                iDownloadDialogDimension = iGui.getSize();
             }
             // shrink
             else {
@@ -74,8 +75,8 @@ public class SlippyMapChooser extends JPanel implements DownloadSelection, Prope
                 iDownloadDialogDimension = null;
             }
 
-            // resize and center the DownloadDialog 
-            iGui.setBounds((iScreenSize.width - w) / 2, (iScreenSize.height - h) / 2, w, h); 
+            // resize and center the DownloadDialog
+            iGui.setBounds((iScreenSize.width - w) / 2, (iScreenSize.height - h) / 2, w, h);
             repaint();
         }
     }

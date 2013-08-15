@@ -4,27 +4,20 @@ package org.openstreetmap.josm.actions.downloadtasks;
 import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.io.UnsupportedEncodingException;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.swing.JOptionPane;
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.Bounds;
 import org.openstreetmap.josm.data.coor.LatLon;
-import org.openstreetmap.josm.data.imagery.ImageryInfo;
-import org.openstreetmap.josm.data.imagery.ImageryLayerInfo;
-import org.openstreetmap.josm.data.imagery.Shape;
 import org.openstreetmap.josm.data.osm.DataSet;
 import org.openstreetmap.josm.data.osm.DataSource;
 import org.openstreetmap.josm.data.osm.visitor.BoundingXYVisitor;
-import org.openstreetmap.josm.gui.ConditionalOptionPaneUtil;
 import org.openstreetmap.josm.gui.PleaseWaitRunnable;
 import org.openstreetmap.josm.gui.layer.Layer;
 import org.openstreetmap.josm.gui.layer.OsmDataLayer;
@@ -35,7 +28,6 @@ import org.openstreetmap.josm.io.OsmServerLocationReader;
 import org.openstreetmap.josm.io.OsmServerReader;
 import org.openstreetmap.josm.io.OsmTransferCanceledException;
 import org.openstreetmap.josm.io.OsmTransferException;
-import org.openstreetmap.josm.tools.Utils;
 import org.xml.sax.SAXException;
 
 /**
@@ -43,13 +35,38 @@ import org.xml.sax.SAXException;
  * Run in the worker thread.
  */
 public class DownloadOsmTask extends AbstractDownloadTask {
+
+    private static final String PATTERN_OSM_API_URL           = "http://.*/api/0.6/(map|nodes?|ways?|relations?|\\*).*";
+    private static final String PATTERN_OVERPASS_API_URL      = "http://.*/interpreter\\?data=.*";
+    private static final String PATTERN_OVERPASS_API_XAPI_URL = "http://.*/xapi\\?.*\\[@meta\\].*";
+    private static final String PATTERN_EXTERNAL_OSM_FILE     = "https?://.*/.*\\.osm";
+
     protected Bounds currentBounds;
     protected DataSet downloadedData;
     protected DownloadTask downloadTask;
-    
+
     protected OsmDataLayer targetLayer;
-    
+
     protected String newLayerName = null;
+
+    @Override
+    public String[] getPatterns() {
+        if (this.getClass() == DownloadOsmTask.class) {
+            return new String[]{PATTERN_OSM_API_URL, PATTERN_OVERPASS_API_URL,
+                PATTERN_OVERPASS_API_XAPI_URL, PATTERN_EXTERNAL_OSM_FILE};
+        } else {
+            return super.getPatterns();
+        }
+    }
+
+    @Override
+    public String getTitle() {
+        if (this.getClass() == DownloadOsmTask.class) {
+            return tr("Download OSM");
+        } else {
+            return super.getTitle();
+        }
+    }
 
     protected void rememberDownloadedData(DataSet ds) {
         this.downloadedData = ds;
@@ -117,12 +134,34 @@ public class DownloadOsmTask extends AbstractDownloadTask {
         return Main.worker.submit(downloadTask);
     }
 
+    protected final String encodePartialUrl(String url, String safePart) {
+        if (url != null && safePart != null) {
+            int pos = url.indexOf(safePart);
+            if (pos > -1) {
+                pos += safePart.length();
+                try {
+                    return url.substring(0, pos) + URLEncoder.encode(url.substring(pos), "UTF-8").replaceAll("\\+", "%20");
+                } catch (UnsupportedEncodingException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return url;
+    }
+
     /**
      * Loads a given URL from the OSM Server
      * @param new_layer True if the data should be saved to a new layer
      * @param url The URL as String
      */
+    @Override
     public Future<?> loadUrl(boolean new_layer, String url, ProgressMonitor progressMonitor) {
+        if (url.matches(PATTERN_OVERPASS_API_URL)) {
+            url = encodePartialUrl(url, "/interpreter?data="); // encode only the part after the = sign
+
+        } else if (url.matches(PATTERN_OVERPASS_API_XAPI_URL)) {
+            url = encodePartialUrl(url, "/xapi?"); // encode only the part after the ? sign
+        }
         downloadTask = new DownloadTask(new_layer,
                 new OsmServerLocationReader(url),
                 progressMonitor);
@@ -131,25 +170,13 @@ public class DownloadOsmTask extends AbstractDownloadTask {
         extractOsmFilename("https?://.*/(.*\\.osm)", url);
         return Main.worker.submit(downloadTask);
     }
-    
+
     protected final void extractOsmFilename(String pattern, String url) {
         Matcher matcher = Pattern.compile(pattern).matcher(url);
         newLayerName = matcher.matches() ? matcher.group(1) : null;
     }
-    
-    /* (non-Javadoc)
-     * @see org.openstreetmap.josm.actions.downloadtasks.DownloadTask#acceptsUrl(java.lang.String)
-     */
-    @Override
-    public boolean acceptsUrl(String url) {
-        return url != null && (
-                url.matches("http://.*/api/0.6/(map|nodes?|ways?|relations?|\\*).*")// OSM API 0.6 and XAPI
-             || url.matches("http://.*/interpreter\\?data=.*")                      // Overpass API
-             || url.matches("http://.*/xapi\\?.*\\[@meta\\].*")                     // Overpass API XAPI compatibility layer
-             || url.matches("https?://.*/.*\\.osm")                                 // Remote .osm files
-                );
-    }
 
+    @Override
     public void cancel() {
         if (downloadTask != null) {
             downloadTask.cancel();
@@ -166,7 +193,7 @@ public class DownloadOsmTask extends AbstractDownloadTask {
             this.reader = reader;
             this.newLayer = newLayer;
         }
-        
+
         protected DataSet parseDataSet() throws OsmTransferException {
             return reader.parseOsm(progressMonitor.createSubTaskMonitor(ProgressMonitor.ALL_TICKS, false));
         }
@@ -219,14 +246,14 @@ public class DownloadOsmTask extends AbstractDownloadTask {
             }
             return null;
         }
-        
+
         protected OsmDataLayer createNewLayer(String layerName) {
             if (layerName == null || layerName.isEmpty()) {
                 layerName = OsmDataLayer.createNewName();
             }
             return new OsmDataLayer(dataSet, layerName, null);
         }
-        
+
         protected OsmDataLayer createNewLayer() {
             return createNewLayer(null);
         }
@@ -268,10 +295,8 @@ public class DownloadOsmTask extends AbstractDownloadTask {
                 computeBboxAndCenterScale();
                 targetLayer.onPostDownloadFromServer();
             }
-
-            suggestImageryLayers();
         }
-        
+
         protected void computeBboxAndCenterScale() {
             BoundingXYVisitor v = new BoundingXYVisitor();
             if (currentBounds != null) {
@@ -288,58 +313,24 @@ public class DownloadOsmTask extends AbstractDownloadTask {
                 reader.cancel();
             }
         }
+    }
 
-        protected void suggestImageryLayers() {
-            if (currentBounds != null) {
-                final LatLon center = currentBounds.getCenter();
-                final Set<ImageryInfo> layers = new HashSet<ImageryInfo>();
-    
-                for (ImageryInfo i : ImageryLayerInfo.instance.getDefaultLayers()) {
-                    if (i.getBounds() != null && i.getBounds().contains(center)) {
-                        layers.add(i);
-                    }
+    @Override
+    public String getConfirmationMessage(URL url) {
+        if (url != null) {
+            String urlString = url.toExternalForm();
+            if (urlString.matches(PATTERN_OSM_API_URL)) {
+                // TODO: proper i18n after stabilization
+                String message = "<ul><li>"+tr("OSM Server URL:") + " " + url.getHost() + "</li><li>" +
+                        tr("Command")+": "+url.getPath()+"</li>";
+                if (url.getQuery() != null) {
+                    message += "<li>" + tr("Request details: {0}", url.getQuery().replaceAll(",\\s*", ", ")) + "</li>";
                 }
-                // Do not suggest layers already in use
-                layers.removeAll(ImageryLayerInfo.instance.getLayers());
-                // For layers containing complex shapes, check that center is in one of its shapes (fix #7910)
-                for (Iterator<ImageryInfo> iti = layers.iterator(); iti.hasNext(); ) {
-                    List<Shape> shapes = iti.next().getBounds().getShapes();
-                    if (shapes != null && !shapes.isEmpty()) {
-                        boolean found = false;
-                        for (Iterator<Shape> its = shapes.iterator(); its.hasNext() && !found; ) {
-                            found = its.next().contains(center);
-                        }
-                        if (!found) {
-                            iti.remove();
-                        }
-                    }
-                }
-    
-                if (layers.isEmpty()) {
-                    return;
-                }
-    
-                final List<String> layerNames = new ArrayList<String>();
-                for (ImageryInfo i : layers) {
-                    layerNames.add(i.getName());
-                }
-    
-                if (!ConditionalOptionPaneUtil.showConfirmationDialog(
-                        "download.suggest-imagery-layer",
-                        Main.parent,
-                        tr("<html>For the downloaded area, the following additional imagery layers are available: {0}" +
-                                "Do you want to add those layers to the <em>Imagery</em> menu?" +
-                                "<br>(If needed, you can remove those entries in the <em>Preferences</em>.)",
-                                Utils.joinAsHtmlUnorderedList(layerNames)),
-                        tr("Add imagery layers?"),
-                        JOptionPane.YES_NO_OPTION,
-                        JOptionPane.QUESTION_MESSAGE,
-                        JOptionPane.YES_OPTION)) {
-                    return;
-                }
-    
-                ImageryLayerInfo.addLayers(layers);
+                message += "</ul>";
+                return message;
             }
+            // TODO: other APIs
         }
+        return null;
     }
 }

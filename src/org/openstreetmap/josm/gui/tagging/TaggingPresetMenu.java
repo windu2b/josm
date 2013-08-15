@@ -1,9 +1,11 @@
-// License: GPL. Copyright 2007 by Immanuel Scholz and others
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui.tagging;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.awt.Component;
+import java.awt.MouseInfo;
+import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -13,11 +15,14 @@ import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.JSeparator;
+import org.openstreetmap.josm.Main;
 
 import org.openstreetmap.josm.tools.PresetTextComparator;
 
 public class TaggingPresetMenu extends TaggingPreset {
     public JMenu menu = null; // set by TaggingPresetPreferences
+    
+    @Override
     public void setDisplayName() {
         putValue(Action.NAME, getName());
         /** Tooltips should be shown for the toolbar buttons, but not in the menu. */
@@ -26,6 +31,8 @@ public class TaggingPresetMenu extends TaggingPreset {
                     tr("Preset group {0}", getLocaleName())));
         putValue("toolbar", "tagginggroup_" + getRawName());
     }
+    
+    @Override
     public void setIcon(String iconName) {
         super.setIcon(iconName);
     }
@@ -51,18 +58,19 @@ public class TaggingPresetMenu extends TaggingPreset {
         }
     }
 
+    @Override
     public void actionPerformed(ActionEvent e) {
         Object s = e.getSource();
-        if(menu != null && s instanceof Component)
-        {
-            Component co = (Component)s;
+        if (menu != null && s instanceof Component) {
             JPopupMenu pm = new JPopupMenu(getName());
             for (Component c : menu.getMenuComponents()) {
                 pm.add(copyMenuComponent(c));
             }
-            pm.show(co, co.getWidth()/2, co.getHeight()/2);
+            Point p = MouseInfo.getPointerInfo().getLocation();
+            pm.show(Main.parent, p.x-Main.parent.getX(), p.y-Main.parent.getY());
         }
     }
+    
     /**
      * Sorts the menu items using the translated item text
      */
@@ -90,9 +98,9 @@ public class TaggingPresetMenu extends TaggingPreset {
                     int pos = 0;
                     for (JMenuItem menuItem : sortarray) {
                         int oldPos;
-                        if(lastSeparator == 0){
+                        if (lastSeparator == 0){
                             oldPos=pos;
-                        }else {
+                        } else {
                             oldPos = pos+lastSeparator+1;
                         }
                         menu.add(menuItem, oldPos);
@@ -101,7 +109,7 @@ public class TaggingPresetMenu extends TaggingPreset {
                     sortarray = new ArrayList<JMenuItem>();
                     lastSeparator = 0;
                 }
-            }else if (item instanceof JSeparator){
+            } else if (item instanceof JSeparator){
                 Collections.sort(sortarray, comp);
                 int pos = 0;
                 for (JMenuItem menuItem : sortarray) {

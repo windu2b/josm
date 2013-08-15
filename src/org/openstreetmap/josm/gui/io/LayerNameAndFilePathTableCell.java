@@ -21,7 +21,6 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTable;
-import javax.swing.JTextField;
 import javax.swing.event.CellEditorListener;
 import javax.swing.event.ChangeEvent;
 import javax.swing.table.TableCellEditor;
@@ -29,7 +28,7 @@ import javax.swing.table.TableCellRenderer;
 
 import org.openstreetmap.josm.actions.SaveActionBase;
 import org.openstreetmap.josm.tools.GBC;
-
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 
 class LayerNameAndFilePathTableCell extends JPanel implements TableCellRenderer, TableCellEditor {
     private final static Color colorError = new Color(255,197,197);
@@ -38,7 +37,7 @@ class LayerNameAndFilePathTableCell extends JPanel implements TableCellRenderer,
 
     private final JLabel lblLayerName = new JLabel();
     private final JLabel lblFilename = new JLabel("");
-    private final JTextField tfFilename = new JTextField();
+    private final JosmTextField tfFilename = new JosmTextField();
     private final JButton btnFileChooser = new JButton(new LaunchFileChooserAction());
 
     private final static GBC defaultCellStyle = GBC.eol().fill(GBC.HORIZONTAL).insets(2, 0, 2, 0);
@@ -76,6 +75,7 @@ class LayerNameAndFilePathTableCell extends JPanel implements TableCellRenderer,
     }
 
     /** renderer used while not editing the file path **/
+    @Override
     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
             boolean hasFocus, int row, int column) {
         removeAll();
@@ -93,6 +93,7 @@ class LayerNameAndFilePathTableCell extends JPanel implements TableCellRenderer,
     }
 
     /** renderer used while the file path is being edited **/
+    @Override
     public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected,
             int row, int column) {
         removeAll();
@@ -178,6 +179,7 @@ class LayerNameAndFilePathTableCell extends JPanel implements TableCellRenderer,
         return t;
     }
 
+    @Override
     public void addCellEditorListener(CellEditorListener l) {
         if (l != null) {
             listeners.addIfAbsent(l);
@@ -196,28 +198,34 @@ class LayerNameAndFilePathTableCell extends JPanel implements TableCellRenderer,
         }
     }
 
+    @Override
     public void cancelCellEditing() {
         fireEditingCanceled();
     }
 
+    @Override
     public Object getCellEditorValue() {
         return value;
     }
 
+    @Override
     public boolean isCellEditable(EventObject anEvent) {
         return true;
     }
 
+    @Override
     public void removeCellEditorListener(CellEditorListener l) {
         listeners.remove(l);
     }
 
+    @Override
     public boolean shouldSelectCell(EventObject anEvent) {
         return true;
     }
 
+    @Override
     public boolean stopCellEditing() {
-        if (tfFilename.getText() == null || tfFilename.getText().trim().equals("")) {
+        if (tfFilename.getText() == null || tfFilename.getText().trim().isEmpty()) {
             value = null;
         } else {
             value = new File(tfFilename.getText());
@@ -232,6 +240,7 @@ class LayerNameAndFilePathTableCell extends JPanel implements TableCellRenderer,
             putValue(SHORT_DESCRIPTION, tr("Launch a file chooser to select a file"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             File f = SaveActionBase.createAndOpenSaveFileChooser(tr("Select filename"), "osm");
             if (f != null) {

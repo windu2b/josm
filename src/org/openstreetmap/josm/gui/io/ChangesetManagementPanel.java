@@ -36,7 +36,7 @@ import org.openstreetmap.josm.tools.ImageProvider;
  *
  * It is displayed as one of the configuration panels in the {@link UploadDialog}.
  *
- * ChangesetManagementPanel is a source for {@link PropertyChangeEvent}s. Clients can listen
+ * ChangesetManagementPanel is a source for {@link java.beans.PropertyChangeEvent}s. Clients can listen
  * to
  * <ul>
  *   <li>{@link #SELECTED_CHANGESET_PROP}  - the new value in the property change event is
@@ -221,14 +221,17 @@ public class ChangesetManagementPanel extends JPanel implements ListDataListener
     /* ---------------------------------------------------------------------------- */
     /* Interface ListDataListener                                                   */
     /* ---------------------------------------------------------------------------- */
+    @Override
     public void contentsChanged(ListDataEvent e) {
         refreshGUI();
     }
 
+    @Override
     public void intervalAdded(ListDataEvent e) {
         refreshGUI();
     }
 
+    @Override
     public void intervalRemoved(ListDataEvent e) {
         refreshGUI();
     }
@@ -239,6 +242,7 @@ public class ChangesetManagementPanel extends JPanel implements ListDataListener
      *
      */
     class ChangesetListItemStateListener implements ItemListener {
+        @Override
         public void itemStateChanged(ItemEvent e) {
             Changeset cs = (Changeset)cbOpenChangesets.getSelectedItem();
             if (cs == null) return;
@@ -254,6 +258,7 @@ public class ChangesetManagementPanel extends JPanel implements ListDataListener
      *
      */
     class CloseAfterUploadItemStateListener implements ItemListener {
+        @Override
         public void itemStateChanged(ItemEvent e) {
             if (e.getItemSelectable() != cbCloseAfterUpload)
                 return;
@@ -275,6 +280,7 @@ public class ChangesetManagementPanel extends JPanel implements ListDataListener
      *
      */
     class RadioButtonHandler implements ItemListener {
+        @Override
         public void itemStateChanged(ItemEvent e) {
             if (rbUseNew.isSelected()) {
                 cbOpenChangesets.setEnabled(false);
@@ -303,6 +309,7 @@ public class ChangesetManagementPanel extends JPanel implements ListDataListener
             putValue(SMALL_ICON, ImageProvider.get("dialogs", "refresh"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             DownloadOpenChangesetsTask task = new DownloadOpenChangesetsTask(ChangesetManagementPanel.this);
             Main.worker.submit(task);
@@ -321,6 +328,7 @@ public class ChangesetManagementPanel extends JPanel implements ListDataListener
             refreshEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             Changeset cs = (Changeset)cbOpenChangesets.getSelectedItem();
             if (cs == null) return;
@@ -336,6 +344,7 @@ public class ChangesetManagementPanel extends JPanel implements ListDataListener
             );
         }
 
+        @Override
         public void itemStateChanged(ItemEvent e) {
             refreshEnabledState();
         }

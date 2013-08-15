@@ -28,7 +28,10 @@ import javax.swing.event.ChangeListener;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.actions.ExpertToggleAction;
+import org.openstreetmap.josm.actions.RestartAction;
 import org.openstreetmap.josm.actions.ExpertToggleAction.ExpertModeChangeListener;
+import org.openstreetmap.josm.gui.HelpAwareOptionPane;
+import org.openstreetmap.josm.gui.HelpAwareOptionPane.ButtonSpec;
 import org.openstreetmap.josm.gui.preferences.advanced.AdvancedPreference;
 import org.openstreetmap.josm.gui.preferences.display.ColorPreference;
 import org.openstreetmap.josm.gui.preferences.display.DisplayPreference;
@@ -197,7 +200,7 @@ public class PreferenceTabbedPane extends JTabbedPane implements MouseWheelListe
         selectTabBy(new TabIdentifier(){
             @Override
             public boolean identify(TabPreferenceSetting tps, Object name) {
-                return tps.getIconName().equals(name);
+                return name != null && tps != null && tps.getIconName() != null && tps.getIconName().equals(name);
             }}, name);
     }
 
@@ -207,6 +210,22 @@ public class PreferenceTabbedPane extends JTabbedPane implements MouseWheelListe
             public boolean identify(TabPreferenceSetting tps, Object clazz) {
                 return tps.getClass().isAssignableFrom((Class<?>) clazz);
             }}, clazz);
+    }
+
+    public boolean selectSubTabByPref(Class<? extends SubPreferenceSetting> clazz) {
+        for (PreferenceSetting setting : settings) {
+            if (clazz.isInstance(setting)) {
+                final SubPreferenceSetting sub = (SubPreferenceSetting) setting;
+                final TabPreferenceSetting tab = sub.getTabPreferenceSetting(PreferenceTabbedPane.this);
+                selectTabBy(new TabIdentifier(){
+                    @Override
+                    public boolean identify(TabPreferenceSetting tps, Object unused) {
+                        return tps.equals(tab);
+                    }}, null);
+                return tab.selectSubTab(sub);
+            }
+        }
+        return false;
     }
 
     public final DisplayPreference getDisplayPreference() {
@@ -223,6 +242,10 @@ public class PreferenceTabbedPane extends JTabbedPane implements MouseWheelListe
 
     public final ImageryPreference getImageryPreference() {
         return getSetting(ImageryPreference.class);
+    }
+
+    public final ShortcutPreference getShortcutPreference() {
+        return getSetting(ShortcutPreference.class);
     }
 
     public void savePreferences() {
@@ -243,6 +266,7 @@ public class PreferenceTabbedPane extends JTabbedPane implements MouseWheelListe
         // this is the task which will run *after* the plugins are downloaded
         //
         final Runnable continuation = new Runnable() {
+            @Override
             public void run() {
                 boolean requiresRestart = false;
                 if (task != null && !task.isCanceled()) {
@@ -268,12 +292,28 @@ public class PreferenceTabbedPane extends JTabbedPane implements MouseWheelListe
                 }
                 if (requiresRestart) {
                     sb.append(tr("You have to restart JOSM for some settings to take effect."));
+                    sb.append("<br/><br/>");
+                    sb.append(tr("Would you like to restart now?"));
                 }
                 sb.append("</html>");
 
                 // display the message, if necessary
                 //
-                if ((task != null && !task.isCanceled()) || requiresRestart) {
+                if (requiresRestart) {
+                    final ButtonSpec [] options = RestartAction.getButtonSpecs();
+                    if (0 == HelpAwareOptionPane.showOptionDialog(
+                            Main.parent,
+                            sb.toString(),
+                            tr("Restart"),
+                            JOptionPane.INFORMATION_MESSAGE,
+                            null, /* no special icon */
+                            options,
+                            options[0],
+                            null /* no special help */
+                            )) {
+                        Main.main.menu.restart.actionPerformed(null);
+                    }
+                } else if (task != null && !task.isCanceled()) {
                     JOptionPane.showMessageDialog(
                             Main.parent,
                             sb.toString(),
@@ -292,6 +332,7 @@ public class PreferenceTabbedPane extends JTabbedPane implements MouseWheelListe
             Main.worker.submit(task);
             Main.worker.submit(
                     new Runnable() {
+                        @Override
                         public void run() {
                             SwingUtilities.invokeLater(continuation);
                         }
@@ -369,6 +410,8 @@ public class PreferenceTabbedPane extends JTabbedPane implements MouseWheelListe
                         addTab(null, icon, new PreferencePanel(tps), tps.getTooltip());
                     }
                 }
+            } else if (!(setting instanceof SubPreferenceSetting)) {
+                Main.warn("Ignoring preferences "+setting);
             }
         }
         try {
@@ -429,6 +472,7 @@ public class PreferenceTabbedPane extends JTabbedPane implements MouseWheelListe
      * This mouse wheel listener reacts when a scroll is carried out over the
      * tab strip and scrolls one tab/down or up, selecting it immediately.
      */
+    @Override
     public void mouseWheelMoved(MouseWheelEvent wev) {
         // Ensure the cursor is over the tab strip
         if(super.indexAtLocation(wev.getPoint().x, wev.getPoint().y) < 0)

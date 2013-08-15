@@ -3,15 +3,26 @@ package org.openstreetmap.josm.actions;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
 
+import java.awt.Dimension;
+import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
+import java.io.IOException;
+import java.net.MalformedURLException;
 import javax.swing.Action;
 import javax.swing.ImageIcon;
+import javax.swing.JComboBox;
 import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.imagery.ImageryInfo;
 import org.openstreetmap.josm.data.imagery.ImageryInfo.ImageryType;
+import org.openstreetmap.josm.gui.ExtendedDialog;
 import org.openstreetmap.josm.gui.actionsupport.AlignImageryPanel;
 import org.openstreetmap.josm.gui.layer.ImageryLayer;
+import org.openstreetmap.josm.io.imagery.WMSImagery;
+import org.openstreetmap.josm.gui.preferences.imagery.WMSLayerTree;
+import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.ImageProvider;
 
 public class AddImageryLayerAction extends JosmAction implements AdaptableAction {
@@ -43,8 +54,12 @@ public class AddImageryLayerAction extends JosmAction implements AdaptableAction
     public void actionPerformed(ActionEvent e) {
         if (!isEnabled()) return;
         try {
-            Main.main.addLayer(ImageryLayer.create(info));
-            AlignImageryPanel.addNagPanelIfNeeded();
+            final ImageryInfo infoToAdd = ImageryType.WMS_ENDPOINT.equals(info.getImageryType())
+                    ? getWMSLayerInfo() : info;
+            if (infoToAdd != null) {
+                Main.main.addLayer(ImageryLayer.create(infoToAdd));
+                AlignImageryPanel.addNagPanelIfNeeded();
+            }
         } catch (IllegalArgumentException ex) {
             if (ex.getMessage() == null || ex.getMessage().isEmpty()) {
                 throw ex;
@@ -55,7 +70,49 @@ public class AddImageryLayerAction extends JosmAction implements AdaptableAction
             }
         }
     }
-    
+
+    protected ImageryInfo getWMSLayerInfo() {
+        try {
+            assert (ImageryType.WMS_ENDPOINT.equals(info.getImageryType()));
+            final WMSImagery wms = new WMSImagery();
+            wms.attemptGetCapabilities(info.getUrl());
+
+            System.out.println(wms.getLayers());
+            final WMSLayerTree tree = new WMSLayerTree();
+            tree.updateTree(wms);
+            final JComboBox formats = new JComboBox(wms.getFormats().toArray());
+            formats.setToolTipText(tr("Select image format for WMS layer"));
+
+            if (1 != new ExtendedDialog(Main.parent, tr("Select WMS layers"), new String[]{tr("Add layers"), tr("Cancel")}) {{
+                final JScrollPane scrollPane = new JScrollPane(tree.getLayerTree());
+                scrollPane.setPreferredSize(new Dimension(400, 400));
+                final JPanel panel = new JPanel(new GridBagLayout());
+                panel.add(scrollPane, GBC.eol().fill());
+                panel.add(formats, GBC.eol().fill(GBC.HORIZONTAL));
+                setContent(panel);
+            }}.showDialog().getValue()) {
+                return null;
+            }
+
+            final String url = wms.buildGetMapUrl(
+                    tree.getSelectedLayers(), (String) formats.getSelectedItem());
+            return new ImageryInfo(info.getName(), url, "wms", info.getEulaAcceptanceRequired(), info.getCookies());
+        } // exception handling from AddWMSLayerPanel.java
+        catch (MalformedURLException ex) {
+            JOptionPane.showMessageDialog(Main.parent, tr("Invalid service URL."),
+                    tr("WMS Error"), JOptionPane.ERROR_MESSAGE);
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(Main.parent, tr("Could not retrieve WMS layer list."),
+                    tr("WMS Error"), JOptionPane.ERROR_MESSAGE);
+        } catch (WMSImagery.WMSGetCapabilitiesException ex) {
+            JOptionPane.showMessageDialog(Main.parent, tr("Could not parse WMS layer list."),
+                    tr("WMS Error"), JOptionPane.ERROR_MESSAGE);
+            System.err.println("Could not parse WMS layer list. Incoming data:");
+            System.err.println(ex.getIncomingData());
+        }
+        return null;
+    }
+
     protected boolean isLayerAlreadyPresent() {
         if (Main.isDisplayingMapView()) {
             for (ImageryLayer layer : Main.map.mapView.getLayersOfType(ImageryLayer.class)) {

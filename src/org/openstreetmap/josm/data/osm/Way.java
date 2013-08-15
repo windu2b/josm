@@ -95,14 +95,28 @@ public final class Way extends OsmPrimitive implements IWay {
     }
 
     /**
-     * Replies the number of nodes in this ways.
+     * Replies the number of nodes in this way.
      *
-     * @return the number of nodes in this ways.
+     * @return the number of nodes in this way.
      * @since 1862
      */
     @Override
     public int getNodesCount() {
         return nodes.length;
+    }
+
+    /**
+     * Replies the real number of nodes in this way (full number of nodes minus one if this way is closed)
+     *
+     * @return the real number of nodes in this way.
+     * @since 5847
+     *
+     * @see #getNodesCount()
+     * @see #isClosed()
+     */
+    public int getRealNodesCount() {
+        int count = getNodesCount();
+        return isClosed() ? count-1 : count;
     }
 
     /**
@@ -136,8 +150,8 @@ public final class Way extends OsmPrimitive implements IWay {
         if (node == null) return false;
 
         Node[] nodes = this.nodes;
-        for (int i=0; i<nodes.length; i++) {
-            if (nodes[i].equals(node))
+        for (Node n : nodes) {
+            if (n.equals(node))
                 return true;
         }
         return false;
@@ -168,9 +182,9 @@ public final class Way extends OsmPrimitive implements IWay {
     }
 
     /**
-     * Replies the ordered {@link List} of chunks of this way. Each chunk is replied as a {@link Pair} of {@link Node nodes}. 
-     * @param sort If true, the nodes of each pair are sorted as defined by {@link Pair#sort}. 
-     *             If false, Pair.a and Pair.b are in the way order (i.e for a given Pair(n), Pair(n-1).b == Pair(n).a, Pair(n).b == Pair(n+1).a, etc.) 
+     * Replies the ordered {@link List} of chunks of this way. Each chunk is replied as a {@link Pair} of {@link Node nodes}.
+     * @param sort If true, the nodes of each pair are sorted as defined by {@link Pair#sort}.
+     *             If false, Pair.a and Pair.b are in the way order (i.e for a given Pair(n), Pair(n-1).b == Pair(n).a, Pair(n).b == Pair(n+1).a, etc.)
      * @return The ordered list of chunks of this way.
      * @since 3348
      */
@@ -194,11 +208,11 @@ public final class Way extends OsmPrimitive implements IWay {
         return chunkSet;
     }
 
-    @Override public void visit(Visitor visitor) {
+    @Override public void accept(Visitor visitor) {
         visitor.visit(this);
     }
 
-    @Override public void visit(PrimitiveVisitor visitor) {
+    @Override public void accept(PrimitiveVisitor visitor) {
         visitor.visit(this);
     }
 
@@ -217,14 +231,14 @@ public final class Way extends OsmPrimitive implements IWay {
     /**
      * Contructs a new {@code Way} from an existing {@code Way}.
      * @param original The original {@code Way} to be identically cloned. Must not be null
-     * @param clearId If true, clears the OSM id as defined by {@link #clearOsmId}. If false, does nothing
+     * @param clearMetadata If {@code true}, clears the OSM id and other metadata as defined by {@link #clearOsmMetadata}. If {@code false}, does nothing
      * @since 2410
      */
-    public Way(Way original, boolean clearId) {
+    public Way(Way original, boolean clearMetadata) {
         super(original.getUniqueId(), true);
         cloneFrom(original);
-        if (clearId) {
-            clearOsmId();
+        if (clearMetadata) {
+            clearOsmMetadata();
         }
     }
 
@@ -312,7 +326,7 @@ public final class Way extends OsmPrimitive implements IWay {
 
     @Override
     public boolean hasEqualSemanticAttributes(OsmPrimitive other) {
-        if (other == null || ! (other instanceof Way) )
+        if (!(other instanceof Way))
             return false;
         if (! super.hasEqualSemanticAttributes(other))
             return false;
@@ -479,7 +493,7 @@ public final class Way extends OsmPrimitive implements IWay {
         Node[] nodes = this.nodes;
         return nodes.length >= 3 && nodes[nodes.length-1] == nodes[0];
     }
-    
+
     /**
      * Determines if this way denotes an area (closed way with at least three distinct nodes).
      * @return {@code true} if this way is closed and contains at least three distinct nodes
@@ -583,7 +597,7 @@ public final class Way extends OsmPrimitive implements IWay {
             if (Main.pref.getBoolean("debug.checkNullCoor", true)) {
                 for (Node n: nodes) {
                     if (n.isVisible() && !n.isIncomplete() && (n.getCoor() == null || n.getEastNorth() == null))
-                        throw new DataIntegrityProblemException("Complete visible node with null coordinates: " + toString() + n.get3892DebugInfo(),
+                        throw new DataIntegrityProblemException("Complete visible node with null coordinates: " + toString(),
                                 "<html>" + tr("Complete node {0} with null coordinates in way {1}",
                                 DefaultNameFormatter.getInstance().formatAsHtmlUnorderedList(n),
                                 DefaultNameFormatter.getInstance().formatAsHtmlUnorderedList(this)) + "</html>");
@@ -667,7 +681,7 @@ public final class Way extends OsmPrimitive implements IWay {
 
     /**
      * Tests if this way is a oneway.
-     * @return {@code 1} if the way is a oneway, 
+     * @return {@code 1} if the way is a oneway,
      *         {@code -1} if the way is a reversed oneway,
      *         {@code 0} otherwise.
      * @since 5199
@@ -689,7 +703,7 @@ public final class Way extends OsmPrimitive implements IWay {
 
     /**
      * Replies the first node of this way, respecting or not its oneway state.
-     * @param respectOneway If true and if this way is a oneway, replies the last node. Otherwise, replies the first node.
+     * @param respectOneway If true and if this way is a reversed oneway, replies the last node. Otherwise, replies the first node.
      * @return the first node of this way, according to {@code respectOneway} and its oneway state.
      * @since 5199
      */
@@ -699,7 +713,7 @@ public final class Way extends OsmPrimitive implements IWay {
 
     /**
      * Replies the last node of this way, respecting or not its oneway state.
-     * @param respectOneway If true and if this way is a oneway, replies the first node. Otherwise, replies the last node.
+     * @param respectOneway If true and if this way is a reversed oneway, replies the first node. Otherwise, replies the last node.
      * @return the last node of this way, according to {@code respectOneway} and its oneway state.
      * @since 5199
      */

@@ -378,6 +378,7 @@ abstract public class Layer implements Destroyable, MapViewPaintable, Projection
             this.layer = layer;
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             SaveAction.getInstance().doSave(layer);
         }
@@ -393,6 +394,7 @@ abstract public class Layer implements Destroyable, MapViewPaintable, Projection
             this.layer = layer;
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             SaveAsAction.getInstance().doSave(layer);
         }
@@ -408,6 +410,7 @@ abstract public class Layer implements Destroyable, MapViewPaintable, Projection
             this.layer = layer;
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             new GpxExportAction().export(layer);
         }
@@ -435,7 +438,7 @@ abstract public class Layer implements Destroyable, MapViewPaintable, Projection
     public void onPostLoadFromFile() {
         // To be overriden if needed
     }
-    
+
     /**
      * Replies the savable state of this layer (i.e if it can be saved through a "File->Save" dialog).
      * @return true if this layer can be saved to a file
@@ -444,7 +447,7 @@ abstract public class Layer implements Destroyable, MapViewPaintable, Projection
     public boolean isSavable() {
         return false;
     }
-    
+
     /**
      * Checks whether it is ok to launch a save (whether we have data, there is no conflict etc.)
      * @return <code>true</code>, if it is safe to save.
@@ -453,7 +456,7 @@ abstract public class Layer implements Destroyable, MapViewPaintable, Projection
     public boolean checkSaveConditions() {
         return true;
     }
-    
+
     /**
      * Creates a new "Save" dialog for this layer and makes it visible.<br/>
      * When the user has chosen a file, checks the file extension, and confirms overwrite if needed.

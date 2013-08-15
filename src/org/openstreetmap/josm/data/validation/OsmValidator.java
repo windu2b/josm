@@ -23,6 +23,7 @@ import javax.swing.JOptionPane;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.actions.ValidateAction;
+import org.openstreetmap.josm.data.validation.tests.Addresses;
 import org.openstreetmap.josm.data.validation.tests.BuildingInBuilding;
 import org.openstreetmap.josm.data.validation.tests.Coastlines;
 import org.openstreetmap.josm.data.validation.tests.CrossingWays;
@@ -31,6 +32,7 @@ import org.openstreetmap.josm.data.validation.tests.DuplicateNode;
 import org.openstreetmap.josm.data.validation.tests.DuplicateRelation;
 import org.openstreetmap.josm.data.validation.tests.DuplicateWay;
 import org.openstreetmap.josm.data.validation.tests.DuplicatedWayNodes;
+import org.openstreetmap.josm.data.validation.tests.Highways;
 import org.openstreetmap.josm.data.validation.tests.MultipolygonTest;
 import org.openstreetmap.josm.data.validation.tests.NameMismatch;
 import org.openstreetmap.josm.data.validation.tests.NodesDuplicatingWayTags;
@@ -55,6 +57,7 @@ import org.openstreetmap.josm.gui.layer.OsmDataLayer;
 import org.openstreetmap.josm.gui.layer.ValidatorLayer;
 import org.openstreetmap.josm.gui.preferences.ValidatorPreference;
 import org.openstreetmap.josm.gui.preferences.projection.ProjectionPreference;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  *
@@ -106,8 +109,13 @@ public class OsmValidator implements LayerChangeListener {
         WayConnectedToArea.class, // ID 2301 .. 2399
         NodesDuplicatingWayTags.class, // ID 2401 .. 2499
         PowerLines.class, // ID 2501 .. 2599
+        Addresses.class, // ID 2601 .. 2699
+        Highways.class, // ID 2701 .. 2799
     };
 
+    /**
+     * Constructs a new {@code OsmValidator}.
+     */
     public OsmValidator() {
         checkValidatorDir();
         initializeGridDetail();
@@ -164,14 +172,16 @@ public class OsmValidator implements LayerChangeListener {
     }
 
     public static void saveIgnoredErrors() {
+        PrintWriter out = null;
         try {
-            final PrintWriter out = new PrintWriter(new FileWriter(getValidatorDir() + "ignorederrors"), false);
+            out = new PrintWriter(new FileWriter(getValidatorDir() + "ignorederrors"), false);
             for (String e : ignoredErrors) {
                 out.println(e);
             }
-            out.close();
-        } catch (final IOException e) {
+        } catch (IOException e) {
             e.printStackTrace();
+        } finally {
+            Utils.close(out);
         }
     }
 
@@ -303,7 +313,7 @@ public class OsmValidator implements LayerChangeListener {
         }
         if (Main.map.mapView.getLayersOfType(OsmDataLayer.class).isEmpty()) {
             if (errorLayer != null) {
-                Main.map.mapView.removeLayer(errorLayer);
+                Main.main.removeLayer(errorLayer);
             }
         }
     }

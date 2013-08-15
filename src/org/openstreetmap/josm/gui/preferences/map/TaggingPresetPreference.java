@@ -38,6 +38,7 @@ import org.openstreetmap.josm.gui.preferences.SubPreferenceSetting;
 import org.openstreetmap.josm.gui.preferences.TabPreferenceSetting;
 import org.openstreetmap.josm.gui.tagging.TaggingPreset;
 import org.openstreetmap.josm.gui.tagging.TaggingPresetMenu;
+import org.openstreetmap.josm.gui.tagging.TaggingPresetReader;
 import org.openstreetmap.josm.gui.tagging.TaggingPresetSeparator;
 import org.openstreetmap.josm.gui.tagging.ac.AutoCompletionManager;
 import org.openstreetmap.josm.tools.GBC;
@@ -47,6 +48,7 @@ import org.xml.sax.SAXParseException;
 public class TaggingPresetPreference implements SubPreferenceSetting {
 
     public static class Factory implements PreferenceSettingFactory {
+        @Override
         public PreferenceSetting createPreferenceSetting() {
             return new TaggingPresetPreference();
         }
@@ -68,6 +70,7 @@ public class TaggingPresetPreference implements SubPreferenceSetting {
     }
 
     private ValidationListener validationListener = new ValidationListener() {
+        @Override
         public boolean validatePreferences() {
             if (sources.hasActiveSourcesChanged()) {
                 List<Integer> sourcesToRemove = new ArrayList<Integer>();
@@ -77,7 +80,7 @@ public class TaggingPresetPreference implements SubPreferenceSetting {
                         i++;
                         boolean canLoad = false;
                         try {
-                            TaggingPreset.readAll(source.url, false);
+                            TaggingPresetReader.readAll(source.url, false);
                             canLoad = true;
                         } catch (IOException e) {
                             System.err.println(tr("Warning: Could not read tagging preset source: {0}", source));
@@ -100,7 +103,7 @@ public class TaggingPresetPreference implements SubPreferenceSetting {
                         String errorMessage = null;
 
                         try {
-                            TaggingPreset.readAll(source.url, true);
+                            TaggingPresetReader.readAll(source.url, true);
                         } catch (IOException e) {
                             // Should not happen, but at least show message
                             String msg = tr("Could not read tagging preset source {0}", source);
@@ -153,6 +156,7 @@ public class TaggingPresetPreference implements SubPreferenceSetting {
         }
     };
 
+    @Override
     public void addGui(final PreferenceTabbedPane gui) {
         sortMenu = new JCheckBox(tr("Sort presets menu"),
                 Main.pref.getBoolean("taggingpreset.sortmenu", false));
@@ -162,15 +166,16 @@ public class TaggingPresetPreference implements SubPreferenceSetting {
         panel.add(sortMenu, GBC.eol().insets(5,5,5,0));
         sources = new TaggingPresetSourceEditor();
         panel.add(sources, GBC.eol().fill(GBC.BOTH));
-        gui.getMapPreference().mapcontent.addTab(tr("Tagging Presets"), panel);
+        gui.getMapPreference().addSubTab(this, tr("Tagging Presets"), panel);
 
         // this defers loading of tagging preset sources to the first time the tab
         // with the tagging presets is selected by the user
         //
-        gui.getMapPreference().mapcontent.addChangeListener(
+        gui.getMapPreference().getTabPane().addChangeListener(
                 new ChangeListener() {
+                    @Override
                     public void stateChanged(ChangeEvent e) {
-                        if (gui.getMapPreference().mapcontent.getSelectedComponent() == panel) {
+                        if (gui.getMapPreference().getTabPane().getSelectedComponent() == panel) {
                             sources.initiallyLoadAvailableSources();
                         }
                     }
@@ -184,7 +189,7 @@ public class TaggingPresetPreference implements SubPreferenceSetting {
         final private String iconpref = "taggingpreset.icon.sources";
 
         public TaggingPresetSourceEditor() {
-            super(false, "http://josm.openstreetmap.de/presets", presetSourceProviders);
+            super(false, Main.JOSM_WEBSITE+"/presets", presetSourceProviders);
         }
 
         @Override
@@ -257,6 +262,7 @@ public class TaggingPresetPreference implements SubPreferenceSetting {
         }
     }
 
+    @Override
     public boolean ok() {
         boolean restart = Main.pref.put("taggingpreset.sortmenu", sortMenu.getSelectedObjects() != null);
         restart |= sources.finish();
@@ -268,7 +274,7 @@ public class TaggingPresetPreference implements SubPreferenceSetting {
      * Initialize the tagging presets (load and may display error)
      */
     public static void initialize() {
-        taggingPresets = TaggingPreset.readFromPreferences(false);
+        taggingPresets = TaggingPresetReader.readFromPreferences(false);
         for (TaggingPreset tp: taggingPresets) {
             if (!(tp instanceof TaggingPresetSeparator)) {
                 Main.toolbar.register(tp);
@@ -335,18 +341,6 @@ public class TaggingPresetPreference implements SubPreferenceSetting {
         public SourceEntry deserialize(Map<String, String> s) {
             return new SourceEntry(s.get("url"), null, s.get("title"), true);
         }
-
-        @Override
-        public Map<String, String> migrate(Collection<String> old) {
-            List<String> entryStr = new ArrayList<String>(old);
-            if (entryStr.size() < 2)
-                return null;
-            Map<String, String> res = new HashMap<String, String>();
-            res.put("url", entryStr.get(0));
-            res.put("title", entryStr.get(1));
-            return res;
-        }
-
     }
 
     @Override

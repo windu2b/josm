@@ -6,9 +6,6 @@ import static org.openstreetmap.josm.tools.I18n.tr;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.GridBagLayout;
-import java.awt.Toolkit;
-import java.awt.datatransfer.FlavorEvent;
-import java.awt.datatransfer.FlavorListener;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.FocusAdapter;
@@ -16,14 +13,10 @@ import java.awt.event.FocusEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 
-import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
 import javax.swing.UIManager;
 import javax.swing.border.Border;
 import javax.swing.event.DocumentEvent;
@@ -33,10 +26,10 @@ import javax.swing.text.JTextComponent;
 import org.openstreetmap.josm.data.Bounds;
 import org.openstreetmap.josm.data.coor.CoordinateFormat;
 import org.openstreetmap.josm.data.coor.LatLon;
+import org.openstreetmap.josm.gui.widgets.JosmTextArea;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 import org.openstreetmap.josm.tools.GBC;
-import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.OsmUrlToBounds;
-import org.openstreetmap.josm.tools.Utils;
 
 /**
  * Bounding box selector.
@@ -48,24 +41,24 @@ import org.openstreetmap.josm.tools.Utils;
  */
 public class BoundingBoxSelection implements DownloadSelection {
 
-    private JTextField[] latlon = null;
-    private final JTextArea tfOsmUrl = new JTextArea();
-    private final JTextArea showUrl = new JTextArea();
+    private JosmTextField[] latlon = null;
+    private final JosmTextArea tfOsmUrl = new JosmTextArea();
+    private final JosmTextArea showUrl = new JosmTextArea();
     private DownloadDialog parent;
 
     protected void registerBoundingBoxBuilder() {
         BoundingBoxBuilder bboxbuilder = new BoundingBoxBuilder();
-        for (int i = 0;i < latlon.length; i++) {
-            latlon[i].addFocusListener(bboxbuilder);
-            latlon[i].addActionListener(bboxbuilder);
+        for (JosmTextField ll : latlon) {
+            ll.addFocusListener(bboxbuilder);
+            ll.addActionListener(bboxbuilder);
         }
     }
 
     protected void buildDownloadAreaInputFields() {
-        latlon = new JTextField[4];
+        latlon = new JosmTextField[4];
         for(int i=0; i< 4; i++) {
-            latlon[i] = new JTextField(11);
-            latlon[i].setMinimumSize(new Dimension(100,new JTextField().getMinimumSize().height));
+            latlon[i] = new JosmTextField(11);
+            latlon[i].setMinimumSize(new Dimension(100,new JosmTextField().getMinimumSize().height));
             latlon[i].addFocusListener(new SelectAllOnFocusHandler(latlon[i]));
         }
         LatValueChecker latChecker = new LatValueChecker(latlon[0]);
@@ -87,6 +80,7 @@ public class BoundingBoxSelection implements DownloadSelection {
         registerBoundingBoxBuilder();
     }
 
+    @Override
     public void addGui(final DownloadDialog gui) {
         buildDownloadAreaInputFields();
         final JPanel dlg = new JPanel(new GridBagLayout());
@@ -120,31 +114,6 @@ public class BoundingBoxSelection implements DownloadSelection {
 
         dlg.add(new JLabel(tr("URL from www.openstreetmap.org (you can paste an URL here to download the area)")), GBC.eol().insets(10,5,5,0));
         dlg.add(tfOsmUrl, GBC.eop().insets(10,0,5,0).fill());
-        tfOsmUrl.addMouseListener(
-                new MouseAdapter() {
-                    @Override
-                    public void mousePressed(MouseEvent e) {
-                        checkPopup(e);
-                    }
-
-                    @Override
-                    public void mouseClicked(MouseEvent e) {
-                        checkPopup(e);
-                    }
-
-                    @Override
-                    public void mouseReleased(MouseEvent e) {
-                        checkPopup(e);
-                    }
-
-                    private void checkPopup(MouseEvent e) {
-                        if (e.isPopupTrigger()) {
-                            OsmUrlPopup popup = new OsmUrlPopup();
-                            popup.show(tfOsmUrl, e.getX(), e.getY());
-                        }
-                    }
-                }
-        );
         dlg.add(showUrl, GBC.eop().insets(10,0,5,5));
         showUrl.setEditable(false);
         showUrl.setBackground(dlg.getBackground());
@@ -154,11 +123,16 @@ public class BoundingBoxSelection implements DownloadSelection {
         this.parent = gui;
     }
 
+    @Override
     public void setDownloadArea(Bounds area) {
         updateBboxFields(area);
         updateUrl(area);
     }
 
+    /**
+     * Replies the download area.
+     * @return The download area
+     */
     public Bounds getDownloadArea() {
         double[] values = new double[4];
         for (int i=0; i < 4; i++) {
@@ -190,7 +164,7 @@ public class BoundingBoxSelection implements DownloadSelection {
         latlon[1].setText(area.getMin().lonToString(CoordinateFormat.DECIMAL_DEGREES));
         latlon[2].setText(area.getMax().latToString(CoordinateFormat.DECIMAL_DEGREES));
         latlon[3].setText(area.getMax().lonToString(CoordinateFormat.DECIMAL_DEGREES));
-        for (JTextField tf: latlon) {
+        for (JosmTextField tf: latlon) {
             resetErrorMessage(tf);
         }
     }
@@ -202,20 +176,20 @@ public class BoundingBoxSelection implements DownloadSelection {
 
     private Border errorBorder = BorderFactory.createLineBorder(Color.RED, 1);
 
-    protected void setErrorMessage(JTextField tf, String msg) {
+    protected void setErrorMessage(JosmTextField tf, String msg) {
         tf.setBorder(errorBorder);
         tf.setToolTipText(msg);
     }
 
-    protected void resetErrorMessage(JTextField tf) {
+    protected void resetErrorMessage(JosmTextField tf) {
         tf.setBorder(UIManager.getBorder("TextField.border"));
         tf.setToolTipText("");
     }
 
     class LatValueChecker extends FocusAdapter implements ActionListener{
-        private JTextField tfLatValue;
+        private JosmTextField tfLatValue;
 
-        public LatValueChecker(JTextField tfLatValue) {
+        public LatValueChecker(JosmTextField tfLatValue) {
             this.tfLatValue = tfLatValue;
         }
 
@@ -239,15 +213,16 @@ public class BoundingBoxSelection implements DownloadSelection {
             check();
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             check();
         }
     }
 
     class LonValueChecker extends FocusAdapter implements ActionListener {
-        private JTextField tfLonValue;
+        private JosmTextField tfLonValue;
 
-        public LonValueChecker(JTextField tfLonValue) {
+        public LonValueChecker(JosmTextField tfLonValue) {
             this.tfLonValue = tfLonValue;
         }
 
@@ -271,6 +246,7 @@ public class BoundingBoxSelection implements DownloadSelection {
             check();
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             check();
         }
@@ -289,40 +265,12 @@ public class BoundingBoxSelection implements DownloadSelection {
     }
 
     class OsmUrlRefresher implements DocumentListener {
+        @Override
         public void changedUpdate(DocumentEvent e) { parseURL(parent); }
+        @Override
         public void insertUpdate(DocumentEvent e) { parseURL(parent); }
+        @Override
         public void removeUpdate(DocumentEvent e) { parseURL(parent); }
-    }
-
-    class PasteUrlAction extends AbstractAction implements FlavorListener {
-
-        public PasteUrlAction() {
-            putValue(NAME, tr("Paste"));
-            putValue(SMALL_ICON, ImageProvider.get("paste"));
-            putValue(SHORT_DESCRIPTION, tr("Paste URL from clipboard"));
-            Toolkit.getDefaultToolkit().getSystemClipboard().addFlavorListener(this);
-        }
-
-        public void actionPerformed(ActionEvent e) {
-            String content = Utils.getClipboardContent();
-            if (content != null) {
-                tfOsmUrl.setText(content);
-            }
-        }
-
-        protected void updateEnabledState() {
-            setEnabled(Utils.getClipboardContent() != null);
-        }
-
-        public void flavorsChanged(FlavorEvent e) {
-            updateEnabledState();
-        }
-    }
-
-    class OsmUrlPopup extends JPopupMenu {
-        public OsmUrlPopup() {
-            add(new PasteUrlAction());
-        }
     }
 
     class BoundingBoxBuilder extends FocusAdapter implements ActionListener {
@@ -356,6 +304,7 @@ public class BoundingBoxSelection implements DownloadSelection {
             refreshBounds();
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             refreshBounds();
         }

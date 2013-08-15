@@ -17,7 +17,6 @@ import java.io.Reader;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Field;
-import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -136,65 +135,100 @@ public class Preferences {
         Setting<T> getNullInstance();
     }
 
+    /**
+     * Base abstract class of all settings, holding the setting value.
+     *
+     * @param <T> The setting type
+     */
     abstract public static class AbstractSetting<T> implements Setting<T> {
-        private T value;
+        private final T value;
+        /**
+         * Constructs a new {@code AbstractSetting} with the given value
+         * @param value The setting value
+         */
         public AbstractSetting(T value) {
             this.value = value;
         }
-        @Override
-        public T getValue() {
+        @Override public T getValue() {
             return value;
         }
-        @Override
-        public String toString() {
+        @Override public String toString() {
             return value != null ? value.toString() : "null";
         }
     }
 
+    /**
+     * Setting containing a {@link String} value.
+     */
     public static class StringSetting extends AbstractSetting<String> {
+        /**
+         * Constructs a new {@code StringSetting} with the given value
+         * @param value The setting value
+         */
         public StringSetting(String value) {
             super(value);
         }
-        public void visit(SettingVisitor visitor) {
+        @Override public void visit(SettingVisitor visitor) {
             visitor.visit(this);
         }
-        public StringSetting getNullInstance() {
+        @Override public StringSetting getNullInstance() {
             return new StringSetting(null);
         }
     }
 
+    /**
+     * Setting containing a {@link List} of {@link String} values.
+     */
     public static class ListSetting extends AbstractSetting<List<String>> {
+        /**
+         * Constructs a new {@code ListSetting} with the given value
+         * @param value The setting value
+         */
         public ListSetting(List<String> value) {
             super(value);
         }
-        public void visit(SettingVisitor visitor) {
+        @Override public void visit(SettingVisitor visitor) {
             visitor.visit(this);
         }
-        public ListSetting getNullInstance() {
+        @Override public ListSetting getNullInstance() {
             return new ListSetting(null);
         }
     }
 
+    /**
+     * Setting containing a {@link List} of {@code List}s of {@link String} values.
+     */
     public static class ListListSetting extends AbstractSetting<List<List<String>>> {
+        /**
+         * Constructs a new {@code ListListSetting} with the given value
+         * @param value The setting value
+         */
         public ListListSetting(List<List<String>> value) {
             super(value);
         }
-        public void visit(SettingVisitor visitor) {
+        @Override public void visit(SettingVisitor visitor) {
             visitor.visit(this);
         }
-        public ListListSetting getNullInstance() {
+        @Override public ListListSetting getNullInstance() {
             return new ListListSetting(null);
         }
     }
 
+    /**
+     * Setting containing a {@link List} of {@link Map}s of {@link String} values.
+     */
     public static class MapListSetting extends AbstractSetting<List<Map<String, String>>> {
+        /**
+         * Constructs a new {@code MapListSetting} with the given value
+         * @param value The setting value
+         */
         public MapListSetting(List<Map<String, String>> value) {
             super(value);
         }
-        public void visit(SettingVisitor visitor) {
+        @Override public void visit(SettingVisitor visitor) {
             visitor.visit(this);
         }
-        public MapListSetting getNullInstance() {
+        @Override public MapListSetting getNullInstance() {
             return new MapListSetting(null);
         }
     }
@@ -227,12 +261,15 @@ public class Preferences {
             this.newValue = newValue;
         }
 
+        @Override
         public String getKey() {
             return key;
         }
+        @Override
         public Setting<T> getOldValue() {
             return oldValue;
         }
+        @Override
         public Setting<T> getNewValue() {
             return newValue;
         }
@@ -264,7 +301,8 @@ public class Preferences {
     }
 
     /**
-     * Return the location of the user defined preferences file
+     * Returns the location of the user defined preferences directory
+     * @return The location of the user defined preferences directory
      */
     public String getPreferencesDir() {
         final String path = getPreferencesDirFile().getPath();
@@ -273,6 +311,10 @@ public class Preferences {
         return path + File.separator;
     }
 
+    /**
+     * Returns the user defined preferences directory
+     * @return The user defined preferences directory
+     */
     public File getPreferencesDirFile() {
         if (preferencesDirFile != null)
             return preferencesDirFile;
@@ -291,19 +333,30 @@ public class Preferences {
         return preferencesDirFile;
     }
 
+    /**
+     * Returns the user preferences file
+     * @return The user preferences file
+     */
     public File getPreferenceFile() {
         return new File(getPreferencesDirFile(), "preferences.xml");
     }
 
-    /* remove end of 2012 */
-    public File getOldPreferenceFile() {
-        return new File(getPreferencesDirFile(), "preferences");
-    }
-
+    /**
+     * Returns the user plugin directory
+     * @return The user plugin directory
+     */
     public File getPluginsDirectory() {
         return new File(getPreferencesDirFile(), "plugins");
     }
 
+    /**
+     * Get the directory where cached content of any kind should be stored.
+     *
+     * If the directory doesn't exist on the file system, it will be created
+     * by this method.
+     *
+     * @return the cache directory
+     */
     public File getCacheDirectory() {
         if (cacheDirFile != null)
             return cacheDirFile;
@@ -311,7 +364,7 @@ public class Preferences {
         if (path != null) {
             cacheDirFile = new File(path).getAbsoluteFile();
         } else {
-            path = Main.pref.get("cache.folder", null);
+            path = get("cache.folder", null);
             if (path != null) {
                 cacheDirFile = new File(path);
             } else {
@@ -335,7 +388,7 @@ public class Preferences {
      */
     public Collection<String> getAllPossiblePreferenceDirs() {
         LinkedList<String> locations = new LinkedList<String>();
-        locations.add(Main.pref.getPreferencesDir());
+        locations.add(getPreferencesDir());
         String s;
         if ((s = System.getenv("JOSM_RESOURCES")) != null) {
             if (!s.endsWith(File.separator)) {
@@ -387,7 +440,7 @@ public class Preferences {
     synchronized public String get(final String key, final String def) {
         putDefault(key, def);
         final String prop = properties.get(key);
-        if (prop == null || prop.equals(""))
+        if (prop == null || prop.isEmpty())
             return def;
         return prop;
     }
@@ -547,17 +600,17 @@ public class Preferences {
         File backupFile = new File(prefFile + "_backup");
 
         // Backup old preferences if there are old preferences
-        if(prefFile.exists()) {
-            copyFile(prefFile, backupFile);
+        if (prefFile.exists()) {
+            Utils.copyFile(prefFile, backupFile);
         }
 
         final PrintWriter out = new PrintWriter(new OutputStreamWriter(
                 new FileOutputStream(prefFile + "_tmp"), "utf-8"), false);
         out.print(toXML(false));
-        out.close();
+        Utils.close(out);
 
         File tmpFile = new File(prefFile + "_tmp");
-        copyFile(tmpFile, prefFile);
+        Utils.copyFile(tmpFile, prefFile);
         tmpFile.delete();
 
         setCorrectPermissions(prefFile);
@@ -573,96 +626,21 @@ public class Preferences {
         file.setWritable(true, true);
     }
 
-    /**
-     * Simple file copy function that will overwrite the target file
-     * Taken from http://www.rgagnon.com/javadetails/java-0064.html (CC-NC-BY-SA)
-     * @param in
-     * @param out
-     * @throws IOException
-     */
-    public static void copyFile(File in, File out) throws IOException  {
-        FileChannel inChannel = new FileInputStream(in).getChannel();
-        FileChannel outChannel = new FileOutputStream(out).getChannel();
-        try {
-            inChannel.transferTo(0, inChannel.size(),
-                    outChannel);
-        }
-        catch (IOException e) {
-            throw e;
-        }
-        finally {
-            if (inChannel != null) {
-                inChannel.close();
-            }
-            if (outChannel != null) {
-                outChannel.close();
-            }
-        }
-    }
-
-    public void loadOld() throws Exception {
-        load(true);
-    }
-
     public void load() throws Exception {
-        load(false);
-    }
-
-    private void load(boolean old) throws Exception {
         properties.clear();
         if (!Main.applet) {
-            File pref = old ? getOldPreferenceFile() : getPreferenceFile();
+            File pref = getPreferenceFile();
             BufferedReader in = new BufferedReader(new InputStreamReader(new FileInputStream(pref), "utf-8"));
-            /* FIXME: TODO: remove old style config file end of 2012 */
             try {
-                if (old) {
-                    in.mark(1);
-                    int v = in.read();
-                    in.reset();
-                    if(v == '<') {
-                        validateXML(in);
-                        Utils.close(in);
-                        in = new BufferedReader(new InputStreamReader(new FileInputStream(pref), "utf-8"));
-                        fromXML(in);
-                    } else {
-                        int lineNumber = 0;
-                        ArrayList<Integer> errLines = new ArrayList<Integer>();
-                        for (String line = in.readLine(); line != null; line = in.readLine(), lineNumber++) {
-                            final int i = line.indexOf('=');
-                            if (i == -1 || i == 0) {
-                                errLines.add(lineNumber);
-                                continue;
-                            }
-                            String key = line.substring(0,i);
-                            String value = line.substring(i+1);
-                            if (!value.isEmpty()) {
-                                properties.put(key, value);
-                            }
-                        }
-                        if (!errLines.isEmpty())
-                            throw new IOException(tr("Malformed config file at lines {0}", errLines));
-                    }
-                } else {
-                    validateXML(in);
-                    Utils.close(in);
-                    in = new BufferedReader(new InputStreamReader(new FileInputStream(pref), "utf-8"));
-                    fromXML(in);
-                }
+                validateXML(in);
+                Utils.close(in);
+                in = new BufferedReader(new InputStreamReader(new FileInputStream(pref), "utf-8"));
+                fromXML(in);
             } finally {
-                in.close();
+                Utils.close(in);
             }
         }
         updateSystemProperties();
-        /* FIXME: TODO: remove special version check end of 2012 */
-        if(!properties.containsKey("expert")) {
-            try {
-                String v = get("josm.version");
-                if(v.isEmpty() || Integer.parseInt(v) <= 4511)
-                    properties.put("expert", "true");
-            } catch(Exception e) {
-                properties.put("expert", "true");
-            }
-        }
         removeObsolete();
     }
 
@@ -698,34 +676,9 @@ public class Preferences {
         File preferenceFile = getPreferenceFile();
         try {
             if (!preferenceFile.exists()) {
-                File oldPreferenceFile = getOldPreferenceFile();
-                if (!oldPreferenceFile.exists()) {
-                    System.out.println(tr("Info: Missing preference file ''{0}''. Creating a default preference file.", preferenceFile.getAbsoluteFile()));
-                    resetToDefault();
-                    save();
-                } else {
-                    try {
-                        loadOld();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        File backupFile = new File(prefDir,"preferences.bak");
-                        JOptionPane.showMessageDialog(
-                                Main.parent,
-                                tr("<html>Preferences file had errors.<br> Making backup of old one to <br>{0}<br> and creating a new default preference file.</html>", backupFile.getAbsoluteFile()),
-                                tr("Error"),
-                                JOptionPane.ERROR_MESSAGE
-                        );
-                        Main.platform.rename(oldPreferenceFile, backupFile);
-                        try {
-                            resetToDefault();
-                            save();
-                        } catch(IOException e1) {
-                            e1.printStackTrace();
-                            System.err.println(tr("Warning: Failed to initialize preferences. Failed to reset preference file to default: {0}", getPreferenceFile()));
-                        }
-                    }
-                    return;
-                }
+                System.out.println(tr("Info: Missing preference file ''{0}''. Creating a default preference file.", preferenceFile.getAbsoluteFile()));
+                resetToDefault();
+                save();
             } else if (reset) {
                 System.out.println(tr("Warning: Replacing existing preference file ''{0}'' with default preference file.", preferenceFile.getAbsoluteFile()));
                 resetToDefault();
@@ -820,15 +773,15 @@ public class Preferences {
         }
         putDefault("color."+colKey, ColorHelper.color2html(def));
         String colStr = specName != null ? get("color."+specName) : "";
-        if(colStr.equals("")) {
+        if(colStr.isEmpty()) {
             colStr = get("color."+colKey);
         }
-        return colStr.equals("") ? def : ColorHelper.html2color(colStr);
+        return colStr.isEmpty() ? def : ColorHelper.html2color(colStr);
     }
 
     synchronized public Color getDefaultColor(String colKey) {
         String colStr = defaults.get("color."+colKey);
-        return colStr == null || "".equals(colStr) ? null : ColorHelper.html2color(colStr);
+        return colStr == null || colStr.isEmpty() ? null : ColorHelper.html2color(colStr);
     }
 
     synchronized public boolean putColor(String colKey, Color val) {
@@ -893,16 +846,6 @@ public class Preferences {
         return def;
     }
 
-    synchronized public double getDouble(String key, String def) {
-        putDefault(key, def);
-        String v = get(key);
-        if(v != null && v.length() != 0) {
-            try { return Double.parseDouble(v); } catch(NumberFormatException e) {}
-        }
-        try { return Double.parseDouble(def); } catch(NumberFormatException e) {}
-        return 0.0;
-    }
-
     /**
      * Get a list of values for a certain key
      * @param key the identifier for the setting
@@ -912,7 +855,7 @@ public class Preferences {
      */
     public Collection<String> getCollection(String key, Collection<String> def) {
         putCollectionDefault(key, def == null ? null : new ArrayList<String>(def));
-        Collection<String> prop = getCollectionInternal(key);
+        Collection<String> prop = collectionProperties.get(key);
         if (prop != null)
             return prop;
         else
@@ -927,29 +870,11 @@ public class Preferences {
      */
     public Collection<String> getCollection(String key) {
         putCollectionDefault(key, null);
-        Collection<String> prop = getCollectionInternal(key);
+        Collection<String> prop = collectionProperties.get(key);
         if (prop != null)
             return prop;
         else
             return Collections.emptyList();
-    }
-
-    /* remove this workaround end of 2012, replace by direct access to structure */
-    synchronized private List<String> getCollectionInternal(String key) {
-        List<String> prop = collectionProperties.get(key);
-        if (prop != null)
-            return prop;
-        else {
-            String s = properties.get(key);
-            if(s != null) {
-                prop = Arrays.asList(s.split("\u001e", -1));
-                collectionProperties.put(key, Collections.unmodifiableList(prop));
-                properties.remove(key);
-                defaults.remove(key);
-                return prop;
-            }
-        }
-        return null;
     }
 
     synchronized public void removeFromCollection(String key, String value) {
@@ -969,7 +894,7 @@ public class Preferences {
                 changed |= properties.remove(key) != null;
                 if (!changed) return false;
             } else {
-                oldValue = getCollectionInternal(key);
+                oldValue = collectionProperties.get(key);
                 if (equalCollection(value, oldValue)) return false;
                 Collection<String> defValue = collectionDefaults.get(key);
                 if (oldValue == null && equalCollection(value, defValue)) return false;
@@ -1035,7 +960,7 @@ public class Preferences {
         } else {
             putArrayDefault(key, null);
         }
-        List<List<String>> prop = getArrayInternal(key);
+        List<List<String>> prop = arrayProperties.get(key);
         if (prop != null) {
             @SuppressWarnings("unchecked")
             Collection<Collection<String>> prop_cast = (Collection) prop;
@@ -1046,40 +971,13 @@ public class Preferences {
 
     public Collection<Collection<String>> getArray(String key) {
         putArrayDefault(key, null);
-        List<List<String>> prop = getArrayInternal(key);
+        List<List<String>> prop = arrayProperties.get(key);
         if (prop != null) {
             @SuppressWarnings("unchecked")
             Collection<Collection<String>> prop_cast = (Collection) prop;
             return prop_cast;
         } else
             return Collections.emptyList();
-    }
-
-    /* remove this workaround end of 2012 and replace by direct array access */
-    synchronized private List<List<String>> getArrayInternal(String key) {
-        List<List<String>> prop = arrayProperties.get(key);
-        if (prop != null)
-            return prop;
-        else {
-            String keyDot = key + ".";
-            int num = 0;
-            List<List<String>> col = new ArrayList<List<String>>();
-            while (true) {
-                List<String> c = getCollectionInternal(keyDot+num);
-                if (c == null) {
-                    break;
-                }
-                col.add(c);
-                collectionProperties.remove(keyDot+num);
-                collectionDefaults.remove(keyDot+num);
-                num++;
-            }
-            if (num > 0) {
-                arrayProperties.put(key, Collections.unmodifiableList(col));
-                return col;
-            }
-        }
-        return null;
     }
 
     public boolean putArray(String key, Collection<Collection<String>> value) {
@@ -1089,11 +987,10 @@ public class Preferences {
         List<List<String>> valueCopy = null;
 
         synchronized (this) {
+            oldValue = arrayProperties.get(key);
             if (value == null) {
-                oldValue = getArrayInternal(key);
                 if (arrayProperties.remove(key) != null) return false;
             } else {
-                oldValue = getArrayInternal(key);
                 if (equalArray(value, oldValue)) return false;
 
                 List<List<String>> defValue = arrayDefaults.get(key);
@@ -1145,40 +1042,11 @@ public class Preferences {
         } else {
             putListOfStructsDefault(key, null);
         }
-        Collection<Map<String, String>> prop = getListOfStructsInternal(key);
+        Collection<Map<String, String>> prop = listOfStructsProperties.get(key);
         if (prop != null)
             return prop;
         else
             return def;
-    }
-
-    /* remove this workaround end of 2012 and use direct access to proper variable */
-    private synchronized List<Map<String, String>> getListOfStructsInternal(String key) {
-        List<Map<String, String>> prop = listOfStructsProperties.get(key);
-        if (prop != null)
-            return prop;
-        else {
-            List<List<String>> array = getArrayInternal(key);
-            if (array == null) return null;
-            prop = new ArrayList<Map<String, String>>(array.size());
-            for (Collection<String> mapStr : array) {
-                Map<String, String> map = new LinkedHashMap<String, String>();
-                for (String key_value : mapStr) {
-                    final int i = key_value.indexOf(':');
-                    if (i == -1 || i == 0) {
-                        continue;
-                    }
-                    String k = key_value.substring(0,i);
-                    String v = key_value.substring(i+1);
-                    map.put(k, v);
-                }
-                prop.add(Collections.unmodifiableMap(map));
-            }
-            arrayProperties.remove(key);
-            arrayDefaults.remove(key);
-            listOfStructsProperties.put(key, Collections.unmodifiableList(prop));
-            return prop;
-        }
     }
 
     public boolean putListOfStructs(String key, Collection<Map<String, String>> value) {
@@ -1188,11 +1056,10 @@ public class Preferences {
         List<Map<String, String>> valueCopy = null;
 
         synchronized (this) {
+            oldValue = listOfStructsProperties.get(key);
             if (value == null) {
-                oldValue = getListOfStructsInternal(key);
                 if (listOfStructsProperties.remove(key) != null) return false;
             } else {
-                oldValue = getListOfStructsInternal(key);
                 if (equalListOfStructs(oldValue, value)) return false;
 
                 List<Map<String, String>> defValue = listOfStructsDefaults.get(key);
@@ -1402,21 +1269,25 @@ public class Preferences {
         if (value == null) return false;
         class PutVisitor implements SettingVisitor {
             public boolean changed;
+            @Override
             public void visit(StringSetting setting) {
                 changed = put(key, setting.getValue());
             }
+            @Override
             public void visit(ListSetting setting) {
                 changed = putCollection(key, setting.getValue());
             }
+            @Override
             public void visit(ListListSetting setting) {
                 @SuppressWarnings("unchecked")
                 boolean changed = putArray(key, (Collection) setting.getValue());
                 this.changed = changed;
             }
+            @Override
             public void visit(MapListSetting setting) {
                 changed = putListOfStructs(key, setting.getValue());
             }
-        };
+        }
         PutVisitor putVisitor = new PutVisitor();
         value.visit(putVisitor);
         return putVisitor.changed;
@@ -1463,8 +1334,12 @@ public class Preferences {
      *
      */
     public void updateSystemProperties() {
+        if(getBoolean("prefer.ipv6", false)) {
+            // never set this to false, only true!
+            updateSystemProperty("java.net.preferIPv6Addresses", "true");
+        }
         updateSystemProperty("http.agent", Version.getInstance().getAgentString());
-        updateSystemProperty("user.language", Main.pref.get("language"));
+        updateSystemProperty("user.language", get("language"));
         // Workaround to fix a Java bug.
         // Force AWT toolkit to update its internal preferences (fix #3645).
         // This ugly hack comes from Sun bug database: http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6292739
@@ -1475,8 +1350,15 @@ public class Preferences {
         } catch (Exception e) {
             // Ignore all exceptions
         }
+        // Workaround to fix another Java bug
+        // Force Java 7 to use old sorting algorithm of Arrays.sort (fix #8712).
+        // See Oracle bug database: http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=7075600
+        // and http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6923200
+        if (Main.pref.getBoolean("jdk.Arrays.useLegacyMergeSort", !Version.getInstance().isLocalBuild())) {
+            updateSystemProperty("java.util.Arrays.useLegacyMergeSort", "true");
+        }
     }
-    
+
     private void updateSystemProperty(String key, String value) {
         if (value != null) {
             System.setProperty(key, value);
@@ -1487,12 +1369,10 @@ public class Preferences {
      * The default plugin site
      */
     private final static String[] DEFAULT_PLUGIN_SITE = {
-    "http://josm.openstreetmap.de/plugin%<?plugins=>"};
+    Main.JOSM_WEBSITE+"/plugin%<?plugins=>"};
 
     /**
      * Replies the collection of plugin site URLs from where plugin lists can be downloaded
-     *
-     * @return
      */
     public Collection<String> getPluginSites() {
         return getCollection("pluginmanager.sites", Arrays.asList(DEFAULT_PLUGIN_SITE));
@@ -1510,7 +1390,7 @@ public class Preferences {
     protected XMLStreamReader parser;
 
     public void validateXML(Reader in) throws Exception {
-        SchemaFactory factory =  SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+        SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
         Schema schema = factory.newSchema(new StreamSource(new MirroredInputStream("resource://data/preferences.xsd")));
         Validator validator = schema.newValidator();
         validator.validate(new StreamSource(in));
@@ -1676,6 +1556,7 @@ public class Preferences {
             this.key = key;
         }
 
+        @Override
         public void visit(StringSetting setting) {
             if (noPassword && key.equals("osm-server.password"))
                 return; // do not store plain password.
@@ -1683,31 +1564,15 @@ public class Preferences {
             String s = defaults.get(key);
             /* don't save default values */
             if(s == null || !s.equals(r)) {
-                /* TODO: remove old format exception end of 2012 */
-                if(r.contains("\u001e"))
-                {
-                    b.append("  <list key='");
-                    b.append(XmlWriter.encode(key));
-                    b.append("'>\n");
-                    for (String val : r.split("\u001e", -1))
-                    {
-                        b.append("    <entry value='");
-                        b.append(XmlWriter.encode(val));
-                        b.append("'/>\n");
-                    }
-                    b.append("  </list>\n");
-                }
-                else
-                {
-                    b.append("  <tag key='");
-                    b.append(XmlWriter.encode(key));
-                    b.append("' value='");
-                    b.append(XmlWriter.encode(setting.getValue()));
-                    b.append("'/>\n");
-                }
+                b.append("  <tag key='");
+                b.append(XmlWriter.encode(key));
+                b.append("' value='");
+                b.append(XmlWriter.encode(setting.getValue()));
+                b.append("'/>\n");
             }
         }
 
+        @Override
         public void visit(ListSetting setting) {
             b.append("  <list key='").append(XmlWriter.encode(key)).append("'>\n");
             for (String s : setting.getValue()) {
@@ -1716,6 +1581,7 @@ public class Preferences {
             b.append("  </list>\n");
         }
 
+        @Override
         public void visit(ListListSetting setting) {
             b.append("  <lists key='").append(XmlWriter.encode(key)).append("'>\n");
             for (List<String> list : setting.getValue()) {
@@ -1728,6 +1594,7 @@ public class Preferences {
             b.append("  </lists>\n");
         }
 
+        @Override
         public void visit(MapListSetting setting) {
             b.append("  <maps key='").append(XmlWriter.encode(key)).append("'>\n");
             for (Map<String, String> struct : setting.getValue()) {
@@ -1744,10 +1611,10 @@ public class Preferences {
     public String toXML(boolean nopass) {
         StringBuilder b = new StringBuilder(
                 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                "<preferences xmlns=\"http://josm.openstreetmap.de/preferences-1.0\" version=\""+
+                "<preferences xmlns=\""+Main.JOSM_WEBSITE+"/preferences-1.0\" version=\""+
                 Version.getInstance().getVersion() + "\">\n");
         SettingToXml toXml = new SettingToXml(b, nopass);
-        Map<String, Setting> settings = new TreeMap<String, Setting>();
+        Map<String, Setting<?>> settings = new TreeMap<String, Setting<?>>();
 
         for (Entry<String, String> e : properties.entrySet()) {
             settings.put(e.getKey(), new StringSetting(e.getValue()));
@@ -1761,7 +1628,7 @@ public class Preferences {
         for (Entry<String, List<Map<String, String>>> e : listOfStructsProperties.entrySet()) {
             settings.put(e.getKey(), new MapListSetting(e.getValue()));
         }
-        for (Entry<String, Setting> e : settings.entrySet()) {
+        for (Entry<String, Setting<?>> e : settings.entrySet()) {
             toXml.setKey(e.getKey());
             e.getValue().visit(toXml);
         }
@@ -1775,9 +1642,20 @@ public class Preferences {
      * see something with an expiry date in the past, remove it from the list.
      */
     public void removeObsolete() {
+        /* update the data with old consumer key*/
+        if(getInteger("josm.version", Version.getInstance().getVersion()) < 6076) {
+            if(!get("oauth.access-token.key").isEmpty() && get("oauth.settings.consumer-key").isEmpty()) {
+                put("oauth.settings.consumer-key", "AdCRxTpvnbmfV8aPqrTLyA");
+                put("oauth.settings.consumer-secret", "XmYOiGY9hApytcBC3xCec3e28QBqOWz5g6DSb5UpE");
+            }
+        }
+
         String[] obsolete = {
-                "gui.combobox.maximum-row-count",  // 08/2012 - briefly introduced with #7917, can be removed end 2012
-                "color.Imagery fade",              // 08/2012 - wrong property caused by #6723, can be removed mid-2013
+                "downloadAlong.downloadAlongTrack.distance",   // 07/2013 - can be removed mid-2014. Replaced by downloadAlongWay.distance
+                "downloadAlong.downloadAlongTrack.area",       // 07/2013 - can be removed mid-2014. Replaced by downloadAlongWay.area
+                "gpxLayer.downloadAlongTrack.distance",        // 07/2013 - can be removed mid-2014. Replaced by downloadAlongTrack.distance
+                "gpxLayer.downloadAlongTrack.area",            // 07/2013 - can be removed mid-2014. Replaced by downloadAlongTrack.area
+                "gpxLayer.downloadAlongTrack.near",            // 07/2013 - can be removed mid-2014. Replaced by downloadAlongTrack.near
         };
         for (String key : obsolete) {
             boolean removed = false;
@@ -1790,20 +1668,29 @@ public class Preferences {
         }
     }
 
-    public static boolean isEqual(Setting a, Setting b) {
+    public static boolean isEqual(Setting<?> a, Setting<?> b) {
         if (a==null && b==null) return true;
         if (a==null) return false;
         if (b==null) return false;
         if (a==b) return true;
-        
-        if (a instanceof StringSetting) 
+
+        if (a instanceof StringSetting)
             return (a.getValue().equals(b.getValue()));
-        if (a instanceof ListSetting) 
-            return equalCollection((Collection<String>) a.getValue(), (Collection<String>) b.getValue());
-        if (a instanceof ListListSetting) 
-            return equalArray((Collection<Collection<String>>) a.getValue(), (Collection<List<String>>) b.getValue());
-        if (a instanceof MapListSetting) 
-            return equalListOfStructs((Collection<Map<String, String>>) a.getValue(), (Collection<Map<String, String>>) b.getValue());
+        if (a instanceof ListSetting) {
+            @SuppressWarnings("unchecked") Collection<String> aValue = (Collection<String>) a.getValue();
+            @SuppressWarnings("unchecked") Collection<String> bValue = (Collection<String>) b.getValue();
+            return equalCollection(aValue, bValue);
+        }
+        if (a instanceof ListListSetting) {
+            @SuppressWarnings("unchecked") Collection<Collection<String>> aValue = (Collection<Collection<String>>) a.getValue();
+            @SuppressWarnings("unchecked") Collection<List<String>> bValue = (Collection<List<String>>) b.getValue();
+            return equalArray(aValue, bValue);
+        }
+        if (a instanceof MapListSetting) {
+            @SuppressWarnings("unchecked") Collection<Map<String, String>> aValue = (Collection<Map<String, String>>) a.getValue();
+            @SuppressWarnings("unchecked") Collection<Map<String, String>> bValue = (Collection<Map<String, String>>) b.getValue();
+            return equalListOfStructs(aValue, bValue);
+        }
         return a.equals(b);
     }
 

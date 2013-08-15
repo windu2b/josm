@@ -12,17 +12,15 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.io.IOException;
-import java.net.PasswordAuthentication;
 import java.net.Authenticator.RequestorType;
+import java.net.PasswordAuthentication;
 
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JPasswordField;
 import javax.swing.JTabbedPane;
-import javax.swing.JTextField;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.JTextComponent;
@@ -39,6 +37,8 @@ import org.openstreetmap.josm.gui.help.HelpUtil;
 import org.openstreetmap.josm.gui.util.GuiHelper;
 import org.openstreetmap.josm.gui.widgets.AbstractTextComponentValidator;
 import org.openstreetmap.josm.gui.widgets.HtmlPanel;
+import org.openstreetmap.josm.gui.widgets.JosmPasswordField;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 import org.openstreetmap.josm.gui.widgets.SelectAllOnFocusGainedDecorator;
 import org.openstreetmap.josm.gui.widgets.VerticallyScrollablePanel;
 import org.openstreetmap.josm.io.OsmApi;
@@ -57,8 +57,8 @@ import org.xml.sax.SAXException;
  */
 public class FullyAutomaticAuthorizationUI extends AbstractAuthorizationUI {
 
-    private JTextField tfUserName;
-    private JPasswordField tfPassword;
+    private JosmTextField tfUserName;
+    private JosmPasswordField tfPassword;
     private UserNameValidator valUserName;
     private PasswordValidator valPassword;
     private AccessTokenInfoPanel pnlAccessTokenInfo;
@@ -70,7 +70,7 @@ public class FullyAutomaticAuthorizationUI extends AbstractAuthorizationUI {
     /**
      * Builds the panel with the three privileges the user can grant JOSM
      *
-     * @return
+     * @return constructed panel for the privileges
      */
     protected VerticallyScrollablePanel buildGrantsPanel() {
         pnlOsmPrivileges = new OsmPrivilegesPanel();
@@ -80,7 +80,7 @@ public class FullyAutomaticAuthorizationUI extends AbstractAuthorizationUI {
     /**
      * Builds the panel for entering the username and password
      *
-     * @return
+     * @return constructed panel for the creditentials
      */
     protected VerticallyScrollablePanel buildUserNamePasswordPanel() {
         VerticallyScrollablePanel pnl = new VerticallyScrollablePanel(new GridBagLayout());
@@ -114,7 +114,7 @@ public class FullyAutomaticAuthorizationUI extends AbstractAuthorizationUI {
 
         gc.gridx = 1;
         gc.weightx = 1.0;
-        pnl.add(tfUserName = new JTextField(), gc);
+        pnl.add(tfUserName = new JosmTextField(), gc);
         SelectAllOnFocusGainedDecorator.decorate(tfUserName);
         valUserName = new UserNameValidator(tfUserName);
         valUserName.validate();
@@ -129,7 +129,7 @@ public class FullyAutomaticAuthorizationUI extends AbstractAuthorizationUI {
 
         gc.gridx = 1;
         gc.weightx = 1.0;
-        pnl.add(tfPassword = new JPasswordField(), gc);
+        pnl.add(tfPassword = new JosmPasswordField(), gc);
         SelectAllOnFocusGainedDecorator.decorate(tfPassword);
         valPassword = new PasswordValidator(tfPassword);
         valPassword.validate();
@@ -179,6 +179,7 @@ public class FullyAutomaticAuthorizationUI extends AbstractAuthorizationUI {
 
     /**
      * Initializes the panel with values from the preferences
+     * @param pref Preferences structure
      */
     @Override
     public void initFromPreferences(Preferences pref) {
@@ -203,7 +204,7 @@ public class FullyAutomaticAuthorizationUI extends AbstractAuthorizationUI {
     /**
      * Builds the panel with the action button  for starting the authorisation
      *
-     * @return
+     * @return constructed button panel
      */
     protected JPanel buildActionButtonPanel() {
         JPanel pnl = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -218,7 +219,7 @@ public class FullyAutomaticAuthorizationUI extends AbstractAuthorizationUI {
     /**
      * Builds the panel which displays the generated Access Token.
      *
-     * @return
+     * @return constructed panel for the results
      */
     protected JPanel buildResultsPanel() {
         JPanel pnl = new JPanel(new GridBagLayout());
@@ -338,6 +339,7 @@ public class FullyAutomaticAuthorizationUI extends AbstractAuthorizationUI {
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent evt) {
             Main.worker.submit(new FullyAutomaticAuthorisationTask(FullyAutomaticAuthorizationUI.this));
         }
@@ -346,14 +348,17 @@ public class FullyAutomaticAuthorizationUI extends AbstractAuthorizationUI {
             setEnabled(valPassword.isValid() && valUserName.isValid());
         }
 
+        @Override
         public void changedUpdate(DocumentEvent e) {
             updateEnabledState();
         }
 
+        @Override
         public void insertUpdate(DocumentEvent e) {
             updateEnabledState();
         }
 
+        @Override
         public void removeUpdate(DocumentEvent e) {
             updateEnabledState();
         }
@@ -369,6 +374,7 @@ public class FullyAutomaticAuthorizationUI extends AbstractAuthorizationUI {
             putValue(SMALL_ICON, ImageProvider.get("dialogs", "previous"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             prepareUIForEnteringRequest();
         }
@@ -384,6 +390,7 @@ public class FullyAutomaticAuthorizationUI extends AbstractAuthorizationUI {
             putValue(SMALL_ICON, ImageProvider.get("about"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             Main.worker.submit(new TestAccessTokenTask(
                     FullyAutomaticAuthorizationUI.this,
@@ -509,6 +516,7 @@ public class FullyAutomaticAuthorizationUI extends AbstractAuthorizationUI {
 
         protected void handleException(final OsmOAuthAuthorizationException e) {
             Runnable r = new Runnable() {
+                @Override
                 public void run() {
                     if (e instanceof OsmLoginFailedException) {
                         alertLoginFailed((OsmLoginFailedException)e);
@@ -548,6 +556,7 @@ public class FullyAutomaticAuthorizationUI extends AbstractAuthorizationUI {
                 getProgressMonitor().worked(1);
                 if (canceled)return;
                 GuiHelper.runInEDT(new Runnable() {
+                    @Override
                     public void run() {
                         prepareUIForResultDisplay();
                         setAccessToken(accessToken);

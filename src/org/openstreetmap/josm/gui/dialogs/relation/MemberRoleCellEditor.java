@@ -25,7 +25,7 @@ public class MemberRoleCellEditor extends AbstractCellEditor implements TableCel
     public MemberRoleCellEditor(DataSet ds) {
         this.ds = ds;
         editor = new AutoCompletingTextField();
-        editor.setBorder(BorderFactory.createEmptyBorder(1,1,1,1)); 
+        editor.setBorder(BorderFactory.createEmptyBorder(1,1,1,1));
         autoCompletionList = new AutoCompletionList();
         editor.setAutoCompletionList(autoCompletionList);
     }
@@ -33,6 +33,7 @@ public class MemberRoleCellEditor extends AbstractCellEditor implements TableCel
     /**
      * replies the table cell editor
      */
+    @Override
     public Component getTableCellEditorComponent(JTable table,
             Object value, boolean isSelected, int row, int column) {
 
@@ -43,6 +44,7 @@ public class MemberRoleCellEditor extends AbstractCellEditor implements TableCel
         return editor;
     }
 
+    @Override
     public Object getCellEditorValue() {
         return editor.getText();
     }
@@ -56,7 +58,7 @@ public class MemberRoleCellEditor extends AbstractCellEditor implements TableCel
     public boolean stopCellEditing() {
         return super.stopCellEditing();
     }
-    
+
     /** Returns the edit field for this cell editor. */
     public AutoCompletingTextField getEditor() {
         return editor;

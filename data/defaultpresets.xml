@@ -34,22 +34,36 @@ text: text box
   text: fixed label to display
   default: default string to display (defaults to "")
   use_last_as_default: true/false/force (default is "false")
+  auto_increment: may contain a comma separated list of integer increments or 
+                  decrements, e.g. "-2,-1,+1,+2"; a button will be shown next
+                  to the text field for each value, allowing the user to select
+                  auto-increment with the given stepping. auto-increment only
+                  happens if the user selects it. default is no auto-increment;
+                  mutually exclusive with use_last_as_default.
   match: none/key/key!/keyvalue (default is "none", see below for more information)
+  length: length of input box (number of characters allowed)
 
 combo: combo box, with multiple choices and possible to enter free form text
   key: key to set
   text: fixed label to display
   values: comma separated list of values
+  values_from: to use instead of "values" if the list of values has to be obtained with a Java method 
+               of this form: public static String[] getValues();
+               The value must be: "full.package.name.ClassName#methodName"
   display_values: comma separated list of values to be displayed instead of the
                   database values, order and number must be equal to values
   short_descriptions: comma separated list of texts to be displayed below each
                       display_value. (Only if it is not possible to describe
-                      the entry in 2-3 words.) Instead of comma separeted list
+                      the entry in 2-3 words.) Instead of comma separated list
   instead using values, display_values and short_descriptions, the following form is also supported:
-    <list_entry value="" display_value="' short_description="" icon=""/>
+    <list_entry value="" display_value="" short_description="" icon="" icon_size=""/>
+        icon: location of icon
+        icon_size: maximal size of icon. If tag is not setup it is taken default size of icon file
   default: default string to display (defaults to "")
   use_last_as_default: true/false/force (default is "false")
+  editable: allow to add other values as text (default is "true")
   match: none/key/key!/keyvalue (default is none, see below for more information)
+  length: length of input box (number of characters allowed)
 
 multiselect: list of values from which zero or more can be selected
   key: key to set
@@ -57,6 +71,9 @@ multiselect: list of values from which zero or more can be selected
   delimiter: character that separates values (default: semicolon) - this
              will also be used to separate selected values in the tag.
   values: delimiter-separated list of values (delimiter can be escaped with backslash)
+  values_from: to use instead of "values" if the list of values has to be obtained with a Java method 
+               of this form: public static String[] getValues();
+               The value must be: "full.package.name.ClassName#methodName"
   rows: specify the number of rows to display (default -1)
   display_values: delimiter-separated list of values to be displayed instead of the
                   database values, order and number must be equal to values
@@ -64,10 +81,15 @@ multiselect: list of values from which zero or more can be selected
                       display_value. (Only if it is not possible to describe
                       the entry in 2-3 words.) Instead of a separated list
   instead using values, display_values and short_descriptions, the following form is also supported:
-    <list_entry value="" display_value="' short_description="" icon=""/>
+    <list_entry value="" display_value="' short_description="" icon="" icon_size=""/>
+        icon: location of icon
+        icon_size: maximal size of icon. If tag is not setup it is taken default size of icon file
   default: default string to display (defaults to "")
   use_last_as_default: true/false/force (default is "false")
   match: none/key/key!/keyvalue (default is "none", see below for more information)
+
+checkgroup: group of checks
+  columns: number of columns
 
 check: checkbox
   key: key to set
@@ -83,6 +105,7 @@ role: type to specify possible roles in relations
   requisite: optional/required (default is "optional")
   count: how often can the role occur (if not given unlimited number is assumed)
   type: the data types - way,node,relation,closedway (separated by comma)
+  member_expression: an expression (cf. search dialog) for objects of this role
 
  presets: For external files <presets> should have following attributes:
    author: the author of the preset
@@ -129,8 +152,8 @@ Note that for a match, at least one positive and no negative is required.
             <text key="ref" text="Reference" />
             <optional>
                 <text key="name" text="Name" />
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <combo key="lanes" text="Lanes" values="1,2,3,4,5" default="2" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <combo key="lanes" text="Lanes" values="1,2,3,4,5" length="3" />
                 <text key="maxspeed" text="Max. speed (km/h)" />
                 <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="oneway" text="Oneway" default="on" />
@@ -155,8 +178,8 @@ Note that for a match, at least one positive and no negative is required.
             <space />
             <key key="highway" value="motorway_link" />
             <optional>
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <combo key="lanes" text="Lanes" values="1,2,3,4,5" default="2" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <combo key="lanes" text="Lanes" values="1,2,3,4,5" length="3" />
                 <text key="maxspeed" text="Max. speed (km/h)" />
                 <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="oneway" text="Oneway" default="on" />
@@ -182,8 +205,8 @@ Note that for a match, at least one positive and no negative is required.
             <text key="ref" text="Reference" />
             <optional>
                 <text key="name" text="Name" />
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <combo key="lanes" text="Lanes" values="1,2,3,4,5" default="2" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <combo key="lanes" text="Lanes" values="1,2,3,4,5" length="3" />
                 <text key="maxspeed" text="Max. speed (km/h)" />
                 <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="oneway" text="Oneway" default="on" />
@@ -208,8 +231,8 @@ Note that for a match, at least one positive and no negative is required.
             <key key="highway" value="trunk_link" />
             <text key="ref" text="Reference" />
             <optional>
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <combo key="lanes" text="Lanes" values="1,2,3,4,5" default="1" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <combo key="lanes" text="Lanes" values="1,2,3,4,5" length="3" />
                 <text key="maxspeed" text="Max. speed (km/h)" />
                 <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="oneway" text="Oneway" default="on" />
@@ -236,9 +259,8 @@ Note that for a match, at least one positive and no negative is required.
             <text key="ref" text="Reference" />
             <optional>
                 <text key="name" text="Name" />
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <combo key="lanes" text="Lanes" values="1,2,3,4,5" />
-                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <combo key="lanes" text="Lanes" values="1,2,3,4,5" length="3" />
                 <text key="maxspeed" text="Max. speed (km/h)" />
                 <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="oneway" text="Oneway" default="off" />
@@ -247,6 +269,7 @@ Note that for a match, at least one positive and no negative is required.
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
+                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
                 <check key="lit" text="Lit" default="off" /> 
             </optional>
         </item>
@@ -262,9 +285,8 @@ Note that for a match, at least one positive and no negative is required.
             <space />
             <key key="highway" value="primary_link" />
             <optional>
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <combo key="lanes" text="Lanes" values="1,2,3,4,5" />
-                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <combo key="lanes" text="Lanes" values="1,2,3,4,5" length="3" />
                 <text key="maxspeed" text="Max. speed (km/h)" />
                 <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="oneway" text="Oneway" default="off" />
@@ -273,6 +295,7 @@ Note that for a match, at least one positive and no negative is required.
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
+                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
                 <check key="lit" text="Lit" default="off" /> 
             </optional>
         </item>
@@ -291,9 +314,8 @@ Note that for a match, at least one positive and no negative is required.
             <text key="ref" text="Reference" />
             <optional>
                 <text key="name" text="Name" />
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <combo key="lanes" text="Lanes" values="1,2,3,4,5" />
-                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <combo key="lanes" text="Lanes" values="1,2,3,4,5" length="3" />
                 <text key="maxspeed" text="Max. speed (km/h)" />
                 <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="oneway" text="Oneway" default="off" />
@@ -301,6 +323,7 @@ Note that for a match, at least one positive and no negative is required.
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
+                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
                 <check key="lit" text="Lit" default="off" /> 
             </optional>
         </item>
@@ -316,9 +339,8 @@ Note that for a match, at least one positive and no negative is required.
             <space />
             <key key="highway" value="secondary_link" />
             <optional>
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <combo key="lanes" text="Lanes" values="1,2,3,4,5" />
-                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <combo key="lanes" text="Lanes" values="1,2,3,4,5" length="3" />
                 <text key="maxspeed" text="Max. speed (km/h)" />
                 <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="oneway" text="Oneway" default="off" />
@@ -326,6 +348,7 @@ Note that for a match, at least one positive and no negative is required.
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
+                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
                 <check key="lit" text="Lit" default="off" /> 
             </optional>
         </item>
@@ -345,9 +368,8 @@ Note that for a match, at least one positive and no negative is required.
             <text key="ref" text="Reference" />
             <optional>
                 <text key="name" text="Name" />
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <combo key="lanes" text="Lanes" values="1,2,3,4,5" />
-                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <combo key="lanes" text="Lanes" values="1,2,3,4,5" length="3" />
                 <text key="maxspeed" text="Max. speed (km/h)" />
                 <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="oneway" text="Oneway" default="off" />
@@ -355,6 +377,7 @@ Note that for a match, at least one positive and no negative is required.
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
+                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
                 <check key="lit" text="Lit" default="off" /> 
             </optional>
         </item>
@@ -370,9 +393,8 @@ Note that for a match, at least one positive and no negative is required.
             <space />
             <key key="highway" value="tertiary_link" />
             <optional>
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <combo key="lanes" text="Lanes" values="1,2,3,4,5" />
-                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <combo key="lanes" text="Lanes" values="1,2,3,4,5" length="3" />
                 <text key="maxspeed" text="Max. speed (km/h)" />
                 <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="oneway" text="Oneway" default="off" />
@@ -380,10 +402,11 @@ Note that for a match, at least one positive and no negative is required.
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
+                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
                 <check key="lit" text="Lit" default="off" /> 
             </optional>
         </item>
-        <item name="Unclassified" icon="presets/way_unclassified.png" type="way">
+        <item name="Unclassified" icon="presets/way_unclassified.png" type="way,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:highway=unclassified"
                   de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:highway=unclassified"
                   fi.href="http://wiki.openstreetmap.org/wiki/Fi:Tag:highway=unclassified"
@@ -397,22 +420,22 @@ Note that for a match, at least one positive and no negative is required.
             <key key="highway" value="unclassified" />
             <optional>
                 <text key="name" text="Name" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <combo key="lanes" text="Lanes" values="1,2,3,4,5" length="3" />
+                <text key="maxspeed" text="Max. speed (km/h)" />
+                <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="oneway" text="Oneway" default="off" />
                 <check key="bridge" text="Bridge" default="off" />
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
+                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
                 <check key="lit" text="Lit" default="off" /> 
                 <check key="passing_places" text="Passing Places" default="off" />
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <combo key="lanes" text="Lanes" values="1,2,3,4,5" />
-                <text key="maxspeed" text="Max. speed (km/h)" />
-                <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <text key="width" text="Width (meters)" />
-                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
             </optional>
         </item>
-        <item name="Residential" icon="presets/residential.png" type="way">
+        <item name="Residential" icon="presets/residential.png" type="way,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:highway=residential"
                   de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:highway=residential"
                   fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:highway=residential"
@@ -426,21 +449,21 @@ Note that for a match, at least one positive and no negative is required.
             <key key="highway" value="residential" />
             <text key="name" text="Name" />
             <optional>
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <combo key="lanes" text="Lanes" values="1,2,3,4,5" length="3" />
+                <text key="maxspeed" text="Max. speed (km/h)" />
+                <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="oneway" text="Oneway" default="off" />
                 <check key="bridge" text="Bridge" default="off" />
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
-                <check key="lit" text="Lit" default="off" /> 
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <combo key="lanes" text="Lanes" values="1,2,3,4,5" />
-                <text key="maxspeed" text="Max. speed (km/h)" />
-                <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
-                <text key="width" text="Width (meters)" />
                 <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
+                <check key="lit" text="Lit" default="off" /> 
+                <text key="width" text="Width (meters)" />
             </optional>
         </item>
-        <item name="Living Street" icon="presets/living_street.png" type="way">
+        <item name="Living Street" icon="presets/living_street.png" type="way,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:highway=living_street"
                   de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:highway=living_street"
                   es.href="http://wiki.openstreetmap.org/wiki/ES:Tag:highway=living_street"
@@ -452,16 +475,17 @@ Note that for a match, at least one positive and no negative is required.
             <key key="highway" value="living_street" />
             <text key="name" text="Name" />
             <optional>
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <combo key="lanes" text="Lanes" values="1,2,3,4,5" length="3" />
+                <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="oneway" text="Oneway" default="off" />
                 <check key="bridge" text="Bridge" default="off" />
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
-                <check key="lit" text="Lit" default="off" /> 
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
-                <text key="width" text="Width (meters)" />
                 <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
+                <check key="lit" text="Lit" default="off" /> 
+                <text key="width" text="Width (meters)" />
             </optional>
         </item>
         <item name="Pedestrian" icon="presets/pedestrian.png" type="way,closedway,relation">
@@ -479,19 +503,20 @@ Note that for a match, at least one positive and no negative is required.
             <key key="highway" value="pedestrian" />
             <text key="name" text="Name" />
             <optional>
-                <check key="oneway" text="Oneway" default="off" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <combo key="lanes" text="Lanes" values="1,2,3,4,5" length="3" />
+                <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
+                <check key="area" text="Area" default="off" />
                 <check key="bridge" text="Bridge" default="off" />
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
-                <check key="lit" text="Lit" default="off" /> 
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
-                <text key="width" text="Width (meters)" />
                 <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
+                <check key="lit" text="Lit" default="off" /> 
+                <text key="width" text="Width (meters)" />
             </optional>
         </item>
-        <item name="Service" icon="presets/way_unclassified.png" type="way">
+        <item name="Service" icon="presets/way_unclassified.png" type="way,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:highway=service"
                   de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:highway=service"
                   fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:highway=service"
@@ -506,21 +531,22 @@ Note that for a match, at least one positive and no negative is required.
             <optional>
                 <combo key="service" text="Serviceway type" values="alley,driveway,parking_aisle" />
                 <text key="name" text="Name" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <combo key="lanes" text="Lanes" values="1,2,3,4,5" length="3" />
+                <text key="maxspeed" text="Max. speed (km/h)" />
+                <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="oneway" text="Oneway" default="off" />
                 <check key="bridge" text="Bridge" default="off" />
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
+                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
                 <check key="lit" text="Lit" default="off" /> 
                 <check key="passing_places" text="Passing Places" default="off" />
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
-                <text key="maxspeed" text="Max. speed (km/h)" />
                 <text key="width" text="Width (meters)" />
-                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
             </optional>
         </item>
-        <item name="Parking Aisle" icon="presets/way_unclassified.png" type="way">
+        <item name="Parking Aisle" icon="presets/way_unclassified.png" type="way,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:service=parking_aisle"
                   de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:service=parking_aisle"
                   fi.href="http://wiki.openstreetmap.org/wiki/Fi:Tag:service=parking_aisle"
@@ -533,12 +559,12 @@ Note that for a match, at least one positive and no negative is required.
             <key key="highway" value="service" />
             <key key="service" value="parking_aisle" />
             <optional>
-                <check key="oneway" text="Oneway" default="off" />
                 <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
+                <check key="oneway" text="Oneway" default="off" />
                 <check key="lit" text="Lit" default="off" /> 
             </optional>
         </item>
-        <item name="Road (Unknown Type)" icon="presets/way_unclassified.png" type="way">
+        <item name="Road (Unknown Type)" icon="presets/way_unclassified.png" type="way,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:highway=road"
                   de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:highway=road"
                   fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:highway=road"
@@ -551,20 +577,21 @@ Note that for a match, at least one positive and no negative is required.
             <key key="highway" value="road" />
             <optional>
                 <text key="name" text="Name" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <combo key="lanes" text="Lanes" values="1,2,3,4,5" length="3" />
+                <text key="maxspeed" text="Max. speed (km/h)" />
+                <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="oneway" text="Oneway" default="off" />
                 <check key="bridge" text="Bridge" default="off" />
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
-                <check key="lit" text="Lit" default="off" /> 
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
-                <text key="maxspeed" text="Max. speed (km/h)" />
-                <text key="width" text="Width (meters)" />
                 <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
+                <check key="lit" text="Lit" default="off" /> 
+                <text key="width" text="Width (meters)" />
             </optional>
         </item>
-        <item name="Construction" icon="presets/construction.png" type="way">
+        <item name="Construction" icon="presets/construction.png" type="way,closedway">
             <label text="Edit Highway Under Construction" />
             <link href="http://wiki.openstreetmap.org/wiki/Tag:highway=construction"
                   de.href="http://wiki.openstreetmap.org/wiki/DE:Key:construction"
@@ -576,18 +603,19 @@ Note that for a match, at least one positive and no negative is required.
             <key key="highway" value="construction" />
             <optional>
                 <text key="name" text="Name" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <combo key="lanes" text="Lanes" values="1,2,3,4,5" length="3" />
+                <text key="maxspeed" text="Max. speed (km/h)" />
+                <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="oneway" text="Oneway" default="off" />
                 <check key="bridge" text="Bridge" default="off" />
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
-                <check key="lit" text="Lit" default="off" /> 
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
-                <combo key="junction" text="Junction" values="roundabout,jughandle,yes" />
-                <text key="maxspeed" text="Max. speed (km/h)" />
-                <text key="width" text="Width (meters)" />
                 <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
+                <check key="lit" text="Lit" default="off" /> 
+                <combo key="junction" text="Junction" values="roundabout,jughandle,yes" />
+                <text key="width" text="Width (meters)" />
             </optional>
         </item>
         <separator/>
@@ -650,15 +678,15 @@ Note that for a match, at least one positive and no negative is required.
             <combo key="highway" text="Type" values="motorway,motorway_link,trunk,trunk_link,primary,primary_link,secondary,tertiary,unclassified,residential,living_street,service,bus_guideway,construction" />
             <optional>
                 <text key="name" text="Name" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <combo key="lanes" text="Lanes" values="1,2,3,4,5" length="3" />
                 <check key="oneway" text="Oneway" default="off" />
                 <check key="bridge" text="Bridge" default="off" />
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <combo key="lanes" text="Lanes" values="1,2,3,4,5" />
-                <text key="width" text="Width (meters)" />
                 <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
+                <text key="width" text="Width (meters)" />
             </optional>
         </item>
         <item name="Bridge" icon="presets/bridge.png" type="way">
@@ -676,32 +704,11 @@ Note that for a match, at least one positive and no negative is required.
             <combo key="bridge" text="Bridge" values="yes,viaduct,swing,aqueduct" match="key!" default="yes" />
             <optional>
                 <text key="name" text="Name" />
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" default="1" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" default="1" length="3" />
                 <text key="maxspeed" text="Max. speed (km/h)" />
                 <text key="maxweight" text="Max. weight (tonnes)" />
-                <text key="width" text="Width (meters)" />
                 <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
-            </optional>
-        </item>
-        <item name="Tunnel" icon="presets/tunnel.png" type="way">
-            <label text="Edit Tunnel"/>
-            <link href="http://wiki.openstreetmap.org/wiki/Key:tunnel"
-                  de.href="http://wiki.openstreetmap.org/wiki/DE:Key:tunnel"
-                  fi.href="http://wiki.openstreetmap.org/wiki/Fi:Key:tunnel"
-                  fr.href="http://wiki.openstreetmap.org/wiki/FR:Key:tunnel"
-                  it.href="http://wiki.openstreetmap.org/wiki/IT:Key:tunnel"
-                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Key:tunnel"
-                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Key:tunnel"
-                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Key:tunnel"
-                  uk.href="http://wiki.openstreetmap.org/wiki/Uk:Key:tunnel" />
-            <space />
-            <key key="tunnel" value="yes" />
-            <optional>
-                <text key="name" text="Name" />
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" default="-1" />
-                <text key="maxspeed" text="Max. speed (km/h)" />
                 <text key="width" text="Width (meters)" />
-                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
             </optional>
         </item>
         <item name="Ford" icon="presets/ford.png" type="node,way">
@@ -718,7 +725,7 @@ Note that for a match, at least one positive and no negative is required.
         </item>
     </group> <!-- Streets -->
     <group name="Ways" icon="presets/way_unclassified.png">
-        <item name="Track" icon="presets/track1.png" type="way">
+        <item name="Track" icon="presets/track1.png" type="way,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:highway=track"
                   da.href="http://wiki.openstreetmap.org/wiki/Da:Tag:highway=track"
                   de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:highway=track"
@@ -730,29 +737,29 @@ Note that for a match, at least one positive and no negative is required.
                   sv.href="http://wiki.openstreetmap.org/wiki/Sv:Tag:highway=track"
                   uk.href="http://wiki.openstreetmap.org/wiki/Uk:Tag:highway=track" />
             <label text="Edit Track" />
+            <combo key="tracktype" text="Tracktype" values="grade1,grade2,grade3,grade4,grade5" />
             <space />
             <key key="highway" value="track" />
             <optional>
                 <text key="name" text="Name" />
-                <combo key="tracktype" text="Tracktype" values="grade1,grade2,grade3,grade4,grade5" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
                 <combo key="surface" text="Surface" values="paved,concrete,cobblestone,gravel,ground,grass,sand" />
-                <combo key="mtb:scale" text="MTB Scale" values="0,1,2,3,4,5" />
+                <check key="oneway" text="Oneway" default="off" />
                 <check key="bridge" text="Bridge" default="off" />
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
+                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
                 <check key="lit" text="Lit" default="off" /> 
-                <check key="oneway" text="Oneway" default="off" />
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
+                <combo key="mtb:scale" text="MTB Scale" values="0,1,2,3,4,5" />
                 <combo key="access" text="General access" values="yes,official,designated,destination,delivery,permissive,private,agricultural,forestry,no" />
                 <combo key="motor_vehicle" text="Motor vehicles" values="yes,official,designated,destination,delivery,permissive,private,agricultural,forestry,no" />
                 <combo key="motorcycle" text="Motorcycle" values="yes,official,designated,destination,delivery,permissive,private,agricultural,forestry,no" />
                 <combo key="motorcar" text="Motorcar" values="yes,official,designated,destination,delivery,permissive,private,agricultural,forestry,no" />
                 <text key="width" text="Width (meters)" />
-                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
             </optional>
         </item>
-        <item name="Path" icon="presets/path.png" type="way">
+        <item name="Path" icon="presets/path.png" type="way,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:highway=path"
                   de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:highway=path"
                   fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:highway=path"
@@ -766,6 +773,15 @@ Note that for a match, at least one positive and no negative is required.
             <key key="highway" value="path" />
             <optional>
                 <text key="name" text="Name" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
+                <check key="oneway" text="Oneway" default="off" />
+                <check key="bridge" text="Bridge" default="off" />
+                <check key="tunnel" text="Tunnel" default="off" />
+                <check key="cutting" text="Cutting" default="off" />
+                <check key="embankment" text="Embankment" default="off" />
+                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
+                <check key="lit" text="Lit" default="off" /> 
                 <combo key="sac_scale" text="SAC Scale">
                     <list_entry value="hiking" display_value="T1 - hiking trail" short_description="Trail well cleared. Area flat or slightly sloped, no fall hazard" />
                     <list_entry value="mountain_hiking" display_value="T2 - mountain hiking trail" short_description="Trail with continuous line and balanced ascent. Terrain partially steep, fall hazard possible" />
@@ -775,14 +791,7 @@ Note that for a match, at least one positive and no negative is required.
                     <list_entry value="difficult_alpine_hiking" display_value="T6 - hazardous alpine trail with climbing" short_description="climbing up to second grade. Often very exposed, precarious jagged rocks, glacier with danger to slip and fall" />
                 </combo>
                 <combo key="mtb:scale" text="MTB Scale" values="0,1,2,3,4,5" />
-                <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <combo key="trail_visibility" text="Visibility" values="excellent,good,intermediate,bad,horrible,no" />
-                <check key="bridge" text="Bridge" default="off" />
-                <check key="tunnel" text="Tunnel" default="off" />
-                <check key="cutting" text="Cutting" default="off" />
-                <check key="embankment" text="Embankment" default="off" />
-                <check key="lit" text="Lit" default="off" /> 
-                <check key="oneway" text="Oneway" default="off" />
                 <combo key="foot" text="Foot" values="yes,official,designated,permissive,destination,delivery,private,no" />
                 <combo key="bicycle" text="Bicycle" values="yes,official,designated,permissive,destination,delivery,private,no" />
                 <combo key="horse" text="Horse" values="yes,official,designated,permissive,destination,delivery,private,no" />
@@ -790,10 +799,7 @@ Note that for a match, at least one positive and no negative is required.
                 <combo key="ski" text="Ski" values="yes,official,designated,permissive,private,no" />
                 <combo key="snowmobile" text="Snowmobile" values="yes,official,designated,permissive,destination,delivery,private,no" />
                 <!-- <combo key="motorcar" text="Motorcar" values="yes,designated,no" default="no" /> -->
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <text key="maxspeed" text="Max. speed (km/h)" />
                 <text key="width" text="Width (meters)" />
-                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
             </optional>
         </item>
         <separator/>
@@ -809,17 +815,17 @@ Note that for a match, at least one positive and no negative is required.
             <key key="highway" value="bridleway" />
             <optional>
                 <text key="name" text="Name" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <text key="maxspeed" text="Max. speed (km/h)" />
                 <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="oneway" text="Oneway" default="off" />
                 <check key="bridge" text="Bridge" default="off" />
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
-                <check key="lit" text="Lit" default="off" /> 
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <text key="maxspeed" text="Max. speed (km/h)" />
-                <text key="width" text="Width (meters)" />
                 <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
+                <check key="lit" text="Lit" default="off" /> 
+                <text key="width" text="Width (meters)" />
             </optional>
         </item>
         <item name="Cycle Lane" type="way">
@@ -854,17 +860,17 @@ Note that for a match, at least one positive and no negative is required.
             <key key="highway" value="cycleway" />
             <optional>
                 <text key="name" text="Name" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
                 <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="oneway" text="Oneway" default="off" />
                 <check key="bridge" text="Bridge" default="off" />
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
+                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
                 <check key="lit" text="Lit" default="off" /> 
                 <combo key="foot" text="Pedestrians" values="unknown,yes,no" />
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
                 <text key="width" text="Width (meters)" />
-                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
             </optional>
         </item>
         <item name="Segregated Foot- and Cycleway" icon="presets/foot_and_cycleway_segregated.png" type="way">
@@ -879,16 +885,16 @@ Note that for a match, at least one positive and no negative is required.
             <key key="segregated" value="yes" />
             <optional>
                 <text key="name" text="Name" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
                 <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="oneway" text="Oneway" default="off" />
                 <check key="bridge" text="Bridge" default="off" />
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
-                <check key="lit" text="Lit" default="off" /> 
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
-                <text key="width" text="Width (meters)" />
                 <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
+                <check key="lit" text="Lit" default="off" /> 
+                <text key="width" text="Width (meters)" />
             </optional>
         </item>
         <item name="Combined Foot- and Cycleway" icon="presets/foot_and_cycleway_combined.png" type="way">
@@ -903,17 +909,17 @@ Note that for a match, at least one positive and no negative is required.
             <key key="segregated" value="no" />
             <optional>
                 <text key="name" text="Name" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
                 <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="oneway" text="Oneway" default="off" />
                 <check key="bridge" text="Bridge" default="off" />
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
+                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
                 <check key="lit" text="Lit" default="off" /> 
                 <check key="passing_places" text="Passing Places" default="off" />
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
                 <text key="width" text="Width (meters)" />
-                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
             </optional>
         </item>
         <item name="Dedicated Footway" icon="presets/footway.png" type="way">
@@ -929,16 +935,16 @@ Note that for a match, at least one positive and no negative is required.
             <key key="highway" value="footway" />
             <optional>
                 <text key="name" text="Name" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
                 <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <check key="bridge" text="Bridge" default="off" />
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
+                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
                 <check key="lit" text="Lit" default="off" /> 
                 <check key="passing_places" text="Passing Places" default="off" />
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
                 <text key="width" text="Width (meters)" />
-                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
             </optional>
         </item>
         <item name="Steps" icon="presets/steps.png" type="way">
@@ -954,16 +960,16 @@ Note that for a match, at least one positive and no negative is required.
             <key key="highway" value="steps" />
             <optional>
                 <text key="name" text="Name" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
                 <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
+                <text key="step_count" text="Amount of Steps" />
                 <check key="oneway" text="Oneway" default="off" />
                 <check key="bridge" text="Bridge" default="off" />
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
                 <check key="lit" text="Lit" default="off" /> 
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
                 <text key="width" text="Width (meters)" />
-                <text key="step_count" text="Amount of Steps" />
             </optional>
         </item>
     </group> <!-- Ways -->
@@ -1015,8 +1021,11 @@ Note that for a match, at least one positive and no negative is required.
             </optional>
         </item>
         <item name="Emergency Phone" icon="presets/telephone.png" type="node">
-            <link href="http://wiki.openstreetmap.org/wiki/Proposed_features/emergency_phone" />
-            <key key="amenity" value="emergency_phone" />
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:emergency=phone" 
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:emergency=phone"
+                  fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:emergency=phone"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:emergency=phone" />
+            <key key="emergency" value="phone" />
         </item>
         <separator/>
         <item name="Traffic Signal" icon="presets/traffic-light.png" type="node">
@@ -1066,7 +1075,7 @@ Note that for a match, at least one positive and no negative is required.
             <check key="supervised" text="Crossing attendant" default="off" />
             <combo key="crossing_ref" text="Type name (UK)" values="zebra,pelican,toucan,puffin,pegasus,tiger" />
         </item>
-        <item name="Traffic Calming" icon="presets/chicane.png" type="node">
+        <item name="Traffic Calming" icon="presets/chicane.png" type="node,way">
             <link href="http://wiki.openstreetmap.org/wiki/Key:traffic_calming"
                   es.href="http://wiki.openstreetmap.org/wiki/ES:Key:traffic_calming"
                   fi.href="http://wiki.openstreetmap.org/wiki/Fi:Key:traffic_calming"
@@ -1076,7 +1085,7 @@ Note that for a match, at least one positive and no negative is required.
                   pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Key:traffic_calming"
                   ru.href="http://wiki.openstreetmap.org/wiki/RU:Key:traffic_calming"/>
             <label text="Edit Traffic Calming" />
-            <combo key="traffic_calming" text="Type" values="yes,bump,chicane,choker,cushion,hump,table" match="key" />
+            <combo key="traffic_calming" text="Type" values="yes,bump,chicane,choker,cushion,hump,island,rumble_strip,table" match="key" />
         </item>
         <item name="Passing Place" icon="presets/passingplace.png" type="node">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:highway=passing_place"
@@ -1141,6 +1150,20 @@ Note that for a match, at least one positive and no negative is required.
     <group name="Barriers" icon="presets/barrier.png">
 
         <!-- *** node barriers *** -->
+        <item name="Block" icon="presets/block.png" type="node,way,closedway">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:barrier=block"
+                  pl.href="http://wiki.openstreetmap.org/wiki/Pl:Tag:barrier=block"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:barrier=block" />
+            <label text="Edit Block" />
+            <space />
+            <key key="barrier" value="block" />
+            <label text="Allowed traffic:" />
+            <space />
+            <check key="foot" text="Foot" default="on" />
+            <check key="bicycle" text="Bicycle" default="on" />
+            <check key="horse" text="Horse" default="off" />
+            <check key="motorcycle" text="Motorcycle" default="off" />
+        </item> <!-- block -->
         <item name="Bollard" icon="presets/bollard.png" type="node,way">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:barrier=bollard"
                   de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:barrier=bollard"
@@ -1157,9 +1180,18 @@ Note that for a match, at least one positive and no negative is required.
             <check key="bicycle" text="Bicycle" default="on" />
             <check key="horse" text="Horse" default="off" />
             <check key="motorcycle" text="Motorcycle" default="off" />
+            <optional>
+                <text key="maxwidth" text="Max. width (meters)" length="7" />
+                <combo key="bollard" text="Bollard type" values="rising,removable" />
+            </optional>
         </item> <!-- bollard -->
         <item name="Cycle Barrier" icon="styles/standard/vehicle/cycle_barrier.png" type="node">
-            <link href="http://de.wikipedia.org/wiki/Umlaufgitter" />
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:barrier=cycle_barrier"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:barrier=cycle_barrier"
+                  fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:barrier=cycle_barrier"
+                  pl.href="http://wiki.openstreetmap.org/wiki/Pl:Tag:barrier=cycle_barrier" />
+            <label text="Edit Cycle Barrier" />
+            <space />
             <key key="barrier" value="cycle_barrier" />
             <label text="Allowed traffic:" />
             <space />
@@ -1167,16 +1199,10 @@ Note that for a match, at least one positive and no negative is required.
             <check key="bicycle" text="Bicycle" default="on" />
             <check key="horse" text="Horse" default="off" />
             <check key="motorcycle" text="Motorcycle" default="off" />
+            <optional>
+                <text key="maxwidth" text="Max. width (meters)" length="7" />
+            </optional>
         </item> <!-- cycle_barrier -->
-        <item name="Block" icon="presets/block.png" type="node,way,closedway">
-            <key key="barrier" value="block" />
-            <label text="Allowed traffic:" />
-            <space />
-            <check key="foot" text="Foot" default="on" />
-            <check key="bicycle" text="Bicycle" default="on" />
-            <check key="horse" text="Horse" default="off" />
-            <check key="motorcycle" text="Motorcycle" default="off" />
-        </item> <!-- block -->
         <item name="Cattle Grid" icon="presets/cattle_grid.png" type="node">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:highway=cattle_grid" />
             <label text="Edit Cattle Grid" />
@@ -1190,7 +1216,14 @@ Note that for a match, at least one positive and no negative is required.
             <check key="motorcar" text="Motorcar" default="off" />
         </item> <!-- cattle_grid -->
         <item name="Bus Trap" icon="presets/empty.png" type="node">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:barrier=bus_trap"
+                  pl.href="http://wiki.openstreetmap.org/wiki/Pl:Tag:barrier=bus_trap" />
+            <label text="Edit Bus Trap" />
+            <space />
             <key key="barrier" value="bus_trap" />
+            <optional>
+                <text key="maxwidth" text="Max. width (meters)" length="7" />
+            </optional>
         </item> <!-- bus_trap -->
         <item name="Spikes" icon="presets/empty.png" type="node">
             <label text="Edit Spikes" />
@@ -1208,8 +1241,11 @@ Note that for a match, at least one positive and no negative is required.
             <link href="http://wiki.openstreetmap.org/wiki/Tag:barrier=toll_booth"
                   de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:barrier=toll_booth"
                   it.href="http://wiki.openstreetmap.org/wiki/IT:Tag:barrier=toll_booth"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:barrier=toll_booth"
+                  pl.href="http://wiki.openstreetmap.org/wiki/Pl:Tag:barrier=toll_booth"
                   pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:barrier=toll_booth"
-                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:barrier=toll_booth" />
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:barrier=toll_booth"
+                  zh_CN.href="http://wiki.openstreetmap.org/wiki/Zh-hans:Tag:barrier=toll_booth" />
             <label text="Edit Toll Booth" />
             <space />
             <key key="barrier" value="toll_booth" />
@@ -1239,9 +1275,18 @@ Note that for a match, at least one positive and no negative is required.
                   fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:barrier=hedge"
                   ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:barrier=hedge"
                   nl.href="http://wiki.openstreetmap.org/wiki/NL:Tag:barrier=hedge"
+                  pl.href="http://wiki.openstreetmap.org/wiki/Pl:Tag:barrier=hedge"
                   pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:barrier=hedge"
                   ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:barrier=hedge" />
+            <label text="Edit Hedge" />
+            <space />
             <key key="barrier" value="hedge" />
+            <optional>
+                <text key="height" text="Height (meters)" length="7" />
+                <text key="genus" text="Genus" />
+                <text key="species" text="Species" />
+                <text key="taxon" text="Taxon" />
+            </optional>
         </item> <!-- hedge -->
         <item name="Fence" icon="presets/fence.png" type="way,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:barrier=fence"
@@ -1252,19 +1297,51 @@ Note that for a match, at least one positive and no negative is required.
                   pl.href="http://wiki.openstreetmap.org/wiki/Pl:Tag:barrier=fence"
                   pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:barrier=fence"
                   ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:barrier=fence" />
+            <label text="Edit Fence" />
+            <space />
             <key key="barrier" value="fence" />
             <optional>
+<!--                <combo key="fence_type" text="Type" values="barbed_wire,chain_link,electric,roundpole,split_rail,wood" /> -->
                 <combo key="fence_type" text="Type" values="barbed_wire,chain,electric,hedge,pole,split_rail,wood" />
+                <text key="height" text="Height (meters)" length="7" />
             </optional>
         </item> <!-- fence -->
+        <item name="Guard Rail" type="way">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:barrier=guard_rail" />
+            <label text="Edit Guard Rail" />
+            <space />
+            <key key="barrier" value="guard_rail" />
+            <optional>
+                <text key="height" text="Height (meters)" length="7" />
+            </optional>
+        </item> <!-- guard_rail -->
         <item name="Wall" icon="presets/wall.png" type="way,closedway">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:barrier=wall"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:barrier=wall"
+                  fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:barrier=wall"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:barrier=wall"
+                  pl.href="http://wiki.openstreetmap.org/wiki/Pl:Tag:barrier=wall"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:barrier=wall"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:barrier=wall"
+                  zh_CN.href="http://wiki.openstreetmap.org/wiki/Zh-hans:Tag:barrier=wall" />
+            <label text="Edit Wall" />
+            <space />
             <key key="barrier" value="wall" />
+            <optional>
+                <text key="height" text="Height (meters)" length="7" />
+            </optional>
         </item> <!-- wall -->
         <item name="City Wall" icon="presets/city_wall.png" type="way,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:barrier=city_wall"
+                  pl.href="http://wiki.openstreetmap.org/wiki/Pl:Tag:barrier=city_wall"
                   pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:barrier=city_wall"
                   ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:barrier=city_wall" />
+            <label text="Edit City Wall" />
+            <space />
             <key key="barrier" value="city_wall" />
+            <optional>
+                <text key="height" text="Height (meters)" length="7" />
+            </optional>
         </item> <!-- city_wall -->
         <item name="Retaining Wall" icon="presets/retaining_wall.png" type="way,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:barrier=retaining_wall"
@@ -1273,22 +1350,41 @@ Note that for a match, at least one positive and no negative is required.
                   pl.href="http://wiki.openstreetmap.org/wiki/Pl:Tag:barrier=retaining_wall"
                   pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:barrier=retaining_wall"
                   ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:barrier=retaining_wall" />
+            <label text="Edit Retaining Wall" />
+            <space />
             <key key="barrier" value="retaining_wall" />
+            <optional>
+                <text key="height" text="Height (meters)" length="7" />
+            </optional>
         </item> <!-- retaining_wall -->
-        <item name="Ditch" type="way">
+        <item name="Ditch" name_context="Barrier" type="way">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:barrier=ditch"
                   it.href="http://wiki.openstreetmap.org/wiki/IT:Tag:barrier=ditch"
+                  pl.href="http://wiki.openstreetmap.org/wiki/Pl:Tag:barrier=ditch"
                   pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:barrier=ditch"
                   ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:barrier=ditch" />
+            <label text="Edit Ditch" />
+            <space />
             <key key="barrier" value="ditch" />
             <optional>
-                <text key="width" text="Width (meters)" />
+                <text key="width" text="Width (meters)" length="7" />
             </optional>
         </item> <!-- ditch -->
+        <item name="Kerb" type="way,closedway">
+            <label text="Edit Kerb" />
+            <space />
+            <key key="barrier" value="kerb" />
+            <optional>
+                <text key="height" text="Height (meters)" length="7" />
+            </optional>
+        </item> <!-- kerb -->
         <separator/>
 
         <!-- *** access *** -->
         <item name="Entrance" icon="styles/standard/vehicle/entrance.png" type="node">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:barrier=entrance"
+                  pl.href="http://wiki.openstreetmap.org/wiki/Pl:Tag:barrier=entrance"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:barrier=entrance" />
             <label text="Edit Entrance" />
             <space />
             <key key="barrier" value="entrance" />
@@ -1299,11 +1395,15 @@ Note that for a match, at least one positive and no negative is required.
             <check key="horse" text="Horse" default="off" />
             <check key="motorcycle" text="Motorcycle" default="off" />
             <check key="motorcar" text="Motorcar" default="off" />
+            <optional>
+                <text key="maxwidth" text="Max. width (meters)" length="7" />
+            </optional>
         </item> <!-- entrance -->
         <item name="Gate" icon="presets/gate.png" type="node">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:barrier=gate"
                   fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:barrier=gate"
                   ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:barrier=gate"
+                  pl.href="http://wiki.openstreetmap.org/wiki/Pl:Tag:barrier=gate"
                   pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:barrier=gate"
                   ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:barrier=gate" />
             <label text="Edit Gate" />
@@ -1316,8 +1416,17 @@ Note that for a match, at least one positive and no negative is required.
             <check key="horse" text="Horse" default="off" />
             <check key="motorcycle" text="Motorcycle" default="off" />
             <check key="motorcar" text="Motorcar" default="off" />
+            <optional>
+                <text key="maxwidth" text="Max. width (meters)" length="7" />
+            </optional>
         </item> <!-- gate -->
         <item name="Lift Gate" icon="presets/lift_gate.png" type="node">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:barrier=lift_gate"
+                  de.href="http://wiki.openstreetmap.org/wiki/FR:Tag:barrier=lift_gate"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:barrier=lift_gate"
+                  pl.href="http://wiki.openstreetmap.org/wiki/Pl:Tag:barrier=lift_gate"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:barrier=lift_gate"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:barrier=lift_gate" />
             <label text="Edit Lift Gate" />
             <space />
             <key key="barrier" value="lift_gate" />
@@ -1328,6 +1437,9 @@ Note that for a match, at least one positive and no negative is required.
             <check key="horse" text="Horse" default="off" />
             <check key="motorcycle" text="Motorcycle" default="off" />
             <check key="motorcar" text="Motorcar" default="off" />
+            <optional>
+                <text key="maxwidth" text="Max. width (meters)" length="7" />
+            </optional>
         </item> <!-- lift_gate -->
         <item name="Hampshire Gate" icon="presets/empty.png" type="node">
             <label text="Edit Hampshire Gate" />
@@ -1340,6 +1452,9 @@ Note that for a match, at least one positive and no negative is required.
             <check key="horse" text="Horse" default="off" />
             <check key="motorcycle" text="Motorcycle" default="off" />
             <check key="motorcar" text="Motorcar" default="off" />
+            <optional>
+                <text key="maxwidth" text="Max. width (meters)" length="7" />
+            </optional>
         </item> <!-- hampshire_gate -->
         <item name="Bump Gate" icon="presets/empty.png" type="node">
             <label text="Edit Bump Gate" />
@@ -1352,8 +1467,12 @@ Note that for a match, at least one positive and no negative is required.
             <check key="horse" text="Horse" default="off" />
             <check key="motorcycle" text="Motorcycle" default="off" />
             <check key="motorcar" text="Motorcar" default="off" />
+            <optional>
+                <text key="maxwidth" text="Max. width (meters)" length="7" />
+            </optional>
         </item> <!-- bump_gate -->
         <item name="Kissing Gate" icon="presets/empty.png" type="node">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:barrier=kissing_gate" />
             <label text="Edit Kissing Gate" />
             <space />
             <key key="barrier" value="kissing_gate" />
@@ -1361,18 +1480,45 @@ Note that for a match, at least one positive and no negative is required.
             <space />
             <check key="foot" text="Foot" default="on" />
             <check key="bicycle" text="Bicycle" default="off" />
+            <optional>
+                <text key="maxwidth" text="Max. width (meters)" length="7" />
+            </optional>
         </item> <!-- kissing_gate -->
+        <item name="Chain" type="node">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:barrier=chain"
+                  pl.href="http://wiki.openstreetmap.org/wiki/Pl:Tag:barrier=chain" />
+            <label text="Edit Chain" />
+            <space />
+            <key key="barrier" value="chain" />
+            <label text="Allowed traffic:" />
+            <space />
+            <check key="foot" text="Foot" default="on" />
+            <check key="bicycle" text="Bicycle" default="on" />
+            <check key="horse" text="Horse" default="off" />
+            <check key="motorcycle" text="Motorcycle" default="off" />
+            <check key="motorcar" text="Motorcar" default="off" />
+            <optional>
+                <text key="maxwidth" text="Max. width (meters)" length="7" />
+            </optional>
+        </item> <!-- chain -->
         <item name="Stile" icon="presets/stile.png" type="node">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:highway=stile" />
             <label text="Edit Stile" />
             <space />
             <key key="barrier" value="stile" />
+            <optional>
+                <combo key="stile" text="Type" values="ladder,squeezer,stepover" />
+                <combo key="material" text="Material" values="metal,stone,wood" />
+            </optional>
             <label text="Allowed traffic:" />
             <space />
             <check key="foot" text="Foot" default="on" />
             <check key="bicycle" text="Bicycle" default="off" />
         </item> <!-- stile -->
         <item name="Turnstile" icon="styles/standard/vehicle/turnstile.png" type="node">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:highway=stile"
+                  pl.href="http://wiki.openstreetmap.org/wiki/Pl:Tag:highway=stile"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:highway=stile" />
             <label text="Edit Turnstile" />
             <space />
             <key key="barrier" value="turnstile" />
@@ -1382,6 +1528,9 @@ Note that for a match, at least one positive and no negative is required.
             <check key="bicycle" text="Bicycle" default="off" />
         </item> <!-- turnstile -->
         <item name="Sally Port" icon="styles/standard/vehicle/sally_port.png" type="node">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:highway=sally_port"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:highway=sally_port"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:highway=sally_port" />
             <label text="Edit Sally Port" />
             <space />
             <key key="barrier" value="sally_port" />
@@ -1392,10 +1541,114 @@ Note that for a match, at least one positive and no negative is required.
             <check key="horse" text="Horse" default="off" />
             <check key="motorcycle" text="Motorcycle" default="off" />
             <check key="motorcar" text="Motorcar" default="off" />
+            <optional>
+                <text key="maxheight" text="Max. height (meters)" length="7" />
+                <text key="maxwidth" text="Max. width (meters)" length="7" />
+            </optional>
         </item> <!-- sally_port -->
 
     </group> <!-- Barriers -->
-  </group>
+    <group name="Passageways" icon="presets/tunnel.png">
+        <item name="Tunnel" icon="presets/tunnel.png" type="way">
+            <label text="Edit Tunnel"/>
+            <link href="http://wiki.openstreetmap.org/wiki/Key:tunnel"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Key:tunnel"
+                  fi.href="http://wiki.openstreetmap.org/wiki/Fi:Key:tunnel"
+                  fr.href="http://wiki.openstreetmap.org/wiki/FR:Key:tunnel"
+                  it.href="http://wiki.openstreetmap.org/wiki/IT:Key:tunnel"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Key:tunnel"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Key:tunnel"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Key:tunnel"
+                  uk.href="http://wiki.openstreetmap.org/wiki/Uk:Key:tunnel" />
+            <space />
+            <key key="tunnel" value="yes" />
+            <optional>
+                <text key="name" text="Name" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" default="-1" length="3" />
+                <text key="maxspeed" text="Max. speed (km/h)" />
+                <text key="width" text="Width (meters)" />
+                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
+            </optional>
+        </item>
+        <item name="Building Passage" icon="presets/tunnel.png" type="way">
+            <label text="Edit Building Passage"/>
+            <link href="http://wiki.openstreetmap.org/wiki/Key:tunnel"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Key:tunnel"
+                  fi.href="http://wiki.openstreetmap.org/wiki/Fi:Key:tunnel"
+                  fr.href="http://wiki.openstreetmap.org/wiki/FR:Key:tunnel"
+                  it.href="http://wiki.openstreetmap.org/wiki/IT:Key:tunnel"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Key:tunnel"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Key:tunnel"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Key:tunnel"
+                  uk.href="http://wiki.openstreetmap.org/wiki/Uk:Key:tunnel" />
+            <space />
+            <key key="tunnel" value="building_passage" />
+            <optional>
+                <text key="name" text="Name" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <text key="maxspeed" text="Max. speed (km/h)" />
+                <text key="width" text="Width (meters)" />
+                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
+            </optional>
+        </item>
+        <item name="Arcade" type="way">
+            <label text="Edit Arcade"/>
+            <link href="http://wiki.openstreetmap.org/wiki/Key:covered"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Key:covered"
+                  it.href="http://wiki.openstreetmap.org/wiki/IT:Key:covered"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Key:covered"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Key:covered" />
+            <space />
+            <key key="covered" value="arcade" />
+            <check key="arcade:left" value_on="open" text="Open on left side" />
+            <check key="arcade:right" value_on="open" text="Open on right side" />
+            <optional>
+                <text key="name" text="Name" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <text key="width" text="Width (meters)" />
+            </optional>
+        </item>
+        <item name="Colonnade" type="way">
+            <label text="Edit Colonnade"/>
+            <link href="http://wiki.openstreetmap.org/wiki/Key:covered"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Key:covered"
+                  it.href="http://wiki.openstreetmap.org/wiki/IT:Key:covered"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Key:covered"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Key:covered" />
+            <space />
+            <key key="covered" value="colonnade" />
+            <check key="colonnade:left" value_on="open" text="Open on left side" />
+            <check key="colonnade:right" value_on="open" text="Open on right side" />
+            <optional>
+                <text key="name" text="Name" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <text key="width" text="Width (meters)" />
+            </optional>
+        </item>
+        <item name="Avalanche Protector" type="way">
+            <label text="Edit Avalanche Protector"/>
+            <link href="http://wiki.openstreetmap.org/wiki/Key:tunnel"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Key:tunnel"
+                  fi.href="http://wiki.openstreetmap.org/wiki/Fi:Key:tunnel"
+                  fr.href="http://wiki.openstreetmap.org/wiki/FR:Key:tunnel"
+                  it.href="http://wiki.openstreetmap.org/wiki/IT:Key:tunnel"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Key:tunnel"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Key:tunnel"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Key:tunnel"
+                  uk.href="http://wiki.openstreetmap.org/wiki/Uk:Key:tunnel" />
+            <space />
+            <key key="tunnel" value="avalanche_protector" />
+            <check key="avalanche_protector:left" value_on="open" text="Open on left side" />
+            <check key="avalanche_protector:right" value_on="open" text="Open on right side" />
+            <optional>
+                <text key="name" text="Name" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
+                <text key="width" text="Width (meters)" />
+                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
+            </optional>
+        </item>
+    </group>
+  </group> <!-- Passageways -->
   <group name="Water" icon="presets/waterway.png">
     <group name="Water" icon="presets/waterway.png">
         <separator/>
@@ -1408,7 +1661,7 @@ Note that for a match, at least one positive and no negative is required.
             <space />
             <key key="waterway" value="drain" />
             <text key="name" text="Name" />
-            <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
+            <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
         </item>
         <item name="Ditch" icon="presets/waterway.png" type="way">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:waterway=ditch"
@@ -1419,7 +1672,7 @@ Note that for a match, at least one positive and no negative is required.
             <space />
             <key key="waterway" value="ditch" />
             <text key="name" text="Name" />
-            <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
+            <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
         </item>
         <item name="Stream" icon="presets/waterway.png" type="way">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:waterway=stream"
@@ -1433,7 +1686,7 @@ Note that for a match, at least one positive and no negative is required.
             <space />
             <key key="waterway" value="stream" />
             <text key="name" text="Name" />
-            <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
+            <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
         </item>
         <item name="Canal" icon="presets/waterway.png" type="way">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:waterway=canal"
@@ -1445,7 +1698,7 @@ Note that for a match, at least one positive and no negative is required.
             <space />
             <key key="waterway" value="canal" />
             <text key="name" text="Name" />
-            <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
+            <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
             <text key="wikipedia" text="Wikipedia" />
         </item>
         <item name="River" icon="presets/river.png" type="way">
@@ -1459,7 +1712,7 @@ Note that for a match, at least one positive and no negative is required.
             <space />
             <key key="waterway" value="river" />
             <text key="name" text="Name" />
-            <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
+            <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
             <text key="wikipedia" text="Wikipedia" />
         </item>
         <separator/>
@@ -1522,6 +1775,23 @@ Note that for a match, at least one positive and no negative is required.
             <key key="man_made" value="breakwater" />
             <text key="ref" text="Reference" />
             <text key="name" text="Name" />
+        </item>
+        <separator/>
+        <item name="Culvert" icon="presets/tunnel.png" type="way">
+            <label text="Edit Culvert"/>
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:tunnel=culvert"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:tunnel=culvert"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:tunnel=culvert"
+                  pl.href="http://wiki.openstreetmap.org/wiki/Pl:tunnel=culvert"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:tunnel=culvert" />
+            <space />
+            <key key="tunnel" value="culvert" />
+            <optional>
+                <text key="name" text="Name" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" default="-1" length="3" />
+                <text key="width" text="Width (meters)" />
+                <combo key="incline" text="Incline" values="10%,-10%,10°,-10°,up,down" />
+            </optional>
         </item>
         <separator/>
         <item name="Basin" icon="presets/landuse_water.png" type="node,closedway,relation">
@@ -1720,6 +1990,7 @@ Note that for a match, at least one positive and no negative is required.
     <group name="Railway" icon="presets/railway.png">
         <item name="Rail" icon="presets/railway.png" type="way">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:railway=rail"
+                  fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:railway=rail"
                   ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:railway=rail"
                   pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:railway=rail"
                   ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:railway=rail"
@@ -1728,29 +1999,33 @@ Note that for a match, at least one positive and no negative is required.
             <space />
             <key key="railway" value="rail" />
             <optional>
-                <combo key="usage" text="Usage" values="main,branch,industrial,military,tourism" />
+                <combo key="usage" text="Usage" values="main,branch,industrial,military,tourism,freight" />
                 <combo key="service" text="Service/Type" values="yard,siding,spur" />
-                <combo key="gauge" text="Gauge (mm)" values="1668,1676,1674,1600,1524,1520,1495,1435,1067,1000,914,762,760,750" />
+                <combo key="gauge" text="Gauge (mm)" values="1668,1676,1674,1600,1524,1520,1495,1435,1067,1000,914,762,760,750" length="4" />
                 <combo key="electrified" text="Electrified" values="contact_line,no,yes,rail" />
-                <combo key="voltage" text="Voltage" values="600,650,750,1500,3000,15000,25000" />
-                <combo key="frequency" text="Frequency (Hz)" values="0,16.7,50,60" />
+                <combo key="voltage" text="Voltage in Volts (V)" values="600,650,750,1500,3000,15000,25000" lenght="5" />
+                <combo key="frequency" text="Frequency in Hertz (Hz)" values="0,16.67,16.7" length="5" />
             </optional>
         </item>
         <item name="Narrow Gauge Rail" icon="presets/railway.png" type="way">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:railway=light_rail"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:railway=light_rail" />
             <label text="Edit Narrow Gauge Rail" />
             <space />
             <key key="railway" value="narrow_gauge" />
             <optional>
-                <combo key="gauge" text="Gauge (mm)" values="1668,1676,1674,1600,1524,1520,1495,1435,1067,1000,914,762,760,750" />
+                <combo key="usage" text="Usage" values="main,branch,industrial,military,tourism,freight" />
                 <combo key="service" text="Types" values="yard,siding,spur" />
+                <combo key="gauge" text="Gauge (mm)" values="1668,1676,1674,1600,1524,1520,1495,1435,1067,1000,914,762,760,750" length="4" />
                 <combo key="electrified" text="Electrified" values="contact_line,no,yes,rail" />
-                <combo key="voltage" text="Voltage" values="600,650,750,1500,3000,15000,25000" />
-                <combo key="frequency" text="Frequency (Hz)" values="0,16.7,50,60" />
+                <combo key="voltage" text="Voltage in Volts (V)" values="600,650,750,1500,3000,15000,25000" length="5" />
+                <combo key="frequency" text="Frequency in Hertz (Hz)" values="0,16.67,16.7" length="5" />
             </optional>
         </item>
         <item name="Monorail" icon="presets/railway.png" type="way">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:railway=monorail"
                   de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:railway=monorail"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:railway=monorail"
                   pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:railway=monorail" />
             <label text="Edit Monorail" />
             <space />
@@ -1758,56 +2033,69 @@ Note that for a match, at least one positive and no negative is required.
             <optional>
                 <combo key="service" text="Types" values="yard,siding,spur" />
                 <combo key="electrified" text="Electrified" values="contact_line,no,yes,rail" />
-                <combo key="voltage" text="Voltage" values="600,650,750,1500,3000,15000,25000" />
-                <combo key="frequency" text="Frequency (Hz)" values="0,16.7,50,60" />
+                <combo key="voltage" text="Voltage in Volts (V)" values="600,650,750,1500,3000,15000,25000" length="5" />
+                <combo key="frequency" text="Frequency in Hertz (Hz)" values="0,16.67,16.7" length="5" />
             </optional>
         </item>
         <item name="Preserved" icon="presets/rail_preserved.png" type="way">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:railway=preserved" />
             <label text="Edit Preserved Railway" />
             <space />
             <key key="railway" value="preserved" />
             <optional>
-                <combo key="gauge" text="Gauge (mm)" values="1668,1676,1674,1600,1524,1520,1495,1435,1067,1000,914,762,760,750" />
                 <combo key="service" text="Types" values="yard,siding,spur" />
+                <combo key="gauge" text="Gauge (mm)" values="1668,1676,1674,1600,1524,1520,1495,1435,1067,1000,914,762,760,750" length="4" />
                 <combo key="electrified" text="Electrified" values="contact_line,no,yes,rail" />
-                <combo key="voltage" text="Voltage" values="600,650,750,1500,3000,15000,25000" />
-                <combo key="frequency" text="Frequency (Hz)" values="0,16.7,50,60" />
+                <combo key="voltage" text="Voltage in Volts (V)" values="600,650,750,1500,3000,15000,25000" length="5" />
+                <combo key="frequency" text="Frequency in Hertz (Hz)" values="0,16.67,16.7" length="5" />
             </optional>
         </item>
         <item name="Light Rail" icon="presets/rail_light.png" type="way">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:railway=light_rail" />
             <label text="Edit Light Rail" />
             <space />
             <key key="railway" value="light_rail" />
             <optional>
-                <combo key="gauge" text="Gauge (mm)" values="1668,1676,1674,1600,1524,1520,1495,1435,1067,1000,914,762,760,750" />
                 <combo key="service" text="Types" values="yard,siding,spur" />
+                <combo key="gauge" text="Gauge (mm)" values="1668,1676,1674,1600,1524,1520,1495,1435,1067,1000,914,762,760,750" length="4" />
                 <combo key="electrified" text="Electrified" values="contact_line,no,yes,rail" />
-                <combo key="voltage" text="Voltage" values="600,650,750,1500,3000,15000,25000" />
-                <combo key="frequency" text="Frequency (Hz)" values="0,16.7,50,60" />
+                <combo key="voltage" text="Voltage in Volts (V)" values="600,650,750,1500,3000,15000,25000" length="5" />
+                <combo key="frequency" text="Frequency in Hertz (Hz)" values="0,16.67,16.7" length="5" />
             </optional>
         </item>
         <item name="Subway" icon="presets/rail_light.png" type="way">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:railway=subway"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:railway=subway"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:railway=subway"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:railway=subway" />
+            <label text="Edit Tram" />
             <label text="Edit Subway" />
             <space />
             <key key="railway" value="subway" />
             <optional>
-                <combo key="gauge" text="Gauge (mm)" values="1668,1676,1674,1600,1524,1520,1495,1435,1067,1000,914,762,760,750" />
                 <combo key="service" text="Types" values="yard,siding,spur" />
+                <combo key="gauge" text="Gauge (mm)" values="1668,1676,1674,1600,1524,1520,1495,1435,1067,1000,914,762,760,750" length="4" />
                 <combo key="electrified" text="Electrified" values="contact_line,no,yes,rail" />
-                <combo key="voltage" text="Voltage" values="600,650,750,1500,3000,15000,25000" />
-                <combo key="frequency" text="Frequency (Hz)" values="0,16.7,50,60" />
+                <combo key="voltage" text="Voltage in Volts (V)" values="600,650,750,1500,3000,15000,25000" length="5" />
+                <combo key="frequency" text="Frequency in Hertz (Hz)" values="0,16.67,16.7" length="5" />
             </optional>
         </item>
         <item name="Tram" icon="presets/tram.png" type="way">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:railway=tram"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:railway=tram"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:railway=tram"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:railway=tram"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:railway=tram"
+                  uk.href="http://wiki.openstreetmap.org/wiki/UK:Tag:railway=tram" />
             <label text="Edit Tram" />
             <space />
             <key key="railway" value="tram" />
             <optional>
-                <combo key="gauge" text="Gauge (mm)" values="1668,1676,1674,1600,1524,1520,1495,1435,1067,1000,914,762,760,750" />
                 <combo key="service" text="Types" values="yard,siding,spur" />
+                <combo key="gauge" text="Gauge (mm)" values="1668,1676,1674,1600,1524,1520,1495,1435,1067,1000,914,762,760,750" length="4" />
                 <combo key="electrified" text="Electrified" values="contact_line,no,yes,rail" />
-                <combo key="voltage" text="Voltage" values="600,650,750,1500,3000,15000,25000" />
-                <combo key="frequency" text="Frequency (Hz)" values="0,16.7,50,60" />
+                <combo key="voltage" text="Voltage in Volts (V)" values="600,650,750,1500,3000,15000,25000" length="5" />
+                <combo key="frequency" text="Frequency in Hertz (Hz)" values="0,16.67,16.7" length="5" />
             </optional>
         </item>
         <item name="Bus Guideway" icon="presets/busway.png" type="way">
@@ -1824,7 +2112,7 @@ Note that for a match, at least one positive and no negative is required.
                 <check key="tunnel" text="Tunnel" default="off" />
                 <check key="cutting" text="Cutting" default="off" />
                 <check key="embankment" text="Embankment" default="off" />
-                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
+                <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
                 <combo key="surface" text="Surface" values="paved,unpaved,asphalt,concrete,metal,wood,paving_stones,cobblestone,gravel,pebblestone,compacted,grass_paver,grass,sand,ground" />
                 <text key="maxspeed" text="Max. speed (km/h)" />
                 <text key="width" text="Width (meters)" />
@@ -1833,13 +2121,23 @@ Note that for a match, at least one positive and no negative is required.
         </item>
         <separator/>
         <item name="Disused Rail" icon="presets/railway.png" type="way">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:railway=disused" />
             <label text="Edit Disused Railway" />
             <space />
             <key key="railway" value="disused" />
-            <combo key="service" text="Optional Types" values="yard,siding,spur" />
+            <optional>
+                <combo key="service" text="Types" values="yard,siding,spur" />
+            </optional>
         </item>
         <item name="Abandoned Rail" icon="presets/railway.png" type="way">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:railway=abandoned"
+                  de.href="http://wiki.openstreetmap.org/wiki/Tag:railway=abandoned" />
+            <label text="Edit Abandoned Railway" />
+            <space />
             <key key="railway" value="abandoned" />
+            <optional>
+                <combo key="service" text="Types" values="yard,siding,spur" />
+            </optional>
         </item>
         <separator/>
         <item name="Level Crossing" icon="presets/level_crossing.png" type="node">
@@ -1854,15 +2152,30 @@ Note that for a match, at least one positive and no negative is required.
                   pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:railway=level_crossing"
                   ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:railway=level_crossing" />
             <key key="railway" value="level_crossing" />
+            <optional>
+                <check key="supervised" text="Supervised" default="off" />
+                <check key="crossing:light" text="Traffic lights" default="off" />
+                <check key="crossing:bell" text="Sound signals" default="off" />
+                <combo key="crossing:barrier" text="Barrier" values="yes,no,half,full,double_half" />
+            </optional>
         </item>
         <item name="Crossing" icon="presets/crossing.png" type="node">
-            <link href="http://wiki.openstreetmap.org/wiki/Key:crossing" />
+            <link href="http://wiki.openstreetmap.org/wiki/Key:crossing"
+                  bg.href="http://wiki.openstreetmap.org/wiki/Bg:Key:crossing"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Key:crossing"
+                  fi.href="http://wiki.openstreetmap.org/wiki/Fi:Key:crossing"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Key:crossing"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Key:crossing"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Key:crossing" />
             <key key="railway" value="crossing" />
             <optional>
-                 <combo key="crossing" text="Crossing type" values="uncontrolled,traffic_signals,island,unmarked,no,unknown" />
-                 <check key="horse" text="Cross on horseback" default="off" />
-                 <check key="bicycle" text="Cross by bicycle" default="off" />
-                 <check key="supervised" text="Crossing attendant" default="off" />
+                <combo key="crossing" text="Crossing type" values="uncontrolled,traffic_signals,island,unmarked,no,unknown" />
+                <check key="horse" text="Cross on horseback" default="off" />
+                <check key="bicycle" text="Cross by bicycle" default="off" />
+                <check key="supervised" text="Supervised" default="off" />
+                <check key="crossing:light" text="Traffic lights" default="off" />
+                <check key="crossing:bell" text="Sound signals" default="off" />
+                <combo key="crossing:barrier" text="Barrier" values="yes,no,half,full,double_half" />
             </optional>
         </item>
         <item name="Turntable" icon="presets/turntable.png" type="node,closedway">
@@ -2116,22 +2429,24 @@ Note that for a match, at least one positive and no negative is required.
                 <combo key="opening_hours" text="Opening Hours" values="24/7,Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00;Sa 08:00-12:00" />
                 <combo key="shop" text="With shop" values="yes,convenience,kiosk,no" />
                 <label text="Fuel types:" />
-                <check key="fuel:diesel" text="Diesel" default="off" />
-                <check key="fuel:biodiesel" text="Bio Diesel" default="off" />
-                <check key="fuel:GTL_diesel" text="Diesel (Gas To Liquid - ultimate diesel)" default="off" />
-                <check key="fuel:HGV_diesel" text="Diesel for Heavy Good Vehicles" default="off" />
-                <check key="fuel:octane_80" text="Octane 80" default="off" />
-                <check key="fuel:octane_91" text="Octane 91" default="off" />
-                <check key="fuel:octane_92" text="Octane 92" default="off" />
-                <check key="fuel:octane_95" text="Octane 95" default="off" />
-                <check key="fuel:octane_98" text="Octane 98" default="off" />
-                <check key="fuel:octane_100" text="Octane 100" default="off" />
-                <check key="fuel:e10" text="E10 (10% Ethanol mix)" default="off" />
-                <check key="fuel:e85" text="E85 (85% Ethanol mix)" default="off" />
-                <check key="fuel:lpg" text="LPG (Liquefied petroleum gas)" default="off" />
-                <check key="fuel:cng" text="CNG (Compressed Natural Gas)" default="off" />
-                <check key="fuel:1_25" text="1/25 mix (mofa/moped)" default="off" />
-                <check key="fuel:1_50" text="1/50 mix (mofa/moped)" default="off" />
+                <checkgroup columns="2">
+                    <check key="fuel:diesel" text="Diesel" default="off" />
+                    <check key="fuel:biodiesel" text="Bio Diesel" default="off" />
+                    <check key="fuel:GTL_diesel" text="Diesel (Gas To Liquid - ultimate diesel)" default="off" />
+                    <check key="fuel:HGV_diesel" text="Diesel for Heavy Good Vehicles" default="off" />
+                    <check key="fuel:octane_80" text="Octane 80" default="off" />
+                    <check key="fuel:octane_91" text="Octane 91" default="off" />
+                    <check key="fuel:octane_92" text="Octane 92" default="off" />
+                    <check key="fuel:octane_95" text="Octane 95" default="off" />
+                    <check key="fuel:octane_98" text="Octane 98" default="off" />
+                    <check key="fuel:octane_100" text="Octane 100" default="off" />
+                    <check key="fuel:e10" text="E10 (10% Ethanol mix)" default="off" />
+                    <check key="fuel:e85" text="E85 (85% Ethanol mix)" default="off" />
+                    <check key="fuel:lpg" text="LPG (Liquefied petroleum gas)" default="off" />
+                    <check key="fuel:cng" text="CNG (Compressed Natural Gas)" default="off" />
+                    <check key="fuel:1_25" text="1/25 mix (mofa/moped)" default="off" />
+                    <check key="fuel:1_50" text="1/50 mix (mofa/moped)" default="off" />
+                </checkgroup>
             </optional>
         </item>
         <item name="Charging Station" icon="styles/standard/accommodation/camping/hookup.png" type="node">
@@ -2306,6 +2621,168 @@ Note that for a match, at least one positive and no negative is required.
         </item>
     </group> <!-- Bicycle -->
     <group name="Public Transport" icon="presets/bus.png">
+        <item name="Public transport route" icon="presets/path.png" type="relation">
+            <link href="http://wiki.openstreetmap.org/wiki/Proposed_features/Public_Transport#Route"/>
+            <label text="Edit Route"/>
+            <key key="type" value="route"/>
+            <combo key="route" text="Route type" values="train,subway,monorail,tram,bus,trolleybus,aerialway,ferry"/>
+            <text key="name" text="Name"/>
+            <text key="ref" text="Reference"/>
+            <optional>
+                <text key="from" text="From (initial stop)"/>
+                <text key="to" text="To (terminal stop)"/>
+                <text key="via" text="Via (intermediate stops)"/>
+                <text key="operator" text="Operator"/>
+                <text key="network" text="Network"/>
+                <text key="description" text="Description"/>
+                <combo key="colour" text="Color (HTML name or hexadecimal code)" values_context="color" values="black,brown,green,red,blue,gray,white,#CD853F" />
+            </optional>
+            <roles>
+                <role key="" text="route segment" requisite="required" type="way" />
+                <role key="stop" text="stop position" requisite="optional" type="node" member_expression="public_transport=stop_position" />
+                <role key="stop_exit_only" text="stop position (exit only)" requisite="optional" type="node" member_expression="public_transport=stop_position" />
+                <role key="stop_entry_only" text="stop position (entry only)" requisite="optional" type="node" member_expression="public_transport=stop_position" />
+                <role key="platform" text="platform" requisite="optional" type="node,way,closedway" member_expression="public_transport=platform" />
+                <role key="platform_exit_only" text="platform (exit only)" requisite="optional" type="node,way,closedway" member_expression="public_transport=platform" />
+                <role key="platform_entry_only" text="platform (entry only)" requisite="optional" type="node,way,closedway" member_expression="public_transport=platform" />
+            </roles>
+        </item>
+        <item name="Route master" icon="presets/path.png" type="relation">
+            <link href="http://wiki.openstreetmap.org/wiki/Proposed_features/Public_Transport#Route_master"/>
+            <label text="Edit Route master"/>
+            <key key="type" value="route_master"/>
+            <combo key="route" text="Route type" values="train,subway,monorail,tram,bus,trolleybus,aerialway,ferry"/>
+            <text key="name" text="Name"/>
+            <text key="ref" text="Reference"/>
+            <optional>
+                <text key="operator" text="Operator"/>
+                <text key="network" text="Network"/>
+                <combo key="colour" text="Color (HTML name or hexadecimal code)" values_context="color" values="black,brown,green,red,blue,gray,white,#CD853F" />
+            </optional>
+            <roles>
+                <role key="" text="route variant/direction (at least 2)" requisite="required" type="relation" member_expression="type=route"/> <!-- FIXME: at least 2 members are required -->
+            </roles>
+        </item>
+        <item name="Stop Area" type="relation" icon="presets/interpolation.png">
+            <link href="http://wiki.openstreetmap.org/wiki/Proposed_features/Public_Transport#Stop_area"/>
+            <label text="Edit Stop Area"/>
+            <key key="type" value="public_transport"/>
+            <key key="public_transport" value="stop_area"/>
+            <text key="name" text="Name"/>
+            <optional>
+                <text key="ref" text="Reference"/>
+                <text key="uic_ref" text="UIC reference"/>
+                <text key="uic_name" text="UIC name"/>
+                <text key="operator" text="Operator"/>
+                <text key="network" text="Network"/>
+            </optional>
+            <roles>
+                <role key="stop" text="Stop Position" requisite="optional" type="node" member_expression="public_transport=stop_position"/>
+                <role key="platform" text="Platform" requisite="optional" type="node,way,closedway" member_expression="public_transport=platform"/>
+                <role key="" text="Station or amenities" requisite="optional" type="node,way,closedway" member_expression="amenity|public_transport=station"/>
+            </roles>
+        </item>
+        <separator/>
+        <item name="Stop Position" type="node" icon="presets/barrier.png">
+            <link href="http://wiki.openstreetmap.org/wiki/Proposed_features/Public_Transport#Stop_area"/>
+            <key key="public_transport" value="stop_position"/>
+            <text key="name" text="Name"/>
+            <optional>
+                <text key="ref" text="Reference"/>
+                <text key="uic_ref" text="UIC reference"/>
+                <text key="uic_name" text="UIC name"/>
+                <text key="operator" text="Operator"/>
+                <text key="network" text="Network"/>
+            </optional>
+            <space/>
+            <check key="bus" text="Bus"/>
+            <check key="highway" value_on="bus_stop" value_off="" text="Bus stop (legacy)"/>
+            <check key="tram" text="Tram"/>
+            <check key="railway" value_on="tram_stop" value_off="" text="Tram stop (legacy)"/>
+            <check key="train" text="Train"/>
+            <check key="railway" value_on="station" value_off="" text="Railway station (legacy)"/>
+            <check key="railway" value_on="halt" value_off="" text="Railway halt (legacy)"/>
+            <check key="trolleybus" text="Trolleybus"/>
+            <check key="share_taxi" text="Share taxi"/>
+            <check key="subway" text="Subway"/>
+            <check key="monorail" text="Monorail"/>
+            <check key="funicular" text="Funicular"/>
+            <check key="aerialway" text="Aerialway"/>
+            <check key="ferry" text="Ferry"/>
+        </item>
+        <item name="Platform" type="node,way,closedway" icon="presets/platform_bus.png">
+            <link href="http://wiki.openstreetmap.org/wiki/Proposed_features/Public_Transport#Platform"/>
+            <key key="public_transport" value="platform"/>
+            <text key="name" text="Name"/>
+            <check key="bench" text="Bench"/>
+            <check key="shelter" text="Shelter"/>
+            <check key="covered" text="Covered"/>
+            <combo key="wheelchair" text="Wheelchair" values="yes,no,limited,only"/>
+            <optional>
+                <text key="ref" text="Reference"/>
+                <text key="uic_ref" text="UIC reference"/>
+                <text key="uic_name" text="UIC name"/>
+                <text key="operator" text="Operator"/>
+                <text key="network" text="Network"/>
+                <space/>
+                <check key="bus" text="Bus"/>
+                <check key="highway" value_on="platform" text="Highway platform (legacy)"/>
+                <check key="tram" text="Tram"/>
+                <check key="train" text="Train"/>
+                <check key="railway" value_on="platform" text="Railway platform (legacy)"/>
+                <check key="trolleybus" text="Trolleybus"/>
+                <check key="share_taxi" text="Share taxi"/>
+                <check key="subway" text="Subway"/>
+                <check key="monorail" text="Monorail"/>
+                <check key="funicular" text="funicular"/>
+                <check key="aerialway" text="aerialway"/>
+                <check key="ferry" text="ferry"/>
+            </optional>
+        </item>
+        <item name="Station" type="node,closedway" icon="styles/standard/transport/railway_station.png">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:public_transport=station"/>
+            <key key="public_transport" value="station"/>
+            <text key="name" text="Name"/>
+            <check key="area" text="Area"/>
+            <check key="building" text="Building"/>
+            <text key="operator" text="Operator"/>
+            <text key="network" text="Network"/>
+        </item>
+        <separator/>
+        <item name="Subway Entrance" icon="presets/underground.png" type="node">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:railway=subway_entrance"
+                  fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:railway=subway_entrance"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:railway=subway_entrance"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:railway=subway_entrance" />
+            <label text="Edit Subway Entrance" />
+            <space />
+            <key key="railway" value="subway_entrance" />
+            <optional>
+                <text key="name" text="Name" />
+                <check key="wheelchair" text="Wheelchair" default="off" />
+                <check key="bicycle" text="Bicycle" default="off" />
+            </optional>
+        </item>
+        <item name="Ticket Machine" de.name="Fahrausweisautomat" icon="presets/vending_machine.png" type="node">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:amenity=vending_machine"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:amenity=vending_machine"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:amenity=vending_machine"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:amenity=vending_machine"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:amenity=vending_machine"/>
+            <key key="amenity" value="vending_machine"/>
+            <key key="vending" value="public_transport_tickets"/>
+            <text key="name" text="Name"/>
+            <text key="operator" text="Operator"/>
+            <text key="ref" text="Reference Number"/>
+            <check key="payment:coins" text="Coins" default="off" />
+            <check key="payment:notes" text="Notes" default="off" />
+            <check key="payment:electronic_purses" text="Electronic purses and Charge cards" default="off" />
+            <check key="payment:debit_cards" text="Debit cards" default="off" />
+            <check key="payment:credit_cards" text="Credit cards" default="off" />
+            <check key="payment:account_cards" text="Account or loyalty cards" default="off" />
+        </item>
+    </group>
+    <group name="Public Transport (legacy)" icon="presets/bus.png">
         <item name="Station" name_context="railway" icon="styles/standard/transport/railway_station.png" type="node,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:railway=station"
                   de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:railway=station"
@@ -2355,20 +2832,6 @@ Note that for a match, at least one positive and no negative is required.
             <text key="width" text="Width (meters)" />
             <check key="area" text="Area" default="off" />
         </item>
-        <item name="Subway Entrance" icon="presets/underground.png" type="node">
-            <link href="http://wiki.openstreetmap.org/wiki/Tag:railway=subway_entrance"
-                  fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:railway=subway_entrance"
-                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:railway=subway_entrance"
-                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:railway=subway_entrance" />
-            <label text="Edit Subway Entrance" />
-            <space />
-            <key key="railway" value="subway_entrance" />
-            <optional>
-                <text key="name" text="Name" />
-                <check key="wheelchair" text="Wheelchair" default="off" />
-                <check key="bicycle" text="Bicycle" default="off" />
-            </optional>
-        </item>
         <separator/>
         <item name="Bus Station" icon="presets/bus.png" type="node,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:amenity=bus_station"
@@ -2400,32 +2863,13 @@ Note that for a match, at least one positive and no negative is required.
 
             </optional>
         </item>
-        <item name="Bus Platform" icon="presets/platform_bus.png" type="node,closedway">
+        <item name="Bus Platform" icon="presets/platform_bus.png" type="node,way,closedway">
             <label text="Edit Bus Platform" />
             <key key="highway" value="platform" />
             <space />
             <text key="ref" text="Reference (track number)" />
             <text key="width" text="Width (meters)" />
             <check key="area" text="Area" default="off" />
-        </item>
-        <separator/>
-        <item name="Ticket Machine" de.name="Fahrausweisautomat" icon="presets/vending_machine.png" type="node">
-            <link href="http://wiki.openstreetmap.org/wiki/Tag:amenity=vending_machine"
-                  de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:amenity=vending_machine"
-                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:amenity=vending_machine"
-                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:amenity=vending_machine"
-                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:amenity=vending_machine"/>
-            <key key="amenity" value="vending_machine"/>
-            <key key="vending" value="public_transport_tickets"/>
-            <text key="name" text="Name"/>
-            <text key="operator" text="Operator"/>
-            <text key="ref" text="Reference Number"/>
-            <check key="payment:coins" text="Coins" default="off" />
-            <check key="payment:notes" text="Notes" default="off" />
-            <check key="payment:electronic_purses" text="Electronic purses and Charge cards" default="off" />
-            <check key="payment:debit_cards" text="Debit cards" default="off" />
-            <check key="payment:credit_cards" text="Credit cards" default="off" />
-            <check key="payment:account_cards" text="Account or loyalty cards" default="off" />
         </item>
     </group> <!-- Public Transport -->
     <item name="Taxi" icon="presets/taxi.png" type="node,closedway">
@@ -2579,9 +3023,13 @@ Note that for a match, at least one positive and no negative is required.
             <text key="email" text="Email Address" />
         </item>
         <item name="Guest House" icon="styles/standard/accommodation/guest_house.png" type="node,closedway">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:tourism=guest_house"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:tourism=guest_house"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:tourism=guest_house" />
             <label text="Edit Guest House" />
             <key key="tourism" value="guest_house" />
             <text key="name" text="Name" />
+            <text key="operator" text="Operator" />
             <combo key="stars" text="Stars" values="1,2,3,4,5,6,7" />
             <space />
             <combo key="internet_access" text="Internet access" values="yes,wlan,wired,terminal,no" />
@@ -2602,6 +3050,7 @@ Note that for a match, at least one positive and no negative is required.
             <label text="Edit Chalet" />
             <key key="tourism" value="chalet" />
             <text key="name" text="Name" />
+            <text key="operator" text="Operator" />
             <combo key="stars" text="Stars" values="1,2,3,4,5,6,7" />
             <space />
             <combo key="internet_access" text="Internet access" values="yes,wlan,wired,terminal,no" />
@@ -2618,7 +3067,8 @@ Note that for a match, at least one positive and no negative is required.
             <link href="http://wiki.openstreetmap.org/wiki/Tag:tourism=hostel"
                   fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:tourism=hostel"
                   ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:tourism=hostel"
-                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:tourism=hostel" />
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:tourism=hostel"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:tourism=hostel" />
             <label text="Edit Hostel" />
             <key key="tourism" value="hostel" />
             <text key="name" text="Name" />
@@ -2636,6 +3086,11 @@ Note that for a match, at least one positive and no negative is required.
             <text key="email" text="Email Address" />
         </item>
         <item name="Alpine Hut" icon="styles/standard/accommodation/alpine_hut.png" type="node,closedway">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:tourism=alpine_hut"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:tourism=alpine_hut"
+                  es.href="http://wiki.openstreetmap.org/wiki/ES:Tag:tourism=alpine_hut"
+                  fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:tourism=alpine_hut"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:tourism=alpine_hut" />
             <label text="Edit Alpine Hut" />
             <key key="tourism" value="alpine_hut" />
             <text key="name" text="Name" />
@@ -2654,9 +3109,13 @@ Note that for a match, at least one positive and no negative is required.
         </item>
         <separator/>
         <item name="Caravan Site" icon="presets/caravan2.png" type="node,closedway">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:tourism=caravan_site"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:tourism=caravan_site"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:tourism=caravan_site" />
             <label text="Edit Caravan Site" />
             <key key="tourism" value="caravan_site" />
             <text key="name" text="Name" />
+            <text key="operator" text="Operator" />
             <combo key="stars" text="Stars" values="1,2,3,4,5,6,7" />
             <space />
             <combo key="internet_access" text="Internet access" values="yes,wlan,wired,terminal,no" />
@@ -2680,10 +3139,12 @@ Note that for a match, at least one positive and no negative is required.
                   es.href="http://wiki.openstreetmap.org/wiki/ES:Tag:tourism=camp_site"
                   fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:tourism=camp_site"
                   ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:tourism=camp_site"
-                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:tourism=camp_site" />
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:tourism=camp_site"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:tourism=camp_site" />
             <label text="Edit Camping Site" />
             <key key="tourism" value="camp_site" />
             <text key="name" text="Name" />
+            <text key="operator" text="Operator" />
             <combo key="stars" text="Stars" values="1,2,3,4,5,6,7" />
             <space />
             <combo key="internet_access" text="Internet access" values="yes,wlan,wired,terminal,no" />
@@ -2710,7 +3171,7 @@ Note that for a match, at least one positive and no negative is required.
             <key key="amenity" value="restaurant" />
             <text key="name" text="Name" />
             <text key="operator" text="Operator" />
-            <multiselect key="cuisine" text="Cuisine" values="italian;chinese;pizza;burger;greek;german;indian;regional;kebab;turkish;asian;thai;mexican;japanese;french;sandwich;sushi"/>
+            <multiselect key="cuisine" text="Cuisine" values="italian;chinese;pizza;burger;greek;german;indian;regional;kebab;turkish;asian;thai;mexican;japanese;french;sandwich;sushi" />
             <check key="microbrewery" text="Microbrewery" default="off" />
             <combo key="opening_hours" text="Opening Hours" values="24/7,Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00;Sa 08:00-12:00" />
             <combo key="stars" text="Stars" values="1,2,3,4,5,6,7" />
@@ -2751,10 +3212,12 @@ Note that for a match, at least one positive and no negative is required.
         <item name="Food Court" icon="presets/fastfood.png" type="node,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:amenity=food_court"
                   ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:amenity=food_court"
-                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:amenity=food_court" />
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:amenity=food_court"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:amenity=food_court" />
             <label text="Edit Food Court" />
             <key key="amenity" value="food_court" />
             <text key="name" text="Name" />
+            <text key="operator" text="Operator" />
             <combo key="opening_hours" text="Opening Hours" values="24/7,Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00;Sa 08:00-12:00" />
             <space />
             <combo key="internet_access" text="Internet access" values="yes,wlan,wired,terminal,no" />
@@ -2769,10 +3232,12 @@ Note that for a match, at least one positive and no negative is required.
         </item>
         <item name="Cafe" icon="presets/cafe.png" type="node,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:amenity=cafe"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:amenity=cafe"
                   ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:amenity=cafe"
                   nl.href="http://wiki.openstreetmap.org/wiki/NL:Tag:amenity=cafe"
                   pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:amenity=cafe"
-                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:amenity=cafe" />
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:amenity=cafe"
+                  zh_CN.href="http://wiki.openstreetmap.org/wiki/Zh-hans:Tag:amenity=cafe" />
             <label text="Edit Cafe" />
             <key key="amenity" value="cafe" />
             <text key="name" text="Name" />
@@ -2814,9 +3279,16 @@ Note that for a match, at least one positive and no negative is required.
             <text key="email" text="Email Address" />
         </item>
         <item name="Biergarten" icon="presets/biergarten.png" type="node,closedway">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:amenity=biergarten"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:amenity=biergarten"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:amenity=biergarten"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:amenity=biergarten"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:amenity=biergarten" />
             <label text="Edit Biergarten" />
             <key key="amenity" value="biergarten" />
             <text key="name" text="Name" />
+            <text key="operator" text="Operator" />
+            <check key="microbrewery" text="Microbrewery" default="off" />
             <combo key="opening_hours" text="Opening Hours" values="24/7,Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00;Sa 08:00-12:00" />
             <space />
             <combo key="internet_access" text="Internet access" values="yes,wlan,wired,terminal,no" />
@@ -2836,10 +3308,12 @@ Note that for a match, at least one positive and no negative is required.
                   it.href="http://wiki.openstreetmap.org/wiki/IT:Tag:amenity=bar"
                   ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:amenity=bar"
                   pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:amenity=bar"
-                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:amenity=bar" />
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:amenity=bar"
+                  zh_CN.href="http://wiki.openstreetmap.org/wiki/Zh-hans:Tag:amenity=bar" />
             <label text="Edit Bar" />
             <key key="amenity" value="bar" />
             <text key="name" text="Name" />
+            <text key="operator" text="Operator" />
             <combo key="opening_hours" text="Opening Hours" values="24/7,Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00;Sa 08:00-12:00" />
             <space />
             <combo key="internet_access" text="Internet access" values="yes,wlan,wired,terminal,no" />
@@ -2863,8 +3337,31 @@ Note that for a match, at least one positive and no negative is required.
             <label text="Edit Nightclub" />
             <key key="amenity" value="nightclub" />
             <text key="name" text="Name" />
+            <text key="operator" text="Operator" />
             <combo key="opening_hours" text="Opening Hours" values="24/7,Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00;Sa 08:00-12:00" />
             <space />
+            <combo key="smoking" text="Smoking" values="yes,dedicated,separated,isolated,no" />
+            <combo key="wheelchair" text="Wheelchairs" values="yes,no" />
+            <space />
+            <text key="phone" text="Phone Number" />
+            <text key="fax" text="Fax Number" />
+            <text key="website" text="Website" />
+            <text key="email" text="Email Address" />
+        </item>
+        <item name="Stripclub" icon="styles/standard/leisure/stripclub.png" type="node,closedway">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:amenity=stripclub"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:amenity=stripclub"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:amenity=stripclub"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:amenity=stripclub" />
+            <label text="Edit Stripclub" />
+            <space />
+            <key key="amenity" value="stripclub" />
+            <text key="name" text="Name" />
+            <text key="operator" text="Operator" />
+            <combo key="opening_hours" text="Opening Hours" values="24/7,Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00; Sa 08:00-12:00" />
+            <space />
+            <combo key="internet_access" text="Internet access" values="yes,wlan,wired,terminal,no" />
+            <combo key="internet_access:fee" text="Internet access fee" values="yes,no" />
             <combo key="smoking" text="Smoking" values="yes,dedicated,separated,isolated,no" />
             <combo key="wheelchair" text="Wheelchairs" values="yes,no" />
             <space />
@@ -2993,6 +3490,8 @@ Note that for a match, at least one positive and no negative is required.
             <label text="Edit Cinema" />
             <key key="amenity" value="cinema" />
             <text key="name" text="Name" />
+            <text key="operator" text="Operator" />            
+            <combo key="opening_hours" text="Opening Hours" values="Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00; Sa 08:00-12:00" /> 
         </item>
         <item name="Zoo" icon="presets/zoo.png" type="node,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:tourism=zoo"
@@ -3003,6 +3502,11 @@ Note that for a match, at least one positive and no negative is required.
             <text key="name" text="Name" />
             <combo key="opening_hours" text="Opening Hours" values="24/7,Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00;Sa 08:00-12:00" />
             <text key="wikipedia" text="Wikipedia" />
+            <space />
+            <text key="phone" text="Phone Number" />
+            <text key="fax" text="Fax Number" />
+            <text key="website" text="Website" />
+            <text key="email" text="Email Address" />
         </item>
         <item name="Dog Park" icon="presets/dogpark.png" type="node,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:leisure=dog_park"
@@ -3022,27 +3526,89 @@ Note that for a match, at least one positive and no negative is required.
             <check key="lit" text="Lit" default="off" />
         </item>  
         <item name="Theme Park" icon="presets/theme_park.png" type="node,closedway">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:tourism=theme_park"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:tourism=theme_park"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:tourism=theme_park"  />	
             <label text="Edit Theme Park" />
             <key key="tourism" value="theme_park" />
             <text key="name" text="Name" />
+            <text key="operator" text="Operator" />            
             <combo key="opening_hours" text="Opening Hours" values="24/7,Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00;Sa 08:00-12:00" />
+            <space />
+            <text key="phone" text="Phone Number" />
+            <text key="fax" text="Fax Number" />
+            <text key="website" text="Website" />
+            <text key="email" text="Email Address" />
         </item>
         <item name="Water Park" icon="presets/swimming.png" type="node,closedway">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:leisure=water_park"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:leisure=water_park"
+                  es.href="http://wiki.openstreetmap.org/wiki/ES:Tag:leisure=water_park"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:leisure=water_park"
+                  pt.href="http://wiki.openstreetmap.org/wiki/Pt:Tag:leisure=water_park"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:leisurem=water_park"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:leisure=water_park"  />	
             <label text="Edit Water Park" />
             <key key="leisure" value="water_park" />
             <text key="name" text="Name" />
+            <text key="operator" text="Operator" />            
+            <combo key="opening_hours" text="Opening Hours" values="Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00; Sa 08:00-12:00" /> 
+            <space />
+            <text key="phone" text="Phone Number" />
+            <text key="fax" text="Fax Number" />
+            <text key="website" text="Website" />
+            <text key="email" text="Email Address" />
         </item>
         <item name="Sauna" de.name="Sauna" icon="presets/sauna.png" type="node,closedway">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:amenity=sauna"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:amenity=sauna"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:amenity=sauna"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:amenity=sauna" />
             <label text="Edit Sauna" />
-            <space />         	
-            <link href="http://wiki.openstreetmap.org/wiki/Proposed_features/Sauna" />
-            <label text="Edit Sauna" de.text="bearbeite Sauna" />
-            <space />            
             <key key="leisure" value="sauna" />
             <text key="name" text="Name" />            
-            <text key="operator" text="Operator" de.text="Betreiber" />            
-            <combo key="opening_hours" text="Opening Hours" de.text="Öffnungszeiten" values="Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00; Sa 08:00-12:00" /> 
+            <text key="operator" text="Operator" />            
+            <combo key="opening_hours" text="Opening Hours" values="Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00; Sa 08:00-12:00" /> 
             <combo key="access" text="Access" values="yes,permissive,private,unknown" />                                           
+            <space />
+            <text key="phone" text="Phone Number" />
+            <text key="fax" text="Fax Number" />
+            <text key="website" text="Website" />
+            <text key="email" text="Email Address" />
+        </item>
+        <item name="Horse riding" icon="presets/equestrian.png" type="node,closedway">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:leisure=horse_riding" />
+            <label text="Edit Horse riding" />
+            <key key="leisure" value="horse_riding" />
+            <text key="name" text="Name" />
+            <text key="operator" text="Operator" />
+            <combo key="opening_hours" text="Opening Hours" values="Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00; Sa 08:00-12:00" />
+            <text key="fee" text="Fee" />
+            <space />
+            <text key="phone" text="Phone Number" />
+            <text key="fax" text="Fax Number" />
+            <text key="website" text="Website" />
+            <text key="email" text="Email Address" />
+        </item>
+        <item name="Brothel" de.name="Bordell" icon="styles/standard/leisure/stripclub.png" type="node,closedway">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:amenity=brothel"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:amenity=brothel"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:amenity=brothel"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:amenity=brothel"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:amenity=brothel" />
+            <label text="Edit Brothel" />
+            <key key="amenity" value="brothel" />
+            <text key="name" text="Name" />
+            <text key="operator" text="Operator" />
+            <combo key="opening_hours" text="Opening Hours" values="24/7,Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00; Sa 08:00-12:00" />
+            <space />
+            <combo key="smoking" text="Smoking" values="yes,dedicated,separated,isolated,no" />
+            <combo key="wheelchair" text="Wheelchairs" values="yes,no" />
+            <space />
+            <text key="phone" text="Phone Number" />
+            <text key="fax" text="Fax Number" />
+            <text key="website" text="Website" />
+            <text key="email" text="Email Address" />
         </item> 
         <separator/>
         <item name="Playground" icon="styles/standard/leisure/playground.png" type="node,closedway">
@@ -3079,6 +3645,10 @@ Note that for a match, at least one positive and no negative is required.
             <combo key="fuel" text="Fuel" text_context="grill" values="charcoal,electric,wood" />                               
         </item>     	
         <item name="Fishing" icon="presets/fishing.png" type="node,closedway">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:leisure=fishing"
+                  pl.href="http://wiki.openstreetmap.org/wiki/Pl:Tag:leisure=fishing"
+                  pt.href="http://wiki.openstreetmap.org/wiki/Pt:Tag:leisure=fishing"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:leisure=fishing" />
             <label text="Edit Fishing" />
             <key key="leisure" value="fishing" />
             <text key="name" text="Name" />
@@ -3091,11 +3661,13 @@ Note that for a match, at least one positive and no negative is required.
     <group name="Culture" icon="presets/theater.png">
         <item name="Museum" icon="presets/State_Public.png" type="node,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:tourism=museum"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:tourism=museum"
                   pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:tourism=museum"
                   ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:tourism=museum" />
             <label text="Edit Museum" />
             <key key="tourism" value="museum" />
             <text key="name" text="Name" />
+            <text key="operator" text="Operator" />
             <combo key="opening_hours" text="Opening Hours" values="24/7,Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00;Sa 08:00-12:00" />
             <text key="wikipedia" text="Wikipedia" />
         </item>
@@ -3108,6 +3680,7 @@ Note that for a match, at least one positive and no negative is required.
             <label text="Edit Theatre" />
             <key key="amenity" value="theatre" />
             <text key="name" text="Name" />
+            <text key="operator" text="Operator" />
         </item>
         <item name="Library" icon="styles/standard/shop/rental/library.png" type="node,closedway,relation">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:amenity=library"
@@ -3120,6 +3693,7 @@ Note that for a match, at least one positive and no negative is required.
             <label text="Edit Library" />
             <key key="amenity" value="library" />
             <text key="name" text="Name" />
+            <text key="operator" text="Operator" />
             <combo key="opening_hours" text="Opening Hours" values="24/7,Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00;Sa 08:00-12:00" />
         </item>
         <item name="Arts Centre" icon="presets/arts_centre.png" type="node,closedway,relation">
@@ -3158,11 +3732,11 @@ Note that for a match, at least one positive and no negative is required.
             <key key="amenity" value="place_of_worship" />
             <text key="name" text="Name" />
             <combo key="religion" text="Religion" values="bahai,buddhist,christian,hindu,jain,jewish,muslim,sikh,spiritualist,taoist,unitarian,zoroastrian" />
-            <combo key="denomination" text="Denomination" values="anglican,baptist,catholic,evangelical,jehovahs_witness,lutheran,methodist,mormon,orthodox,pentecostal,presbyterian,protestant,quaker,shia,sunni" />
+            <combo key="denomination" text="Denomination" values="anglican,baptist,catholic,evangelical,jehovahs_witness,lutheran,methodist,mormon,orthodox,pentecostal,presbyterian,protestant,quaker,roman_catholic,shia,sunni" />
             <combo key="service_times" text="Service Times" values="Su 10:00,Su 10:30,Su 11:00" />
             <combo key="opening_hours" text="Opening Hours for visiting" values="24/7,Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00;Sa 08:00-12:00" />
         </item>
-        <item name="Recording Studio" icon="presets/studio.png" type="node">
+        <item name="Recording Studio" icon="presets/studio.png" type="node,closedway,relation">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:amenity=studio"
                   ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:amenity=studio"
                   pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:amenity=studio" />
@@ -3347,6 +3921,13 @@ Note that for a match, at least one positive and no negative is required.
             <key key="amenity" value="hospital" />
             <text key="name" text="Name" />
         </item>
+        <item name="Clinic" icon="styles/standard/health/hospital.png" type="node,closedway">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:amenity=clinic"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:amenity=clinic" />
+            <label text="Edit Clinic" />
+            <key key="amenity" value="clinic" />
+            <text key="name" text="Name" />
+        </item>
         <item name="Doctors" icon="styles/standard/health/doctor.png" type="node,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:amenity=doctors"
                   ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:amenity=doctors"
@@ -3367,6 +3948,20 @@ Note that for a match, at least one positive and no negative is required.
             <key key="amenity" value="nursing_home" />
             <text key="name" text="Name" />
             <text key="operator" text="Operator" />
+        </item>
+        <item name="Retirement Home" type="node,closedway">
+            <link href="http://wiki.openstreetmap.org/wiki/Key:social_facility"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Key:social_facility"
+                  fr.href="http://wiki.openstreetmap.org/wiki/FR:Key:social_facility"
+                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Key:social_facility"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Key:social_facility" />
+            <label text="Edit Retirement Home" />
+            <key key="amenity" value="social_facility" />
+            <key key="social_facility" value="group_home" />
+            <key key="social_facility:for" value="senior" />
+            <text key="name" text="Name" />
+            <text key="operator" text="Operator" />
+            <text key="capacity" text="Capacity" />
         </item>
         <separator/>
         <item name="Pharmacy" icon="presets/pharmacy.png" type="node,closedway">
@@ -3449,11 +4044,11 @@ Note that for a match, at least one positive and no negative is required.
                   pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:amenity=toilets"
                   ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:amenity=toilets" />
             <key key="amenity" value="toilets" />
-            <text key="operator" text="Operator" />
-            <text key="ref" text="Reference number" />
+            <text key="description" text="Description" />
+            <combo key="drinking_water" text="Drinking water" values="yes,no" />
             <combo key="fee" text="Fee" values="yes,no" />
+            <text key="operator" text="Operator" />
             <combo key="wheelchair" text="Wheelchair" values="no,limited,yes" />
-            <text key="note" text="Note" />
         </item>
         <item name="Post Box" icon="styles/standard/service/post_box.png" type="node">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:amenity=post_box"
@@ -3550,7 +4145,7 @@ Note that for a match, at least one positive and no negative is required.
             <key key="amenity" value="bench" />
             <combo key="backrest" text="Backrest" values="yes,no" />
             <combo key="material" text="Material" values="stone,metal,wood,plastic" />
-            <combo key="colour" text="Colour" values_context="color" values="black,brown,green,red,blue,gray,white" />
+            <combo key="colour" text="Color (HTML name or hexadecimal code)" values_context="color" values="black,brown,green,red,blue,gray,white,#CD853F" />
             <combo key="seats" text="Amount of Seats" values="2,3,4,5,6,7,8,9,10" />
         </item>
         <item name="Shelter" icon="presets/shelter.png" type="node,closedway">
@@ -3575,9 +4170,13 @@ Note that for a match, at least one positive and no negative is required.
                   ja.href="http://wiki.openstreetmap.org/wiki/JA:Tag:amenity=drinking_water"
                   pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:amenity=drinking_water"
                   ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:amenity=drinking_water" />
-            <label text="Edit Drinking Water" />
+            <label text="Edit Source of Potable Water" />
             <key key="amenity" value="drinking_water" />
-            <text key="name" text="Name" />
+            <combo key="indoor" text="Indoor" values="yes,no" />
+            <optional>
+                <text key="name" text="Name" />
+                <text key="description" text="Description" />
+            </optional>
         </item>
         <item name="Fire Hydrant" icon="presets/fire_hydrant.png" type="node">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:emergency=fire_hydrant"
@@ -3723,14 +4322,16 @@ Note that for a match, at least one positive and no negative is required.
             <label text="Edit Equestrian" />
             <key key="sport" value="equestrian" />
             <text key="name" text="Name" />
-            <combo key="leisure" text="type" values="horse_riding,pitch,sports_centre,stadium,track" default="horse_riding" />
+            <combo key="leisure" text="type" values="pitch,sports_centre,stadium,track" values_context="riding" />
+            <combo key="surface" text="Surface" values="grass,sand,clay,dirt,fine_gravel,ground,mud,unpaved,compacted" />
         </item>
         <item name="Horse Racing" icon="presets/equestrian.png" type="node,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:sport=horse_racing" />
             <label text="Edit Horse Racing" />
             <key key="sport" value="horse_racing" />
             <text key="name" text="Name" />
-            <combo key="leisure" text="type" values="pitch,sports_centre,stadium,track" />
+            <combo key="leisure" text="type" values="pitch,sports_centre,stadium,track" values_context="riding" />
+            <combo key="surface" text="Surface" values="grass,sand,clay,dirt,fine_gravel,ground,mud,unpaved,compacted" />
         </item>
         <item name="Gymnastics" icon="presets/gymnastics.png" type="node,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:sport=gymnastics" />
@@ -4025,7 +4626,7 @@ Note that for a match, at least one positive and no negative is required.
                   ja.href="http://wiki.openstreetmap.org/wiki/JA:Key:building"
                   nl.href="http://wiki.openstreetmap.org/wiki/NL:Key:building"
                   no.href="http://wiki.openstreetmap.org/wiki/NO:Key:building"
-                  pl.href="http://wiki.openstreetmap.org/wiki/PL:Key:building"
+                  pl.href="http://wiki.openstreetmap.org/wiki/Pl:Key:building"
                   ru.href="http://wiki.openstreetmap.org/wiki/RU:Key:building" />
             <label text="Edit Residential Building" />
             <combo key="building" text="Building" values="residential,apartments,house,hut,terrace,detached,roof" default="residential" match="keyvalue" />
@@ -4150,7 +4751,7 @@ Note that for a match, at least one positive and no negative is required.
             <key key="man_made" value="wastewater_plant" />
             <text key="name" text="Name" />
         </item>
-        <item name="Watermill" icon="styles/standard/misc/landmark/watermill.png" type="node">
+        <item name="Watermill" icon="styles/standard/misc/landmark/watermill.png" type="node,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:man_made=watermill"
                   fi.href="http://wiki.openstreetmap.org/wiki/Fi:Tag:man_made=watermill"
                   pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:man_made=watermill" />
@@ -4237,7 +4838,30 @@ Note that for a match, at least one positive and no negative is required.
         </item>
     </group> <!-- Man Made -->
     <group name="Power" icon="presets/power.png">
-        <item name="Power Generator" icon="presets/power.png" type="node,closedway">
+        <item name="Power Plant" icon="presets/power.png" type="closedway,relation">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:power=plant" />
+            <label text="Edit Power Plant" />
+            <key key="power" value="plant" />
+            <text key="name" text="Name" />
+            <text key="operator" text="Operator" />
+            <text key="ref" text="Reference" />
+            <text key="start_date" text="Start date" />
+            <optional>
+                <label text="Output forms of energy" />
+                <label text="(please add this information to the generators if possible)" />
+                <space />
+                <combo key="plant:output:electricity" text="electricity" values="yes,2 W,3 kW,5 MW,7 GW" />
+                <combo key="plant:output:hot_water" text="hot water" values="yes,2 W,3 kW,5 MW,7 GW" />
+                <combo key="plant:output:hot_air" text="hot air" values="yes,2 W,3 kW,5 MW,7 GW" />
+                <combo key="plant:output:cold_water" text="cold water" values="yes,2 W,3 kW,5 MW,7 GW" />
+                <combo key="plant:output:cold_air" text="cold air" values="yes,2 W,3 kW,5 MW,7 GW" />
+                <combo key="plant:output:compressed_air" text="compressed air" values="yes,2 W,3 kW,5 MW,7 GW" />
+                <combo key="plant:output:steam" text="steam" values="yes,2 W,3 kW,5 MW,7 GW" />
+                <combo key="plant:output:vacuum" text="vacuum" values="yes,2 W,3 kW,5 MW,7 GW" />
+                <combo key="frequency" text="Frequency in Hertz (Hz)" values="0,16.67,16.7,50,60" length="5" />
+            </optional>
+        </item>
+        <item name="Power Generator" icon="presets/power.png" type="node,closedway,relation">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:power=generator"
                   de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:power=generator"
                   fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:power=generator"
@@ -4247,8 +4871,75 @@ Note that for a match, at least one positive and no negative is required.
             <label text="Edit Power Generator" />
             <key key="power" value="generator" />
             <text key="name" text="Name" />
-            <combo key="generator:source" text="Source" values="biofuel,biogas,biomass,coal,diesel,gas,gasoline,geothermal,hydro,nuclear,oil,osmotic,solar,tidal,waste,wave,wind" />
-            <combo key="generator:method" text="Method" values="anaerobic_digestion,combustion,dam,fission,fusion,gasification,photovoltaic,pumped-storage,pumping,pyrolysis,run-of-the-river,thermal" />
+            <text key="operator" text="Operator" />
+            <text key="ref" text="Reference" />
+            <text key="start_date" text="Start date" />
+            <combo key="generator:source" text="Source">
+                <list_entry value="biofuel" icon="http://wiki.openstreetmap.org/w/images/6/6b/Bahnpirat-power_source-biofuel.svg" />
+                <list_entry value="biogas" icon="http://wiki.openstreetmap.org/w/images/6/6b/Bahnpirat-power_source-biofuel.svg" />
+                <list_entry value="biomass" icon="http://wiki.openstreetmap.org/w/images/6/6b/Bahnpirat-power_source-biofuel.svg" />
+                <list_entry value="coal" icon="http://wiki.openstreetmap.org/w/images/4/4b/Bahnpirat-power_source-coal.svg" />
+                <list_entry value="diesel" icon="http://wiki.openstreetmap.org/w/images/f/f7/Bahnpirat-power_source-oil.svg" />
+                <list_entry value="gas" icon="http://wiki.openstreetmap.org/w/images/e/e6/Bahnpirat-power_source-gas.svg" />
+                <list_entry value="gasoline" icon="http://wiki.openstreetmap.org/w/images/f/f7/Bahnpirat-power_source-oil.svg" />
+                <list_entry value="geothermal" icon="http://wiki.openstreetmap.org/w/images/e/ed/2020_stBN_powergensource_water.svg" />
+                <list_entry value="hydro" icon="http://wiki.openstreetmap.org/w/images/e/ed/2020_stBN_powergensource_water.svg" />
+                <list_entry value="nuclear" icon="http://wiki.openstreetmap.org/w/images/3/3e/2020_stBN_powergensource_nuclear.svg" />
+                <list_entry value="oil" icon="http://wiki.openstreetmap.org/w/images/f/f7/Bahnpirat-power_source-oil.svg" />
+                <list_entry value="osmotic" icon="http://wiki.openstreetmap.org/w/images/e/ed/2020_stBN_powergensource_water.svg" />
+                <list_entry value="solar" icon="http://wiki.openstreetmap.org/w/images/2/22/2020_stBN_powergensource_sun.svg" />
+                <list_entry value="tidal" icon="http://wiki.openstreetmap.org/w/images/e/ed/2020_stBN_powergensource_water.svg" />
+                <list_entry value="waste" icon="http://wiki.openstreetmap.org/w/images/2/2f/Bahnpirat-power_source-waste.svg" />
+                <list_entry value="wave" icon="http://wiki.openstreetmap.org/w/images/e/ed/2020_stBN_powergensource_water.svg" />
+                <list_entry value="wind" icon="http://wiki.openstreetmap.org/w/images/0/03/2020_stBN_powergensource_wind.svg" />
+            </combo>
+            <combo key="generator:method" text="Method">
+                <list_entry value="anaerobic_digestion" short_description="" /> <!-- Recheck -->
+                <list_entry value="barrage" short_description="tidal" />
+                <list_entry value="combustion" short_description="bio / coal / diesel / gas / gasoline / oil / waste" />
+                <list_entry value="fission" short_description="nuclear" />
+                <list_entry value="fusion" short_description="nuclear" />
+                <list_entry value="gasification" short_description="biomass / waste" />
+                <list_entry value="photovoltaic" short_description="solar" />
+                <list_entry value="pyrolysis" short_description="" /> <!-- Recheck -->
+                <list_entry value="run-of-the-river" short_description="hydro" />
+                <list_entry value="stream" short_description="tidal" />
+                <list_entry value="thermal" short_description="solar" />
+                <list_entry value="water-pumped-storage" short_description="hydro" />
+                <list_entry value="water-storage" short_description="hydro" />
+            </combo>
+            <combo key="generator:type" text="Generator Type"> 
+                <list_entry value="cold-fusion" short_description="nuclear fusion" />
+                <list_entry value="combined_cycle" short_description="gas combustion" />
+                <list_entry value="francis_turbine" short_description="hydro" />
+                <list_entry value="gas_turbine" short_description="biogas, biomass, gas, waste combustion" />
+                <list_entry value="heat_pump" short_description="geothermal" />
+                <list_entry value="horizontal_axis" short_description="tidal steam / wind" />
+                <list_entry value="kaplan_turbine" short_description="hygro run-of-the-river / hydro water-storage / tidal barrage" />
+                <list_entry value="pelton_turbine" short_description="hygro run-of-the-river / hydro water-storage" />
+                <list_entry value="reciprocating_engine" short_description="biofuel, biogas, diesel, gas, gasoline" />
+                <list_entry value="solar_photovoltaic_panel" short_description="solar photovoltaic" />
+                <list_entry value="solar_thermal_collector" short_description="solar thermal" />
+                <list_entry value="steam_generator" short_description="bio, coal, diesel, gas, gasoline, oil, waste combustion" />
+                <list_entry value="steam_turbine" short_description="geothermal / solar thermal / bio, coal, oil, waste combustion" />
+                <list_entry value="stellarator" short_description="nuclear fusion" />
+                <list_entry value="tokamak" short_description="nuclear fusion" />
+                <list_entry value="vertical_axis" short_description="tidal steam / wind" />
+                <list_entry value="BWR-1" display_value="Boiling Water Reactor 1 (BWR-1)" short_description="nuclear fission" />
+                <list_entry value="BWR-2" display_value="Boiling Water Reactor 2 (BWR-2)" short_description="nuclear fission" />
+                <list_entry value="BWR-3" display_value="Boiling Water Reactor 3 (BWR-3)" short_description="nuclear fission" />
+                <list_entry value="BWR-4" display_value="Boiling Water Reactor 4 (BWR-4)" short_description="nuclear fission" />
+                <list_entry value="BWR-5" display_value="Boiling Water Reactor 5 (BWR-5)" short_description="nuclear fission" />
+                <list_entry value="BWR-6" display_value="Boiling Water Reactor 6 (BWR-6)" short_description="nuclear fission" />
+                <list_entry value="CANDU" display_value="CANada Deuterium Uranium reactor (CANDU)" short_description="nuclear fission" />
+                <list_entry value="CPR-1000" display_value="China Pressurized Reactor (CPR-1000)" short_description="nuclear fission" />
+                <list_entry value="EPR" display_value="European Pressurized Reactor (EPR)" short_description="nuclear fission" />
+                <list_entry value="ICF" display_value="Inertial Confinement Fusion (ICF)" short_description="nuclear fusion" />
+                <list_entry value="PWR" display_value="Pressurized water reactor (PWR)" short_description="nuclear fission" />
+                <list_entry value="RBMK-1000" display_value="Reactor Bolshoy Moshchnosti Kanalniy 1000 (RBMK-1000)" short_description="nuclear fission" />
+                <list_entry value="RBMK-1500" display_value="Reactor Bolshoy Moshchnosti Kanalniy 1500 (RBMK-1500)" short_description="nuclear fission" />
+                <list_entry value="VVER" display_value="Vodo-Vodyanoi Energetichesky Reactor (VVER)" short_description="nuclear fission" />
+            </combo>
             <space />
             <label text="Output forms of energy" />
             <combo key="generator:output:electricity" text="electricity" values="yes,2 W,3 kW,5 MW,7 GW" />
@@ -4259,32 +4950,21 @@ Note that for a match, at least one positive and no negative is required.
             <combo key="generator:output:compressed_air" text="compressed air" values="yes,2 W,3 kW,5 MW,7 GW" />
             <combo key="generator:output:steam" text="steam" values="yes,2 W,3 kW,5 MW,7 GW" />
             <combo key="generator:output:vacuum" text="vacuum" values="yes,2 W,3 kW,5 MW,7 GW" />
-            <combo key="generator:output:battery_charging" text="battery charging" values="yes,2 W,3 kW,5 MW,7 GW" />
-        </item>
-        <item name="Power Station" icon="presets/power.png" type="node,closedway">
-            <link href="http://wiki.openstreetmap.org/wiki/Tag:power=line"
-                  de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:power=line"
-                  fi.href="http://wiki.openstreetmap.org/wiki/Fi:Tag:power=line"
-                  fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:power=line"
-                  pl.href="http://wiki.openstreetmap.org/wiki/Pl:Tag:power=line"
-                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:power=line"
-                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:power=line" />
-            <label text="Edit Power Station" />
-            <key key="power" value="station" />
-            <text key="name" text="Name" />
-            <text key="operator" text="Operator" />
-            <text key="ref" text="Reference" />
+            <combo key="frequency" text="Frequency in Hertz (Hz)" values="0,16.67,16.7,50,60" length="5" />
         </item>
         <item name="Power Sub Station" icon="presets/power.png" type="node,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:power=sub_station"
                   de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:power=sub_station"
                   fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:power=sub_station"
                   pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:power=sub_station"
+                  pl.href="http://wiki.openstreetmap.org/wiki/Pl:Tag:power=sub_station"
                   ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:power=sub_station" />
             <label text="Edit Power Sub Station" />
             <key key="power" value="sub_station" />
             <text key="operator" text="Operator" />
             <text key="ref" text="Line reference" />
+            <combo key="voltage" text="Voltage in Volts (V)" values="1150000,765000,750000,735000,500000,450000,420000,400000,380000,350000,345000,330000,315000,300000,275000,238000,230000,225000,220000,200000,161000,154000,150000,138000,132000,120000,115000,110000,100000,90000,69000,66000,65000,63000,60000,55000,49000,45000,35000,33000,30000,20000,15000,high,medium,low,750000;200000,110000;20000" />
+            <combo key="frequency" text="Frequency in Hertz (Hz)" values="0,16.67,16.7,50,60" length="5" />
         </item>
         <item name="Cable Distribution Cabinet" icon="presets/power.png" type="node">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:power=cable_distribution_cabinet"
@@ -4294,6 +4974,7 @@ Note that for a match, at least one positive and no negative is required.
             <key key="power" value="cable_distribution_cabinet" />
             <text key="operator" text="Operator" />
             <text key="ref" text="Reference" />
+            <combo key="voltage" text="Voltage in Volts (V)" values="600,400,220,110,low" /> <!-- Recheck values -->
         </item>
         <separator/>
         <item name="Power Tower" icon="presets/power_tower.png" type="node">
@@ -4307,7 +4988,10 @@ Note that for a match, at least one positive and no negative is required.
                   ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:power=tower" />
             <label text="Edit Power Tower" />
             <key key="power" value="tower" />
+            <text key="operator" text="Operator" />
             <text key="ref" text="Tower reference" />
+            <text key="height" text="Height in meter (m)" />
+            <combo key="material" text="Material" values="metal,plastic,steel,stone,wood" />
         </item>
         <item name="Pole" icon="styles/standard/misc/landmark/power/pole.png" type="node">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:power=pole"
@@ -4319,17 +5003,25 @@ Note that for a match, at least one positive and no negative is required.
                   pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:power=pole" />
             <label text="Edit Power Pole" />
             <key key="power" value="pole" />
+            <text key="operator" text="Operator" />
             <text key="ref" text="Pole reference" />
+            <text key="height" text="Height in meter (m)" />
+            <combo key="material" text="Material" values="metal,plastic,steel,stone,wood" />
         </item>
         <item name="Power Line" icon="presets/power.png" type="way">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:power=line"
-                  de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:power=line" />
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:power=line"
+                  fi.href="http://wiki.openstreetmap.org/wiki/Fi:Tag:power=line"
+                  fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:power=line"
+                  pl.href="http://wiki.openstreetmap.org/wiki/Pl:Tag:power=line"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:power=line"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:power=line" />
             <label text="Edit Power Line" />
             <combo key="power" text="Line type" values_context="Power Line" values="line,minor_line" default="line" match="keyvalue" />
             <text key="operator" text="Operator" />
             <text key="ref" text="Line reference" />
-            <!-- TODO: voltage values used are a mixture of power lines and railways - needs cleanup -->
-            <combo key="voltage" text="Voltage" values="3000,10000,15000,20000,25000,110000,220000,380000" />
+            <combo key="voltage" text="Voltage in Volts (V)" values="1150000,765000,750000,735000,500000,450000,420000,400000,380000,350000,345000,330000,315000,300000,275000,238000,230000,225000,220000,200000,161000,154000,150000,138000,132000,120000,115000,110000,100000,90000,69000,66000,65000,63000,60000,55000,49000,45000,35000,33000,30000,20000,15000,750,400,220,110,high,medium,low,750000;200000,110000;20000" />
+            <combo key="frequency" text="Frequency in Hertz (Hz)" values="0,16.67,16.7,50,60" length="5" />
             <text key="cables" text="Amount of Cables" />
             <combo key="wires" text="Number of wires (better: conductors) per power cable" values="single,double,triple,quad" />
         </item>
@@ -4513,7 +5205,8 @@ Note that for a match, at least one positive and no negative is required.
             <key key="amenity" value="marketplace" />
             <text key="name" text="Name" />
             <text key="operator" text="Operator" />
-            <combo key="opening_hours" text="Opening Hours" values="24/7,Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00; Sa 08:00-12:00" />                      
+            <combo key="opening_hours" text="Opening Hours" values="24/7,Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00; Sa 08:00-12:00" />
+            <text key="website" text="Website" />
         </item>     	
         <item name="Greengrocer" icon="presets/greengrocer.png" type="node,closedway">
             <link href="http://wiki.openstreetmap.org/wiki/Tag:shop=greengrocer"
@@ -4524,8 +5217,22 @@ Note that for a match, at least one positive and no negative is required.
             <space />            
             <key key="shop" value="greengrocer" />
             <text key="name" text="Name" />            
-            <text key="operator" text="Operator" />
             <combo key="opening_hours" text="Opening Hours" values="24/7,Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00; Sa 08:00-12:00" />
+            <text key="website" text="Website" />
+        </item>
+        <item name="Farm Stand" icon="presets/apple.png" type="node,closedway">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:shop=farm"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:shop=farm"
+                  fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:shop=farm"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:shop=farm"/>
+            <label text="Edit Farm Stand" />
+            <space />
+            <key key="shop" value="farm" />
+            <text key="name" text="Name" />
+            <text key="description" text="Description" />
+            <text key="phone" text="Phone Number" match="key" />
+            <text key="website" text="Website" />
+            <combo key="organic" text="Organic" values="yes,no,only" />
         </item>
         <separator/>
         <item name="Organic" type="node,closedway">
@@ -4900,6 +5607,17 @@ Note that for a match, at least one positive and no negative is required.
             <text key="name" text="Name" />
             <combo key="opening_hours" text="Opening Hours" values="24/7,Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00;Sa 08:00-12:00" />
         </item>
+        <item name="Newsagent's shop" icon="presets/kiosk.png" type="node,closedway">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:shop=newsagent"
+                  fr.href="http://wiki.openstreetmap.org/wiki/FR:Tag:shop=newsagent"
+                  it.href="http://wiki.openstreetmap.org/wiki/IT:Tag:shop=newsagent"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:shop=newsagent"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:shop=newsagent" />
+            <label text="Edit Newsagent's shop" />
+            <key key="shop" value="newsagent" />
+            <text key="name" text="Name" />
+            <combo key="opening_hours" text="Opening Hours" values="24/7,Mo-Fr 08:30-20:00,Tu-Su 08:00-15:00;Sa 08:00-12:00" />
+        </item>
         <separator/>
         <item name="Travel Agency" icon="presets/travel.png" type="node,closedway">
             <label text="Edit Travel Agency" />
@@ -5202,7 +5920,7 @@ Note that for a match, at least one positive and no negative is required.
             <key key="natural" value="tree" />
             <text key="name" text="Name" />
             <text key="type" text="Type" />
-            <text key="height" text="Height" />
+            <text key="height" text="Height in meter (m)" />
             <text key="name:botanical" text="Botanical Name" />
         </item>
         <item name="Wood" icon="presets/landuse.png" type="node,closedway,relation">
@@ -5228,6 +5946,19 @@ Note that for a match, at least one positive and no negative is required.
             <key key="landuse" value="forest" />
             <text key="name" text="Name" />
             <combo key="wood" text="Type" values="coniferous,deciduous,mixed" />
+        </item>
+        <item name="Grassland" icon="presets/landuse.png" type="node,closedway,relation">
+            <link href="http://wiki.openstreetmap.org/wiki/Tag:natural=grassland"
+                  de.href="http://wiki.openstreetmap.org/wiki/DE:Tag:natural=grassland"
+                  it.href="http://wiki.openstreetmap.org/wiki/IT:Tag:natural=grassland"
+                  pl.href="http://wiki.openstreetmap.org/wiki/Pl:Tag:natural=grassland"
+                  pt_BR.href="http://wiki.openstreetmap.org/wiki/Pt-br:Tag:natural=grassland"
+                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Tag:natural=grassland" />
+            <label text="Edit Grassland" />
+            <space />
+            <key key="natural" value="grassland" />
+            <text key="name" text="Name" />
+            <combo key="grassland" text="Type" values="pampas,prairie,puszta,savanna,steppe,veld" />
         </item>
         <item name="Nature Reserve" icon="styles/standard/leisure/nature_reserve.png" type="node,closedway,relation">
             <label text="Edit Nature Reserve" />
@@ -5480,13 +6211,13 @@ Note that for a match, at least one positive and no negative is required.
                   de.href="http://wiki.openstreetmap.org/wiki/Proposed_features/De:Hausnummern" />
             <label text="Edit Address Information" />
             <space />
-            <text key="addr:housenumber" text="House number" match="key" />
+            <text key="addr:housenumber" text="House number" match="key" auto_increment="-2,-1,+1,+2" />
             <optional>
                 <text key="addr:housename" text="House name" match="key" />
                 <text key="addr:street" text="Street name" use_last_as_default="force" match="key" />
                 <text key="addr:city" text="City name" use_last_as_default="force" match="key" />
                 <text key="addr:postcode" text="Post code" use_last_as_default="force" match="key" />
-                <combo key="addr:country" text="Country code" values="AT,CH,DE,FR,GB,IT,RS,US" use_last_as_default="force" match="key" />
+                <combo key="addr:country" text="Country code" values_from="java.util.Locale#getISOCountries" use_last_as_default="force" match="key" />
             </optional>
         </item>
         <item name="Address Interpolation" icon="presets/interpolation.png" type="way">
@@ -5618,7 +6349,7 @@ Note that for a match, at least one positive and no negative is required.
             </roles>
         </item>
         <separator/>
-        <item name="Route" icon="presets/path.png" type="relation">
+        <item name="General route" icon="presets/path.png" type="relation">
             <link href="http://wiki.openstreetmap.org/wiki/Relation:route"
                   de.href="http://wiki.openstreetmap.org/wiki/DE:Relation:route"
                   es.href="http://wiki.openstreetmap.org/wiki/ES:Relation:route"
@@ -5626,7 +6357,7 @@ Note that for a match, at least one positive and no negative is required.
                   it.href="http://wiki.openstreetmap.org/wiki/IT:Relation:route"
                   ja.href="http://wiki.openstreetmap.org/wiki/JA:Relation:route"
                   ru.href="http://wiki.openstreetmap.org/wiki/RU:Relation:route"/>
-            <label text="Edit Route" />
+            <label text="Edit general route" />
             <key key="type" value="route" />
             <combo key="route" text="Route type" values="bicycle,bus,road,ferry,ski,foot,hiking,tram,detour,railway,subway" />
             <text key="name" text="Name" />
@@ -5634,67 +6365,19 @@ Note that for a match, at least one positive and no negative is required.
             <text key="symbol" text="Symbol description" />
             <text key="description" text="Description" />
             <optional>
-                <text key="from" text="From (initial stop)" />
-                <text key="to" text="To (terminal stop)" />
                 <text key="network" text="Network" />
                 <text key="operator" text="Operator" />
                 <combo key="state" text="Route state" values="proposed,alternate,temporary,connection" />
-                <text key="color" text="Color (hex)" />
+                <combo key="colour" text="Color (HTML name or hexadecimal code)" values_context="color" values="black,brown,green,red,blue,gray,white,#CD853F" />
             </optional>
             <roles>
                 <role key="" text="route segment" requisite="optional" type="way" />
                 <role key="forward" text="forward segment" requisite="optional" type="way" />
                 <role key="backward" text="backward segment" requisite="optional" type="way" />
-                <role key="stop" text="halt point" requisite="optional" type="node" />
-                <role key="forward_stop" text="forward halt point" requisite="optional" type="node" />
-                <role key="backward_stop" text="backward halt point" requisite="optional" type="node" />
-                <role key="platform" text="platform belonging to route" requisite="optional" type="node,way,closedway" />
-            </roles>
-        </item>
-        <item name="Route master" icon="presets/path.png" type="relation">
-            <link href="http://wiki.openstreetmap.org/wiki/Relation:route_master"
-                  nl.href="http://wiki.openstreetmap.org/wiki/NL:Relation:route_master"/>
-            <label text="Edit Route master" />
-            <key key="type" value="route_master" />
-            <combo key="route" text="Route type" values="train,subway,monorail,tram,bus,trolleybus,aerialway,ferry" />
-            <text key="name" text="Name" />
-            <text key="ref" text="Reference" />
-            <optional>
-                <text key="network" text="Network" />
-                <text key="operator" text="Operator" />
-                <text key="color" text="Color (hex)" />
-            </optional>
-            <roles>
-              <role key="" text="route variant/direction (at least 2)" requisite="required" type="relation" /><!-- FIXME: at least 2 members are required -->
-            </roles>
-        </item>
-        <item name="Directional Route (North America)" icon="presets/path.png" type="relation">
-            <link href="http://wiki.openstreetmap.org/wiki/Relation:route"
-                  de.href="http://wiki.openstreetmap.org/wiki/DE:Relation:route"
-                  es.href="http://wiki.openstreetmap.org/wiki/ES:Relation:route"
-                  fr.href="http://wiki.openstreetmap.org/wiki/FR:Relation:route"
-                  it.href="http://wiki.openstreetmap.org/wiki/IT:Relation:route"
-                  ja.href="http://wiki.openstreetmap.org/wiki/JA:Relation:route"
-                  ru.href="http://wiki.openstreetmap.org/wiki/RU:Relation:route"/>
-            <label text="Edit Directional Route (used in North America)" />
-            <key key="type" value="route" />
-            <combo key="route" text="Route type" values="bicycle,bus,road,ferry,ski,foot,hiking,tram,detour,railway,subway" />
-            <text key="name" text="Name" />
-            <text key="ref" text="Reference" />
-            <text key="symbol" text="Symbol description" />
-            <text key="description" text="Description" />
-            <optional>
-                <text key="network" text="Network" />
-                <text key="operator" text="Operator" />
-                <combo key="state" text="Route state" values="proposed,alternate,temporary,connection" />
-                <text key="color" text="Color (hex)" />
-            </optional>
-            <roles>
-                <role key="" text="route segment" requisite="optional" type="way" />
-                <role key="east" text="east segment" requisite="optional" type="way" />
-                <role key="north" text="north segment" requisite="optional" type="way" />
-                <role key="west" text="west segment" requisite="optional" type="way" />
-                <role key="south" text="south segment" requisite="optional" type="way" />
+                <role key="east" text="east segment (North America)" requisite="optional" type="way" />
+                <role key="north" text="north segment (North America)" requisite="optional" type="way" />
+                <role key="west" text="west segment (North America)" requisite="optional" type="way" />
+                <role key="south" text="south segment (North America)" requisite="optional" type="way" />
                 <role key="stop" text="halt point" requisite="optional" type="node" />
                 <role key="forward_stop" text="forward halt point" requisite="optional" type="node" />
                 <role key="backward_stop" text="backward halt point" requisite="optional" type="node" />
@@ -5723,8 +6406,8 @@ Note that for a match, at least one positive and no negative is required.
             <key key="type" value="associatedStreet" />
             <text key="name" text="Street name" />
             <roles>
-                <role key="street" text="street" requisite="required" type="way" />
-                <role key="house" text="house" requisite="required" type="node,way,closedway,relation" />
+                <role key="street" text="street" requisite="required" type="way,closedway" member_expression="highway" />
+                <role key="house" text="house" requisite="required" type="node,way,closedway,relation" member_expression="&quot;addr:housenumber&quot; | &quot;addr:interpolation&quot;" />
             </roles>
         </item>
         <item name="Street" type="relation">
@@ -5780,8 +6463,9 @@ Note that for a match, at least one positive and no negative is required.
                 <text key="wikipedia" text="Wikipedia" />
             </optional>
             <roles>
-                <role key="main_stream" text="waterways (no riverbank)" requisite="required" type="way" />
-                <role key="side_stream" text="branch waterways (no riverbank)" requisite="optional" type="way" />
+                <role key="" text="waterways (no riverbank)" requisite="optional" type="way" member_expression="waterway -waterway:riverbank" />
+                <role key="main_stream" text="waterways (no riverbank)" requisite="optional" type="way" member_expression="waterway -waterway:riverbank" />
+                <role key="side_stream" text="branch waterways (no riverbank)" requisite="optional" type="way" member_expression="waterway -waterway:riverbank"/>
                 <role key="spring" text="spring of waterway" requisite="optional" type="node" />
             </roles>
         </item>
@@ -5790,7 +6474,7 @@ Note that for a match, at least one positive and no negative is required.
                   ru.href="http://wiki.openstreetmap.org/wiki/RU:Relations/Proposed/Bridges_and_Tunnels"/>
             <label text="Edit Bridge" />
             <key key="type" value="bridge" />
-            <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
+            <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
             <text key="name" text="Name" />
             <text key="ref" text="Reference" />
             <text key="height" text="Height (meters)" />
@@ -5807,7 +6491,7 @@ Note that for a match, at least one positive and no negative is required.
             <link href="http://wiki.openstreetmap.org/wiki/Relations/Proposed/Bridges_and_Tunnels"/>
             <label text="Edit Tunnel" />
             <key key="type" value="tunnel" />
-            <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" />
+            <combo key="layer" text="Layer" values="5,4,3,2,1,0,-1,-2,-3,-4,-5" length="3" />
             <text key="name" text="Name" />
             <text key="ref" text="Reference" />
             <text key="length" text="Length (meters)" />

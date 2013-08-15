@@ -92,6 +92,7 @@ public class ExtensionFileFilter extends FileFilter implements java.io.FileFilte
                 filters,
                 new Comparator<ExtensionFileFilter>() {
                     private AllFormatsImporter all = new AllFormatsImporter();
+                    @Override
                     public int compare(ExtensionFileFilter o1, ExtensionFileFilter o2) {
                         if (o1.getDescription().equals(all.filter.getDescription())) return 1;
                         if (o2.getDescription().equals(all.filter.getDescription())) return -1;
@@ -108,7 +109,7 @@ public class ExtensionFileFilter extends FileFilter implements java.io.FileFilte
      * Updating the AllFormatsImporter is required when plugins add new importers that
      * support new file extensions. The old AllFormatsImporter doesn’t include the new
      * extensions and thus will not display these files.
-     * 
+     *
      * @since 5131
      */
     public static void updateAllFormatsImporter() {
@@ -195,7 +196,7 @@ public class ExtensionFileFilter extends FileFilter implements java.io.FileFilte
      *
      * @param fileChooser the file chooser
      * @param extension the default extension
-     * @param allTypes If true, all the files types known by JOSM will be proposed in the "file type" combobox. 
+     * @param allTypes If true, all the files types known by JOSM will be proposed in the "file type" combobox.
      *                 If false, only the file filters that include {@code extension} will be proposed
      * @since 5438
      */
@@ -214,7 +215,7 @@ public class ExtensionFileFilter extends FileFilter implements java.io.FileFilte
      *
      * @param fileChooser the file chooser
      * @param extension the default extension
-     * @param allTypes If true, all the files types known by JOSM will be proposed in the "file type" combobox. 
+     * @param allTypes If true, all the files types known by JOSM will be proposed in the "file type" combobox.
      *                 If false, only the file filters that include {@code extension} will be proposed
      * @since 5438
      */
@@ -267,7 +268,7 @@ public class ExtensionFileFilter extends FileFilter implements java.io.FileFilte
     }
 
     /**
-     * Replies the comma-separated list of file extensions of this file filter. 
+     * Replies the comma-separated list of file extensions of this file filter.
      * @return the comma-separated list of file extensions of this file filter, as a String
      * @since 5131
      */

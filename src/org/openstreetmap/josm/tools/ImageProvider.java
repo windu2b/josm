@@ -92,6 +92,7 @@ public class ImageProvider {
     protected String subdir;
     protected String name;
     protected File archive;
+    protected String inArchiveDir;
     protected int width = -1;
     protected int height = -1;
     protected int maxWidth = -1;
@@ -156,6 +157,18 @@ public class ImageProvider {
     }
 
     /**
+     * Specify a base path inside the zip file.
+     *
+     * The subdir and name will be relative to this path.
+     *
+     * (optional)
+     */
+    public ImageProvider setInArchiveDir(String inArchiveDir) {
+        this.inArchiveDir = inArchiveDir;
+        return this;
+    }
+
+    /**
      * Set the dimensions of the image.
      *
      * If not specified, the original size of the image is used.
@@ -197,7 +210,7 @@ public class ImageProvider {
         this.maxHeight = maxSize.height;
         return this;
     }
-    
+
     /**
      * Convenience method, see {@link #setMaxSize(Dimension)}.
      */
@@ -340,7 +353,7 @@ public class ImageProvider {
 
     /**
      * {@code data:[<mediatype>][;base64],<data>}
-     * @see RFC2397
+     * @see <a href="http://tools.ietf.org/html/rfc2397">RFC2397</a>
      */
     private static final Pattern dataUrlPattern = Pattern.compile(
             "^data:([a-zA-Z]+/[a-zA-Z+]+)?(;base64)?,(.+)$");
@@ -402,7 +415,7 @@ public class ImageProvider {
 
             if (subdir == null) {
                 subdir = "";
-            } else if (!subdir.equals("")) {
+            } else if (!subdir.isEmpty()) {
                 subdir += "/";
             }
             String[] extensions;
@@ -424,7 +437,7 @@ public class ImageProvider {
                     String full_name = subdir + name + ext;
                     String cache_name = full_name;
                     /* cache separately */
-                    if (dirs != null && dirs.size() > 0) {
+                    if (dirs != null && !dirs.isEmpty()) {
                         cache_name = "id:" + id + ":" + full_name;
                         if(archive != null) {
                             cache_name += ":" + archive.getName();
@@ -437,7 +450,7 @@ public class ImageProvider {
                     switch (place) {
                     case ARCHIVE:
                         if (archive != null) {
-                            ir = getIfAvailableZip(full_name, archive, type);
+                            ir = getIfAvailableZip(full_name, archive, inArchiveDir, type);
                             if (ir != null) {
                                 cache.put(cache_name, ir);
                                 return ir;
@@ -520,12 +533,19 @@ public class ImageProvider {
         return result;
     }
 
-    private static ImageResource getIfAvailableZip(String full_name, File archive, ImageType type) {
+    private static ImageResource getIfAvailableZip(String full_name, File archive, String inArchiveDir, ImageType type) {
         ZipFile zipFile = null;
         try
         {
             zipFile = new ZipFile(archive);
-            ZipEntry entry = zipFile.getEntry(full_name);
+            String entry_name;
+            if (inArchiveDir != null) {
+                File dir = new File(inArchiveDir);
+                entry_name = new File(dir, full_name).getPath();
+            } else {
+                entry_name = full_name;
+            }
+            ZipEntry entry = zipFile.getEntry(entry_name);
             if(entry != null)
             {
                 int size = (int)entry.getSize();
@@ -536,7 +556,7 @@ public class ImageProvider {
                     is = zipFile.getInputStream(entry);
                     switch (type) {
                     case SVG:
-                        URI uri = getSvgUniverse().loadSVG(is, full_name);
+                        URI uri = getSvgUniverse().loadSVG(is, entry_name);
                         SVGDiagram svg = getSvgUniverse().getDiagram(uri);
                         return svg == null ? null : new ImageResource(svg);
                     case OTHER:
@@ -555,20 +575,13 @@ public class ImageProvider {
                         throw new AssertionError();
                     }
                 } finally {
-                    if (is != null) {
-                        is.close();
-                    }
+                    Utils.close(is);
                 }
             }
         } catch (Exception e) {
             System.err.println(tr("Warning: failed to handle zip file ''{0}''. Exception was: {1}", archive.getName(), e.toString()));
         } finally {
-            if (zipFile != null) {
-                try {
-                    zipFile.close();
-                } catch (IOException ex) {
-                }
-            }
+            Utils.close(zipFile);
         }
         return null;
     }
@@ -605,7 +618,7 @@ public class ImageProvider {
         } else {
             try {
                 File f = new File(path, name);
-                if (f.exists())
+                if ((path != null || f.isAbsolute()) && f.exists())
                     return f.toURI().toURL();
             } catch (MalformedURLException e) {
             }
@@ -699,6 +712,7 @@ public class ImageProvider {
             });
 
             parser.setEntityResolver(new EntityResolver() {
+                @Override
                 public InputSource resolveEntity (String publicId, String systemId) {
                     return new InputSource(new ByteArrayInputStream(new byte[0]));
                 }
@@ -726,11 +740,6 @@ public class ImageProvider {
         Cursor c = Toolkit.getDefaultToolkit().createCustomCursor(img.getImage(),
                 name.equals("crosshair") ? new Point(10, 10) : new Point(3, 2), "Cursor");
         return c;
-    }
-
-    @Deprecated
-    public static ImageIcon overlay(Icon ground, String overlayImage, OverlayPosition pos) {
-        return overlay(ground, ImageProvider.get(overlayImage), pos);
     }
 
     /**
@@ -870,6 +879,9 @@ public class ImageProvider {
             height = dim.height;
             scaleX = scaleY = (double) height / realHeight;
             width = (int) Math.round(realWidth * scaleX);
+        }
+        if (width == 0 || height == 0) {
+            return null;
         }
         BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = img.createGraphics();

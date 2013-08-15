@@ -7,6 +7,11 @@ import org.openstreetmap.josm.gui.mappaint.mapcss.Condition.Context;
 import org.openstreetmap.josm.gui.mappaint.mapcss.Selector.LinkSelector;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
 
+/**
+ * Environment is a data object to provide access to various "global" parameters.
+ * It is used during processing of MapCSS rules and for the generation of
+ * style elements.
+ */
 public class Environment {
 
     public OsmPrimitive osm;
@@ -45,7 +50,7 @@ public class Environment {
 
     /**
      * Creates a clone of the environment {@code other}
-     * 
+     *
      * @param other the other environment. Must not be null.
      */
     public Environment(Environment other) throws IllegalArgumentException{
@@ -101,12 +106,12 @@ public class Environment {
     }
 
     public boolean hasParentRelation() {
-        return parent != null && parent instanceof Relation;
+        return parent instanceof Relation;
     }
 
     /**
      * Replies the current context.
-     * 
+     *
      * @return the current context
      */
     public Context getContext() {
@@ -117,7 +122,7 @@ public class Environment {
         if (getContext().equals(Context.PRIMITIVE))
             return null;
 
-        if (parent != null && parent instanceof Relation)
+        if (parent instanceof Relation)
             return ((Relation) parent).getMember(index).getRole();
         if (child != null && osm instanceof Relation)
             return ((Relation) osm).getMember(index).getRole();

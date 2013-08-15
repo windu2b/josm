@@ -25,6 +25,7 @@ public class AllNodesVisitor extends AbstractVisitor {
     /**
      * Nodes have only itself as nodes.
      */
+    @Override
     public void visit(Node n) {
         nodes.add(n);
     }
@@ -32,6 +33,7 @@ public class AllNodesVisitor extends AbstractVisitor {
     /**
      * Ways have their way nodes.
      */
+    @Override
     public void visit(Way w) {
         if (w.isIncomplete()) return;
         for (Node n : w.getNodes())
@@ -43,17 +45,21 @@ public class AllNodesVisitor extends AbstractVisitor {
      * FIXME: do we want to collect nodes from segs/ways that are relation members?
      * if so, use AutomatchVisitor!
      */
+    @Override
     public void visit(Relation e) {
         for (RelationMember m : e.getMembers())
             if (m.isNode()) visit(m.getNode());
     }
+
     /**
-     * @return All nodes the given primitive has.
+     * Replies all nodes contained by the given primitives
+     * @param osms The OSM primitives to inspect
+     * @return All nodes the given primitives have.
      */
     public static Collection<Node> getAllNodes(Collection<? extends OsmPrimitive> osms) {
         AllNodesVisitor v = new AllNodesVisitor();
         for (OsmPrimitive osm : osms)
-            osm.visit(v);
+            osm.accept(v);
         return v.nodes;
     }
 }

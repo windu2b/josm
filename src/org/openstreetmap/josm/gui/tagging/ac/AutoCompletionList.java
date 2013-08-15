@@ -131,7 +131,7 @@ public class AutoCompletionList extends AbstractTableModel {
      * adds a list of strings to this list. Only strings which
      * are not null and which do not exist yet in the list are added.
      *
-     * @param value a list of strings to add
+     * @param values a list of strings to add
      * @param priority the priority to use
      */
     public void add(Collection<String> values, AutoCompletionItemPritority priority) {
@@ -275,15 +275,18 @@ public class AutoCompletionList extends AbstractTableModel {
         fireTableDataChanged();
     }
 
+    @Override
     public int getColumnCount() {
         return 1;
     }
 
+    @Override
     public int getRowCount() {
 
         return list == null ? 0 : getFilteredSize();
     }
 
+    @Override
     public Object getValueAt(int rowIndex, int columnIndex) {
         return list == null ? null : getFilteredItem(rowIndex);
     }

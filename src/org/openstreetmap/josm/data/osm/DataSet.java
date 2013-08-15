@@ -99,20 +99,8 @@ public class DataSet implements Cloneable, ProjectionChangeListener {
      */
     private static final int MAX_EVENTS = 1000;
 
-    private static class IdHash implements Hash<PrimitiveId,OsmPrimitive> {
-
-        public int getHashCode(PrimitiveId k) {
-            return (int)k.getUniqueId() ^ k.getType().hashCode();
-        }
-
-        public boolean equals(PrimitiveId key, OsmPrimitive value) {
-            if (key == null || value == null) return false;
-            return key.getUniqueId() == value.getUniqueId() && key.getType() == value.getType();
-        }
-    }
-
-    private Storage<OsmPrimitive> allPrimitives = new Storage<OsmPrimitive>(new IdHash(), true);
-    private Map<PrimitiveId, OsmPrimitive> primitivesMap = allPrimitives.foreignKey(new IdHash());
+    private Storage<OsmPrimitive> allPrimitives = new Storage<OsmPrimitive>(new Storage.PrimitiveIdHash(), true);
+    private Map<PrimitiveId, OsmPrimitive> primitivesMap = allPrimitives.foreignKey(new Storage.PrimitiveIdHash());
     private CopyOnWriteArrayList<DataSetListener> listeners = new CopyOnWriteArrayList<DataSetListener>();
 
     // provide means to highlight map elements that are not osm primitives
@@ -125,7 +113,7 @@ public class DataSet implements Cloneable, ProjectionChangeListener {
     private final List<AbstractDatasetChangedEvent> cachedEvents = new ArrayList<AbstractDatasetChangedEvent>();
 
     private int highlightUpdateCount;
-    
+
     private boolean uploadDiscouraged = false;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -146,7 +134,7 @@ public class DataSet implements Cloneable, ProjectionChangeListener {
     /**
      * This method can be used to detect changes in highlight state of primitives. If highlighting was changed
      * then the method will return different number.
-     * @return
+     * @return the current highlight counter
      */
     public int getHighlightUpdateCount() {
         return highlightUpdateCount;
@@ -160,7 +148,7 @@ public class DataSet implements Cloneable, ProjectionChangeListener {
     /**
      * Replies the history of JOSM selections
      *
-     * @return
+     * @return list of history entries
      */
     public LinkedList<Collection<? extends OsmPrimitive>> getSelectionHistory() {
         return selectionHistory;
@@ -382,7 +370,7 @@ public class DataSet implements Cloneable, ProjectionChangeListener {
      * {@link #relations}. References from other primitives to this
      * primitive are left unchanged.
      *
-     * @param primitive the primitive
+     * @param primitiveId the id of the primitive
      */
     public void removePrimitive(PrimitiveId primitiveId) {
         beginUpdate();
@@ -485,7 +473,7 @@ public class DataSet implements Cloneable, ProjectionChangeListener {
     public Collection<OsmPrimitive> getSelected() {
         return new SubclassFilteredCollection<OsmPrimitive, OsmPrimitive>(getAllSelected(), OsmPrimitive.nonDeletedPredicate);
     }
-    
+
     /**
      * Replies an unmodifiable collection of primitives currently selected
      * in this dataset, including deleted ones. May be empty, but not null.
@@ -567,7 +555,7 @@ public class DataSet implements Cloneable, ProjectionChangeListener {
      * set what virtual nodes should be highlighted. Requires a Collection of
      * *WaySegments* to avoid a VirtualNode class that wouldn't have much use
      * otherwise.
-     * @param Collection of waySegments
+     * @param waySegments Collection of way segments
      */
     public void setHighlightedVirtualNodes(Collection<WaySegment> waySegments) {
         if(highlightedVirtualNodes.isEmpty() && waySegments.isEmpty())
@@ -580,7 +568,7 @@ public class DataSet implements Cloneable, ProjectionChangeListener {
 
     /**
      * set what virtual ways should be highlighted.
-     * @param Collection of waySegments
+     * @param waySegments Collection of way segments
      */
     public void setHighlightedWaySegments(Collection<WaySegment> waySegments) {
         if(highlightedWaySegments.isEmpty() && waySegments.isEmpty())
@@ -601,10 +589,10 @@ public class DataSet implements Cloneable, ProjectionChangeListener {
     public void setSelected(Collection<? extends PrimitiveId> selection, boolean fireSelectionChangeEvent) {
         boolean changed;
         synchronized (selectionLock) {
-            boolean wasEmpty = selectedPrimitives.isEmpty();
+            LinkedHashSet<OsmPrimitive> oldSelection = new LinkedHashSet<OsmPrimitive>(selectedPrimitives);
             selectedPrimitives = new LinkedHashSet<OsmPrimitive>();
-            changed = addSelected(selection, false)
-                    || (!wasEmpty && selectedPrimitives.isEmpty());
+            addSelected(selection, false);
+            changed = !oldSelection.equals(selectedPrimitives);
             if (changed) {
                 selectionSnapshot = null;
             }
@@ -692,7 +680,7 @@ public class DataSet implements Cloneable, ProjectionChangeListener {
 
     /**
      * Remove the selection from every value in the collection.
-     * @param list The collection to remove the selection from.
+     * @param osm The collection of ids to remove the selection from.
      */
     public void clearSelection(PrimitiveId... osm) {
         clearSelection(Arrays.asList(osm));
@@ -961,7 +949,7 @@ public class DataSet implements Cloneable, ProjectionChangeListener {
 
     /**
      * Can be called before bigger changes on dataset. Events are disabled until {@link #endUpdate()}.
-     * {@link DataSetListener#dataChanged()} event is triggered after end of changes
+     * {@link DataSetListener#dataChanged(DataChangedEvent event)} event is triggered after end of changes
      * <br>
      * Typical usecase should look like this:
      * <pre>
@@ -1066,8 +1054,7 @@ public class DataSet implements Cloneable, ProjectionChangeListener {
      * Invalidates the internal cache of projected east/north coordinates.
      *
      * This method can be invoked after the globally configured projection method
-     * changed. In contrast to {@link DataSet#reproject()} it only invalidates the
-     * cache and doesn't reproject the coordinates.
+     * changed.
      */
     public void invalidateEastNorthCache() {
         if (Main.getProjection() == null) return; // sanity check
@@ -1176,9 +1163,9 @@ public class DataSet implements Cloneable, ProjectionChangeListener {
      * @param from The source DataSet
      */
     public void mergeFrom(DataSet from) {
-    	mergeFrom(from, null);
+        mergeFrom(from, null);
     }
-    
+
     /**
      * Moves all primitives and datasources from DataSet "from" to this DataSet
      * @param from The source DataSet

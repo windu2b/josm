@@ -37,8 +37,8 @@ public class ConditionalOptionPaneUtil {
      * Replies the preference value for the preference key "message." + <code>prefKey</code>.
      * The default value if the preference key is missing is true.
      *
-     * @param  the preference key
-     * @return prefKey the preference value for the preference key "message." + <code>prefKey</code>
+     * @param  prefKey the preference key
+     * @return the preference value for the preference key "message." + <code>prefKey</code>
      */
     public static boolean getDialogShowingEnabled(String prefKey) {
         return Main.pref.getBoolean("message."+prefKey, true);
@@ -58,8 +58,8 @@ public class ConditionalOptionPaneUtil {
      * Returns the preference value for the preference key "message." + <code>prefKey</code> + ".value".
      * The default value if the preference key is missing is -1.
      *
-     * @param  the preference key
-     * @return prefKey the preference value for the preference key "message." + <code>prefKey</code> + ".value"
+     * @param  prefKey the preference key
+     * @return the preference value for the preference key "message." + <code>prefKey</code> + ".value"
      */
     public static Integer getDialogReturnValue(String prefKey) {
         return Main.pref.getInteger("message."+prefKey+".value", -1);
@@ -97,7 +97,7 @@ public class ConditionalOptionPaneUtil {
      * @param optionType  the option type
      * @param messageType the message type
      * @param options a list of options
-     * @param defaultOption the default option
+     * @param defaultOption the default option; only meaningful if options is used; can be null
      *
      * @return the option selected by user. {@link JOptionPane#CLOSED_OPTION} if the dialog was closed.
      */

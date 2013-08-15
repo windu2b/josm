@@ -2,10 +2,14 @@
 package org.openstreetmap.josm.gui.tagging;
 
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
 import java.util.EnumSet;
+import javax.swing.AbstractAction;
 
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
@@ -57,6 +61,10 @@ public class TagEditorPanel extends JPanel {
         return pnl;
     }
 
+    public void setNextFocusComponent(Component nextFocusComponent) {
+        tagTable.setNextFocusComponent(nextFocusComponent);
+    }
+
     /**
      * builds the panel with the button row
      *
@@ -77,7 +85,16 @@ public class TagEditorPanel extends JPanel {
         pnl.add(btn = new JButton(tagTable.getDeleteAction()));
         btn.setMargin(new Insets(0,0,0,0));
         tagTable.addComponentNotStoppingCellEditing(btn);
+        
+        // paste action
+        pnl.add(btn = new JButton(tagTable.getPasteAction()));
+        btn.setMargin(new Insets(0,0,0,0));
+        tagTable.addComponentNotStoppingCellEditing(btn);
         return pnl;
+    }
+
+    public AbstractAction getPasteAction() {
+        return tagTable.getPasteAction();
     }
 
     /**
@@ -115,6 +132,12 @@ public class TagEditorPanel extends JPanel {
                 }
             });
         }
+
+        addFocusListener(new FocusAdapter() {
+            @Override public void focusGained(FocusEvent e) {
+                tagTable.requestFocusInCell(0, 0);
+            }
+        });
     }
 
     /**
@@ -179,7 +202,7 @@ public class TagEditorPanel extends JPanel {
 
     private void updatePresets() {
         presetListPanel.updatePresets(
-                EnumSet.of(TaggingPreset.PresetType.RELATION),
+                EnumSet.of(TaggingPresetType.RELATION),
                 model.getTags(), presetHandler);
         validate();
     }

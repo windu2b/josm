@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.concurrent.Future;
 
 import org.openstreetmap.josm.Main;
-import org.openstreetmap.josm.actions.downloadtasks.DownloadOsmTaskList;
+import org.openstreetmap.josm.actions.downloadtasks.DownloadTaskList;
 import org.openstreetmap.josm.data.osm.DataSource;
 import org.openstreetmap.josm.gui.layer.OsmDataLayer;
 import org.openstreetmap.josm.gui.progress.PleaseWaitProgressMonitor;
@@ -43,6 +43,7 @@ public class UpdateDataAction extends JosmAction{
 
     }
 
+    @Override
     public void actionPerformed(ActionEvent e) {
         if (! isEnabled())
             return;
@@ -82,14 +83,15 @@ public class UpdateDataAction extends JosmAction{
             // no bounds defined in the dataset? we update all primitives in the data set
             // using a series of multi fetch requests
             //
-            new UpdateSelectionAction().updatePrimitives(getEditLayer().data.allPrimitives());
+            UpdateSelectionAction.updatePrimitives(getEditLayer().data.allPrimitives());
         } else {
             // bounds defined? => use the bbox downloader
             //
             final PleaseWaitProgressMonitor monitor = new PleaseWaitProgressMonitor(tr("Download data"));
-            final Future<?> future = new DownloadOsmTaskList().download(false /* no new layer */, areasToDownload, monitor);
+            final Future<?> future = new DownloadTaskList().download(false /* no new layer */, areasToDownload, true, false, monitor);
             Main.worker.submit(
                     new Runnable() {
+                        @Override
                         public void run() {
                             try {
                                 future.get();

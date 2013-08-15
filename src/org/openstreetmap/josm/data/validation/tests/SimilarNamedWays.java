@@ -79,7 +79,7 @@ public class SimilarNamedWays extends Test {
 
                 int levenshteinDistance = getLevenshteinDistance(name, name2);
                 if (0 < levenshteinDistance && levenshteinDistance <= 2) {
-                    List<OsmPrimitive> primitives = new ArrayList<OsmPrimitive>();
+                    List<OsmPrimitive> primitives = new ArrayList<OsmPrimitive>(2);
                     primitives.add(w);
                     primitives.add(w2);
                     errors.add(new TestError(this, Severity.WARNING, tr("Similarly named ways"), SIMILAR_NAMED, primitives));
@@ -98,7 +98,7 @@ public class SimilarNamedWays extends Test {
      * @return The distance between words
      */
     public int getLevenshteinDistance(String s, String t) {
-        int d[][]; // matrix
+        int[][] d; // matrix
         int n; // length of s
         int m; // length of t
         int i; // iterates through s

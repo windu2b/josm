@@ -31,7 +31,7 @@ import org.openstreetmap.josm.tools.ImageProvider;
 
 /**
  * This is non-modal dialog, always showing on top, which displays history information
- * about a given {@link OsmPrimitive}.
+ * about a given {@link org.openstreetmap.josm.data.osm.OsmPrimitive}.
  *
  */
 public class HistoryBrowserDialog extends JDialog implements HistoryDataSetListener{
@@ -121,12 +121,14 @@ public class HistoryBrowserDialog extends JDialog implements HistoryDataSetListe
     /* ---------------------------------------------------------------------------------- */
     /* interface HistoryDataSetListener                                                   */
     /* ---------------------------------------------------------------------------------- */
+    @Override
     public void historyUpdated(HistoryDataSet source, PrimitiveId primitiveId) {
         if (primitiveId == null || primitiveId.equals(browser.getHistory().getPrimitiveId())) {
             browser.populate(source.getHistory(browser.getHistory().getPrimitiveId()));
         }
     }
 
+    @Override
     public void historyDataSetCleared(HistoryDataSet source) {
         closeAction.run();
     }
@@ -145,6 +147,7 @@ public class HistoryBrowserDialog extends JDialog implements HistoryDataSetListe
             HistoryBrowserDialogManager.getInstance().hide(HistoryBrowserDialog.this);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             run();
         }
@@ -157,6 +160,7 @@ public class HistoryBrowserDialog extends JDialog implements HistoryDataSetListe
             putValue(SMALL_ICON, ImageProvider.get("dialogs", "refresh"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             HistoryLoadTask task = new HistoryLoadTask();
             task.add(browser.getHistory());

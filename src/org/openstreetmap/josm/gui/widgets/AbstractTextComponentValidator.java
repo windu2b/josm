@@ -10,7 +10,6 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 
 import javax.swing.BorderFactory;
-import javax.swing.JTextField;
 import javax.swing.UIManager;
 import javax.swing.border.Border;
 import javax.swing.event.DocumentEvent;
@@ -19,6 +18,7 @@ import javax.swing.text.JTextComponent;
 
 import org.openstreetmap.josm.tools.CheckParameterUtil;
 import org.openstreetmap.josm.tools.Utils;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 
 /**
  * This is an abstract class for a validator on a text component.
@@ -27,7 +27,7 @@ import org.openstreetmap.josm.tools.Utils;
  * <ul>
  *   <li>the content of the text component changes (the validator is a {@link DocumentListener})</li>
  *   <li>the text component loses focus (the validator is a {@link FocusListener})</li>
- *   <li>the text component is a {@link JTextField} and an {@link ActionEvent} is detected</li>
+ *   <li>the text component is a {@link JosmTextField} and an {@link ActionEvent} is detected</li>
  * </ul>
  *
  *
@@ -109,8 +109,8 @@ public abstract class AbstractTextComponentValidator implements ActionListener, 
             tc.getDocument().addDocumentListener(this);
         }
         if (addActionListener) {
-            if (tc instanceof JTextField) {
-                JTextField tf = (JTextField)tc;
+            if (tc instanceof JosmTextField) {
+                JosmTextField tf = (JosmTextField)tc;
                 tf.addActionListener(this);
             }
         }
@@ -134,8 +134,10 @@ public abstract class AbstractTextComponentValidator implements ActionListener, 
     /* -------------------------------------------------------------------------------- */
     /* interface FocusListener                                                          */
     /* -------------------------------------------------------------------------------- */
+    @Override
     public void focusGained(FocusEvent arg0) {}
 
+    @Override
     public void focusLost(FocusEvent arg0) {
         validate();
     }
@@ -143,6 +145,7 @@ public abstract class AbstractTextComponentValidator implements ActionListener, 
     /* -------------------------------------------------------------------------------- */
     /* interface ActionListener                                                         */
     /* -------------------------------------------------------------------------------- */
+    @Override
     public void actionPerformed(ActionEvent arg0) {
         validate();
     }
@@ -150,14 +153,17 @@ public abstract class AbstractTextComponentValidator implements ActionListener, 
     /* -------------------------------------------------------------------------------- */
     /* interface DocumentListener                                                       */
     /* -------------------------------------------------------------------------------- */
+    @Override
     public void changedUpdate(DocumentEvent arg0) {
         validate();
     }
 
+    @Override
     public void insertUpdate(DocumentEvent arg0) {
         validate();
     }
 
+    @Override
     public void removeUpdate(DocumentEvent arg0) {
         validate();
     }
@@ -165,6 +171,7 @@ public abstract class AbstractTextComponentValidator implements ActionListener, 
     /* -------------------------------------------------------------------------------- */
     /* interface PropertyChangeListener                                                 */
     /* -------------------------------------------------------------------------------- */
+    @Override
     public void propertyChange(PropertyChangeEvent evt) {
         if (evt.getPropertyName().equals("enabled")) {
             boolean enabled = (Boolean)evt.getNewValue();

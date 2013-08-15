@@ -87,7 +87,7 @@ public abstract class HistoryOsmPrimitive implements Comparable<HistoryOsmPrimit
         this.timestamp = timestamp;
         tags = new HashMap<String, String>();
     }
-    
+
     /**
      * Constructs a new {@code HistoryOsmPrimitive} from an existing {@link OsmPrimitive}.
      * @param p the primitive
@@ -148,6 +148,7 @@ public abstract class HistoryOsmPrimitive implements Comparable<HistoryOsmPrimit
 
     public abstract OsmPrimitiveType getType();
 
+    @Override
     public int compareTo(HistoryOsmPrimitive o) {
         if (this.id != o.id)
             throw new ClassCastException(tr("Cannot compare primitive with ID ''{0}'' to primitive with ID ''{1}''.", o.id, this.id));

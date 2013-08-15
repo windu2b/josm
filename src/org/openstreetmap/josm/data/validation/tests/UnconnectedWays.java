@@ -244,7 +244,7 @@ public class UnconnectedWays extends Test {
             }
             LatLon topLeft  = new LatLon(y2+fudge, x1-fudge);
             LatLon botRight = new LatLon(y1-fudge, x2+fudge);
-            List<LatLon> ret = new ArrayList<LatLon>();
+            List<LatLon> ret = new ArrayList<LatLon>(2);
             ret.add(topLeft);
             ret.add(botRight);
             return ret;
@@ -333,11 +333,15 @@ public class UnconnectedWays extends Test {
             if(i < size-1) {
                 addNode(w.getNode(i), middlenodes);
             }
-            MyWaySegment ws = new MyWaySegment(w, w.getNode(i-1), w.getNode(i));
-            if (ws.isBoundary || ws.isAbandoned) {
-                continue;
+            Node a = w.getNode(i-1);
+            Node b = w.getNode(i);
+            if (a.isDrawable() && b.isDrawable()) {
+                MyWaySegment ws = new MyWaySegment(w, a, b);
+                if (ws.isBoundary || ws.isAbandoned) {
+                    continue;
+                }
+                ret.add(ws);
             }
-            ret.add(ws);
         }
         return ret;
     }

@@ -9,6 +9,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Font;
 import java.awt.Graphics;
+import java.awt.GridBagLayout;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.image.BufferedImage;
@@ -21,25 +22,25 @@ import javax.swing.AbstractAction;
 import javax.swing.Icon;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
+import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
+import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JSeparator;
-import javax.swing.SwingUtilities;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.actions.ImageryAdjustAction;
 import org.openstreetmap.josm.data.ProjectionBounds;
-import org.openstreetmap.josm.data.coor.EastNorth;
 import org.openstreetmap.josm.data.imagery.ImageryInfo;
 import org.openstreetmap.josm.data.imagery.ImageryInfo.ImageryType;
 import org.openstreetmap.josm.data.imagery.OffsetBookmark;
 import org.openstreetmap.josm.data.preferences.ColorProperty;
 import org.openstreetmap.josm.data.preferences.IntegerProperty;
 import org.openstreetmap.josm.gui.MenuScroller;
-import org.openstreetmap.josm.io.imagery.OffsetServer;
-import org.openstreetmap.josm.io.imagery.OsmosnimkiOffsetServer;
+import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.ImageProvider;
+import org.openstreetmap.josm.tools.UrlLabel;
 
 public abstract class ImageryLayer extends Layer {
 
@@ -65,22 +66,7 @@ public abstract class ImageryLayer extends Layer {
 
     protected int sharpenLevel;
 
-    protected boolean offsetServerSupported;
-    protected boolean offsetServerUsed;
-    protected OffsetServerThread offsetServerThread;
-
     private final ImageryAdjustAction adjustAction = new ImageryAdjustAction(this);
-    private final AbstractAction useServerOffsetAction = new AbstractAction(tr("(use server offset)")) {
-        @Override
-        public void actionPerformed(ActionEvent e) {
-            enableOffsetServer(true);
-        }
-    };
-
-    protected OffsetServerThread createoffsetServerThread() {
-        return new OffsetServerThread(new OsmosnimkiOffsetServer(
-                OsmosnimkiOffsetServer.PROP_SERVER_URL.get()));
-    }
 
     public ImageryLayer(ImageryInfo info) {
         super(info.getName());
@@ -93,10 +79,6 @@ public abstract class ImageryLayer extends Layer {
             icon = ImageProvider.get("imagery_small");
         }
         this.sharpenLevel = PROP_SHARPEN_LEVEL.get();
-        if (OffsetServer.PROP_SERVER_ENABLED.get()) {
-            offsetServerThread = createoffsetServerThread();
-            offsetServerThread.start();
-        }
     }
 
     public double getPPD(){
@@ -142,7 +124,19 @@ public abstract class ImageryLayer extends Layer {
 
     @Override
     public Object getInfoComponent() {
-        return getToolTipText();
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.add(new JLabel(getToolTipText()), GBC.eol());
+        if (info != null) {
+            String url = info.getUrl();
+            if (url != null) {
+                panel.add(new JLabel(tr("URL: ")), GBC.std().insets(0, 5, 2, 0));
+                panel.add(new UrlLabel(url), GBC.eol().insets(2, 5, 10, 0));
+            }
+            if (dx != 0.0 || dy != 0.0) {
+                panel.add(new JLabel(tr("Offset: ") + dx + ";" + dy), GBC.eol().insets(0, 5, 10, 0));
+            }
+        }
+        return panel;
     }
 
     public static ImageryLayer create(ImageryInfo info) {
@@ -163,7 +157,6 @@ public abstract class ImageryLayer extends Layer {
         @Override
         public void actionPerformed(ActionEvent ev) {
             setOffset(b.dx, b.dy);
-            enableOffsetServer(false);
             Main.main.menu.imageryMenu.refreshOffsetMenu();
             Main.map.repaint();
         }
@@ -185,14 +178,6 @@ public abstract class ImageryLayer extends Layer {
         }
     }
 
-    public void enableOffsetServer(boolean enable) {
-        offsetServerUsed = enable;
-        if (offsetServerUsed && !offsetServerThread.isAlive()) {
-            offsetServerThread = createoffsetServerThread();
-            offsetServerThread.start();
-        }
-    }
-
     public JMenuItem getOffsetMenuItem() {
         JMenu subMenu = new JMenu(trc("layer", "Offset"));
         subMenu.setIcon(ImageProvider.get("mapmode", "adjustimg"));
@@ -201,16 +186,9 @@ public abstract class ImageryLayer extends Layer {
 
     public JComponent getOffsetMenuItem(JComponent subMenu) {
         JMenuItem adjustMenuItem = new JMenuItem(adjustAction);
-        if (OffsetBookmark.allBookmarks.isEmpty() && !offsetServerSupported) return adjustMenuItem;
+        if (OffsetBookmark.allBookmarks.isEmpty()) return adjustMenuItem;
 
         subMenu.add(adjustMenuItem);
-        if (offsetServerSupported) {
-            JCheckBoxMenuItem item = new JCheckBoxMenuItem(useServerOffsetAction);
-            if (offsetServerUsed) {
-                item.setSelected(true);
-            }
-            subMenu.add(item);
-        }
         subMenu.add(new JSeparator());
         boolean hasBookmarks = false;
         int menuItemHeight = 0;
@@ -219,7 +197,7 @@ public abstract class ImageryLayer extends Layer {
                 continue;
             }
             JCheckBoxMenuItem item = new JCheckBoxMenuItem(new ApplyOffsetAction(b));
-            if (b.dx == dx && b.dy == dy && !offsetServerUsed) {
+            if (b.dx == dx && b.dy == dy) {
                 item.setSelected(true);
             }
             subMenu.add(item);
@@ -234,7 +212,7 @@ public abstract class ImageryLayer extends Layer {
                 MenuScroller.setScrollerFor((JPopupMenu)subMenu, scrollcount);
             }
         }
-        return (hasBookmarks || offsetServerSupported) ? subMenu : adjustMenuItem;
+        return hasBookmarks ? subMenu : adjustMenuItem;
     }
 
     public BufferedImage sharpenImage(BufferedImage img) {
@@ -262,51 +240,6 @@ public abstract class ImageryLayer extends Layer {
 
         String text = tr("ERROR");
         g.drawString(text, (img.getWidth() + g.getFontMetrics().stringWidth(text)) / 2, img.getHeight()/2);
-    }
-
-    protected class OffsetServerThread extends Thread {
-        OffsetServer offsetServer;
-        EastNorth oldCenter = new EastNorth(Double.NaN, Double.NaN);
-
-        public OffsetServerThread(OffsetServer offsetServer) {
-            this.offsetServer = offsetServer;
-            setDaemon(true);
-        }
-
-        private void updateOffset() {
-            if (Main.map == null || Main.map.mapView == null) return;
-            EastNorth center = Main.map.mapView.getCenter();
-            if (center.equals(oldCenter)) return;
-            oldCenter = center;
-
-            EastNorth offset = offsetServer.getOffset(getInfo(), center);
-            if (offset != null) {
-                setOffset(offset.east(),offset.north());
-            }
-        }
-
-        @Override
-        public void run() {
-            if (!offsetServerSupported) {
-                if (!offsetServer.isLayerSupported(info)) return;
-                offsetServerSupported = true;
-            }
-            offsetServerUsed = true;
-            SwingUtilities.invokeLater(new Runnable() {
-                @Override
-                public void run() {
-                    Main.main.menu.imageryMenu.refreshOffsetMenu();
-                }
-            });
-            try {
-                while (offsetServerUsed) {
-                    updateOffset();
-                    Thread.sleep(1000);
-                }
-            } catch (InterruptedException e) {
-            }
-            offsetServerUsed = false;
-        }
     }
 
     /* (non-Javadoc)

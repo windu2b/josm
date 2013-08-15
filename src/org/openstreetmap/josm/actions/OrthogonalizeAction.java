@@ -29,6 +29,7 @@ import org.openstreetmap.josm.data.osm.Node;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.osm.Way;
 import org.openstreetmap.josm.gui.ConditionalOptionPaneUtil;
+import org.openstreetmap.josm.gui.Notification;
 import org.openstreetmap.josm.tools.Shortcut;
 
 /**
@@ -44,6 +45,9 @@ public final class OrthogonalizeAction extends JosmAction {
             "(Afterwards, you can undo the movement for certain nodes:<br>"+
     "Select them and press the shortcut for Orthogonalize / Undo. The default is Shift-Q.)");
 
+    /**
+     * Constructor
+     */
     public OrthogonalizeAction() {
         super(tr("Orthogonalize Shape"),
                 "ortho",
@@ -77,6 +81,9 @@ public final class OrthogonalizeAction extends JosmAction {
      * This action can be triggered by shortcut only.
      */
     public static class Undo extends JosmAction {
+        /**
+         * Constructor
+         */
         public Undo() {
             super(tr("Orthogonalize Shape / Undo"), "ortho",
                     tr("Undo orthogonalization for certain nodes"),
@@ -85,6 +92,7 @@ public final class OrthogonalizeAction extends JosmAction {
                             Shortcut.SHIFT),
                     true, "action/orthogonalize/undo", true);
         }
+        @Override
         public void actionPerformed(ActionEvent e) {
             if (!isEnabled())
                 return;
@@ -100,22 +108,22 @@ public final class OrthogonalizeAction extends JosmAction {
                         rememberMovements.remove(n);
                     }
                 }
-                if (commands.size() > 0) {
+                if (!commands.isEmpty()) {
                     Main.main.undoRedo.add(new SequenceCommand(tr("Orthogonalize / Undo"), commands));
                     Main.map.repaint();
                 } else throw new InvalidUserInputException();
             }
             catch (InvalidUserInputException ex) {
-                JOptionPane.showMessageDialog(
-                        Main.parent,
-                        tr("Orthogonalize Shape / Undo\n"+
-                        "Please select nodes that were moved by the previous Orthogonalize Shape action!"),
-                        tr("Undo Orthogonalize Shape"),
-                        JOptionPane.INFORMATION_MESSAGE);
+                new Notification(
+                        tr("Orthogonalize Shape / Undo<br>"+
+                        "Please select nodes that were moved by the previous Orthogonalize Shape action!"))
+                        .setIcon(JOptionPane.INFORMATION_MESSAGE)
+                        .show();
             }
         }
     }
 
+    @Override
     public void actionPerformed(ActionEvent e) {
         if (!isEnabled())
             return;
@@ -175,23 +183,19 @@ public final class OrthogonalizeAction extends JosmAction {
                     throw new InvalidUserInputException("usage");
             }
         } catch (InvalidUserInputException ex) {
+            String msg;
             if (ex.getMessage().equals("usage")) {
-                JOptionPane.showMessageDialog(
-                        Main.parent,
-                        "<html><h2>" + tr("Usage") + "</h2>" + USAGE + "</html>",
-                        tr("Orthogonalize Shape"),
-                        JOptionPane.INFORMATION_MESSAGE);
+                msg = "<h2>" + tr("Usage") + "</h2>" + USAGE;
+            } else {
+                msg = ex.getMessage() + "<br><hr><h2>" + tr("Usage") + "</h2>" + USAGE;
             }
-            else {
-                JOptionPane.showMessageDialog(
-                        Main.parent,
-                        "<html>" + ex.getMessage() + "<br><hr><h2>" + tr("Usage") + "</h2>" + USAGE + "</html>",
-                        tr("Selected Elements cannot be orthogonalized"),
-                        JOptionPane.INFORMATION_MESSAGE);
-            }
+            new Notification(msg)
+                    .setIcon(JOptionPane.INFORMATION_MESSAGE)
+                    .setDuration(Notification.TIME_VERY_LONG)
+                    .show();
         }
     }
-    
+
     /**
      * Collect groups of ways with common nodes in order to orthogonalize each group separately.
      */
@@ -209,7 +213,7 @@ public final class OrthogonalizeAction extends JosmAction {
         }
         return groups;
     }
-    
+
     private static void extendGroupRec(List<WayData> group, WayData newGroupMember, List<WayData> remaining) {
         group.add(newGroupMember);
         for (int i = 0; i < remaining.size(); ++i) {
@@ -341,6 +345,9 @@ public final class OrthogonalizeAction extends JosmAction {
                         }
                     }
                 }
+                for (Node n : cs) {
+                    s.remove(n);
+                }
 
                 final HashMap<Node, Double> nC = (orientation == HORIZONTAL) ? nY : nX;
 
@@ -357,12 +364,17 @@ public final class OrthogonalizeAction extends JosmAction {
                     }
                 }
 
-                for (Node n : cs) {
-                    nC.put(n, average);
+                // At this point, the two heading nodes (if any) are horizontally aligned, i.e. they
+                // have the same y coordinate. So in general we shouldn't find them in a vertical string
+                // of segments. This can still happen in some pathological cases (see #7889). To avoid
+                // both heading nodes collapsing to one point, we simply skip this segment string and
+                // don't touch the node coordinates.
+                if (orientation == VERTICAL && headingNodes.size() == 2 && cs.containsAll(headingNodes)) {
+                    continue;
                 }
 
                 for (Node n : cs) {
-                    s.remove(n);
+                    nC.put(n, average);
                 }
             }
             if (!s.isEmpty()) throw new RuntimeException();
@@ -412,6 +424,7 @@ public final class OrthogonalizeAction extends JosmAction {
          * direction <code>pInitialDirection</code>.
          * Then sum up all horizontal / vertical segments to have a good guess for the
          * heading of the entire way.
+         * @throws InvalidUserInputException
          */
         public void calcDirections(Direction pInitialDirection) throws InvalidUserInputException {
             final EastNorth[] en = new EastNorth[nNode]; // alias: way.getNodes().get(i).getEastNorth() ---> en[i]

@@ -1,3 +1,4 @@
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.data.validation.tests;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -19,10 +20,17 @@ import org.openstreetmap.josm.data.validation.Test;
 import org.openstreetmap.josm.data.validation.TestError;
 import org.openstreetmap.josm.tools.Utils;
 
+/**
+ * Checks and corrects deprecated tags.
+ * @since 4442
+ */
 public class DeprecatedTags extends Test {
 
     private List<DeprecationCheck> checks = new LinkedList<DeprecationCheck>();
 
+    /**
+     * Constructs a new {@code DeprecatedTags} test.
+     */
     public DeprecatedTags() {
         super(tr("Deprecated Tags"), tr("Checks and corrects deprecated tags."));
         checks.add(new DeprecationCheck(2101).
@@ -71,7 +79,7 @@ public class DeprecatedTags extends Test {
         checks.add(new DeprecationCheck(2113).
                 test("power_rating").
                 alternative("generator:output"));
-        // from http://wiki.openstreetmap.org/wiki/Tag:shop%3Dorganic
+        // from http://wiki.openstreetmap.org/wiki/Tag:shop=organic
         checks.add(new DeprecationCheck(2114).
                 testAndRemove("shop", "organic").
                 add("shop", "supermarket").
@@ -80,8 +88,36 @@ public class DeprecatedTags extends Test {
         checks.add(new DeprecationCheck(2115).
                 testAndRemove("bicycle_parking", "sheffield").
                 add("bicycle_parking", "stands"));
+        // http://wiki.openstreetmap.org/wiki/Tag:emergency=phone
+        checks.add(new DeprecationCheck(2116).
+                testAndRemove("amenity", "emergency_phone").
+                add("emergency", "phone"));
+        // http://wiki.openstreetmap.org/wiki/Tag:sport=gaelic_football
+        // fix #8132
+        checks.add(new DeprecationCheck(2117).
+                testAndRemove("sport", "gaelic_football").
+                add("sport", "gaelic_games"));
+        // http://wiki.openstreetmap.org/wiki/Tag:power=station
+        // see #8847 / #8961
+        checks.add(new DeprecationCheck(2118).
+                test("power", "station").
+                alternative("power", "plant").
+                alternative("power", "sub_station"));
+        checks.add(new DeprecationCheck(2119).
+                testAndRemove("generator:method", "dam").
+                add("generator:method", "water-storage"));
+        checks.add(new DeprecationCheck(2120).
+                testAndRemove("generator:method", "pumped-storage").
+                add("generator:method", "water-pumped-storage"));
+        checks.add(new DeprecationCheck(2121).
+                testAndRemove("generator:method", "pumping").
+                add("generator:method", "water-pumped-storage"));
     }
 
+    /**
+     * Visiting call for primitives.
+     * @param p The primitive to inspect.
+     */
     public void visit(OsmPrimitive p) {
         for (DeprecationCheck check : checks) {
             if (check.matchesPrimitive(p)) {
@@ -138,11 +174,11 @@ public class DeprecatedTags extends Test {
         DeprecationCheck testAndRemove(String key, String value) {
             return test(key, value).remove(key);
         }
-
+/*
         DeprecationCheck testAndRemove(String key) {
             return test(key).remove(key);
         }
-
+*/
         DeprecationCheck alternative(String key, String value) {
             alternatives.add(new Tag(key, value));
             return this;

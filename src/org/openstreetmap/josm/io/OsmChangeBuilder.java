@@ -35,17 +35,18 @@ public class OsmChangeBuilder {
         writer = new PrintWriter(swriter = new StringWriter());
         osmwriter = OsmWriterFactory.createOsmWriter(writer, false, apiVersion);
         osmwriter.setChangeset(changeset);
+        osmwriter.setIsOsmChange(true);
     }
 
     protected void write(IPrimitive p) {
         if (p.isDeleted()) {
             switchMode("delete");
             osmwriter.setWithBody(false);
-            p.visit(osmwriter);
+            p.accept(osmwriter);
         } else {
             switchMode(p.isNew() ? "create" : "modify");
             osmwriter.setWithBody(true);
-            p.visit(osmwriter);
+            p.accept(osmwriter);
         }
     }
 

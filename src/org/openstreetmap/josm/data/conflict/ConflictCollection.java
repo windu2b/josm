@@ -58,9 +58,8 @@ public class ConflictCollection implements Iterable<Conflict<? extends OsmPrimit
     }
 
     protected void fireConflictRemoved() {
-        Iterator<IConflictListener> it = listeners.iterator();
-        while(it.hasNext()) {
-            it.next().onConflictsRemoved(this);
+        for (IConflictListener listener : listeners) {
+            listener.onConflictsRemoved(this);
         }
     }
 
@@ -162,7 +161,7 @@ public class ConflictCollection implements Iterable<Conflict<? extends OsmPrimit
      * Replies the conflict for the {@link OsmPrimitive} <code>their</code>, null
      * if no such conflict exists.
      *
-     * @param my  my primitive
+     * @param their their primitive
      * @return the conflict for the {@link OsmPrimitive} <code>their</code>, null
      * if no such conflict exists.
      */
@@ -265,6 +264,7 @@ public class ConflictCollection implements Iterable<Conflict<? extends OsmPrimit
      *
      * @return the iterator
      */
+    @Override
     public Iterator<Conflict<?>> iterator() {
         return conflicts.iterator();
     }

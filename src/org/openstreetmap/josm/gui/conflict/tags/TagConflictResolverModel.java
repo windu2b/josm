@@ -14,6 +14,7 @@ import java.util.Set;
 import javax.swing.table.DefaultTableModel;
 
 import org.openstreetmap.josm.data.osm.TagCollection;
+import org.openstreetmap.josm.gui.util.GuiHelper;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
 
 public class TagConflictResolverModel extends DefaultTableModel {
@@ -63,6 +64,7 @@ public class TagConflictResolverModel extends DefaultTableModel {
         Collections.sort(
                 displayedKeys,
                 new Comparator<String>() {
+                    @Override
                     public int compare(String key1, String key2) {
                         if (decisions.get(key1).isDecided() && ! decisions.get(key2).isDecided())
                             return 1;
@@ -108,7 +110,11 @@ public class TagConflictResolverModel extends DefaultTableModel {
         displayedKeys.addAll(keys);
         refreshNumConflicts();
         sort();
-        fireTableDataChanged();
+        GuiHelper.runInEDTAndWait(new Runnable() {
+            @Override public void run() {
+                fireTableDataChanged();
+            }
+        });
     }
 
     /**
@@ -159,7 +165,11 @@ public class TagConflictResolverModel extends DefaultTableModel {
                 break;
             }
         }
-        fireTableDataChanged();
+        GuiHelper.runInEDTAndWait(new Runnable() {
+            @Override public void run() {
+                fireTableDataChanged();
+            }
+        });
         refreshNumConflicts();
     }
 

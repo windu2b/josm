@@ -5,7 +5,6 @@ import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map.Entry;
@@ -14,6 +13,7 @@ import java.util.regex.Pattern;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.tools.LanguageInfo;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * Provides basic information about the currently used JOSM build.
@@ -34,13 +34,16 @@ public class Version {
      */
     static public String loadResourceFile(URL resource) {
         if (resource == null) return null;
-        BufferedReader in;
         String s = null;
         try {
-            in = new BufferedReader(new InputStreamReader(resource.openStream(), "UTF-8"));
+            BufferedReader in = Utils.openURLReader(resource);
             StringBuffer sb = new StringBuffer();
-            for (String line = in.readLine(); line != null; line = in.readLine()) {
-                sb.append(line).append("\n");
+            try {
+                for (String line = in.readLine(); line != null; line = in.readLine()) {
+                    sb.append(line).append("\n");
+                }
+            } finally {
+                Utils.close(in);
             }
             s = sb.toString();
         } catch (IOException e) {
@@ -75,7 +78,7 @@ public class Version {
         if (content == null) return properties;
         Pattern p = Pattern.compile("^([^:]+):(.*)$");
         for (String line: content.split("\n")) {
-            if (line == null || line.trim().equals("")) {
+            if (line == null || line.trim().isEmpty()) {
                 continue;
             }
             if (line.matches("^\\s*#.*$")) {
@@ -148,6 +151,9 @@ public class Version {
         releaseDescription = sb.toString();
     }
 
+    /**
+     * Initializes version info
+     */
     public void init() {
         URL u = Main.class.getResource("/REVISION");
         if (u == null) {
@@ -204,7 +210,21 @@ public class Version {
         return isLocalBuild;
     }
 
+    /**
+     * Returns the User-Agent string
+     * @return The User-Agent
+     */
     public String getAgentString() {
+        return getAgentString(true);
+    }
+
+    /**
+     * Returns the User-Agent string, with or without OS details
+     * @param includeOsDetails Append Operating System details at the end of the User-Agent
+     * @return The User-Agent
+     * @since 5956
+     */
+    public String getAgentString(boolean includeOsDetails) {
         int v = getVersion();
         String s = (v == JOSM_UNKNOWN_VERSION) ? "UNKNOWN" : Integer.toString(v);
         if (buildName != null) {
@@ -213,6 +233,19 @@ public class Version {
         if (isLocalBuild() && v != JOSM_UNKNOWN_VERSION) {
             s += " SVN";
         }
-        return "JOSM/1.5 ("+ s+" "+LanguageInfo.getJOSMLocaleCode()+")";
+        String result = "JOSM/1.5 ("+ s+" "+LanguageInfo.getJOSMLocaleCode()+")";
+        if (includeOsDetails) {
+            result += " " + Main.platform.getOSDescription();
+        }
+        return result;
+    }
+
+    /**
+     * Returns the full User-Agent string
+     * @return The User-Agent
+     * @since 5868
+     */
+    public String getFullAgentString() {
+        return getAgentString() + " Java/"+System.getProperty("java.version");
     }
 }

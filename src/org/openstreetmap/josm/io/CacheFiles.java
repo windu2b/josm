@@ -6,7 +6,6 @@ import java.io.File;
 import java.io.RandomAccessFile;
 import java.math.BigInteger;
 import java.security.MessageDigest;
-import java.util.Date;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.TreeMap;
@@ -50,15 +49,21 @@ public class CacheFiles {
 
     /**
      * Creates a new cache class. The ident will be used to store the files on disk and to save
-     * expire/space settings.
-     * @param ident
+     * expire/space settings. Set plugin state to <code>true</code>.
+     * @param ident cache identifier
      */
     public CacheFiles(String ident) {
         this(ident, true);
     }
 
+    /**
+     * Creates a new cache class. The ident will be used to store the files on disk and to save
+     * expire/space settings.
+     * @param ident cache identifier
+     * @param isPlugin Whether this is a plugin or not (changes cache path)
+     */
     public CacheFiles(String ident, boolean isPlugin) {
-        String pref = isPlugin ? 
+        String pref = isPlugin ?
                 Main.pref.getPluginsDirectory().getPath() + File.separator + "cache" :
                 Main.pref.getCacheDirectory().getPath();
 
@@ -86,8 +91,8 @@ public class CacheFiles {
 
     /**
      * Loads the data for the given ident as an byte array. Returns null if data not available.
-     * @param ident
-     * @return
+     * @param ident cache identifier
+     * @return stored data
      */
     public byte[] getData(String ident) {
         if(!enabled) return null;
@@ -103,7 +108,7 @@ public class CacheFiles {
 
             // Update last mod time so we don't expire recently used data
             if(updateModTime) {
-                data.setLastModified(new Date().getTime());
+                data.setLastModified(System.currentTimeMillis());
             }
 
             byte[] bytes = new byte[(int) data.length()];
@@ -117,8 +122,8 @@ public class CacheFiles {
 
     /**
      * Writes an byte-array to disk
-     * @param ident
-     * @param data
+     * @param ident cache identifier
+     * @param data data to store
      */
     public void saveData(String ident, byte[] data) {
         if(!enabled) return;
@@ -139,7 +144,7 @@ public class CacheFiles {
 
     /**
      * Loads the data for the given ident as an image. If no image is found, null is returned
-     * @param ident Identifier
+     * @param ident cache identifier
      * @return BufferedImage or null
      */
     public BufferedImage getImg(String ident) {
@@ -155,7 +160,7 @@ public class CacheFiles {
             }
             // Update last mod time so we don't expire recently used images
             if(updateModTime) {
-                img.setLastModified(new Date().getTime());
+                img.setLastModified(System.currentTimeMillis());
             }
             return ImageIO.read(img);
         } catch(Exception e) {
@@ -166,8 +171,8 @@ public class CacheFiles {
 
     /**
      * Saves a given image and ident to the cache
-     * @param ident
-     * @param image
+     * @param ident cache identifier
+     * @param image imaga data for storage
      */
     public void saveImg(String ident, BufferedImage image) {
         if(!enabled) return;
@@ -210,9 +215,9 @@ public class CacheFiles {
     }
 
     /**
-     * Call this with true to update the last modification time when a file it is read.
-     * Call this with false to not update the last modification time when a file is read.
-     * @param to
+     * Call this with <code>true</code> to update the last modification time when a file it is read.
+     * Call this with <code>false</code> to not update the last modification time when a file is read.
+     * @param to update state
      */
     public void setUpdateModTime(boolean to) {
         updateModTime = to;
@@ -322,9 +327,9 @@ public class CacheFiles {
 
     /**
      * Gets file path for ident with customizable file-ending
-     * @param ident
-     * @param ending
-     * @return File
+     * @param ident cache identifier
+     * @param ending file extension
+     * @return file structure
      */
     private File getPath(String ident, String ending) {
         return new File(dir, getUniqueFilename(ident) + "." + ending);
@@ -332,9 +337,8 @@ public class CacheFiles {
 
     /**
      * Gets file path for ident
-     * @param ident
-     * @param ending
-     * @return File
+     * @param ident cache identifier
+     * @return file structure
      */
     private File getPath(String ident) {
         return new File(dir, getUniqueFilename(ident));
@@ -342,12 +346,12 @@ public class CacheFiles {
 
     /**
      * Checks whether a given file is expired
-     * @param file
-     * @return expired?
+     * @param file file description structure
+     * @return expired state
      */
     private boolean isExpired(File file) {
         if(CacheFiles.EXPIRE_NEVER == this.expire)
             return false;
-        return (file.lastModified() < (new Date().getTime() - expire*1000));
+        return (file.lastModified() < (System.currentTimeMillis() - expire*1000));
     }
 }

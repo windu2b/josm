@@ -10,6 +10,7 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.Image;
 import java.awt.Insets;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
@@ -26,6 +27,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -43,6 +45,8 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.DefaultListModel;
 import javax.swing.DefaultListSelectionModel;
+import javax.swing.Icon;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
@@ -54,7 +58,6 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 import javax.swing.JTable;
-import javax.swing.JTextField;
 import javax.swing.JToolBar;
 import javax.swing.KeyStroke;
 import javax.swing.ListCellRenderer;
@@ -65,21 +68,27 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
+import javax.swing.filechooser.FileFilter;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableCellEditor;
-import javax.swing.table.TableCellRenderer;
 
 import org.openstreetmap.josm.Main;
+import org.openstreetmap.josm.actions.ExtensionFileFilter;
+import org.openstreetmap.josm.data.Version;
 import org.openstreetmap.josm.gui.ExtendedDialog;
 import org.openstreetmap.josm.gui.HelpAwareOptionPane;
 import org.openstreetmap.josm.gui.PleaseWaitRunnable;
+import org.openstreetmap.josm.gui.util.FileFilterAllFiles;
+import org.openstreetmap.josm.gui.util.TableHelper;
 import org.openstreetmap.josm.gui.widgets.JFileChooserManager;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 import org.openstreetmap.josm.io.MirroredInputStream;
 import org.openstreetmap.josm.io.OsmTransferException;
 import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.LanguageInfo;
+import org.openstreetmap.josm.tools.Utils;
 import org.xml.sax.SAXException;
 
 public abstract class SourceEditor extends JPanel {
@@ -144,7 +153,7 @@ public abstract class SourceEditor extends JPanel {
             // Yes, this is a little ugly, but should work
             @Override
             public void tableChanged(TableModelEvent e) {
-                adjustColumnWidth(tblActiveSources, isMapPaint ? 1 : 0);
+                TableHelper.adjustColumnWidth(tblActiveSources, isMapPaint ? 1 : 0, 800);
             }
         });
         activeSourcesModel.setActiveSources(getInitialSourcesList());
@@ -378,21 +387,6 @@ public abstract class SourceEditor extends JPanel {
         LOADING_SOURCES_FROM, FAILED_TO_LOAD_SOURCES_FROM, FAILED_TO_LOAD_SOURCES_FROM_HELP_TOPIC,
         ILLEGAL_FORMAT_OF_ENTRY }
 
-    /**
-     * adjust the preferred width of column col to the maximum preferred width of the cells
-     * requires JTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
-     */
-    private static void adjustColumnWidth(JTable tbl, int col) {
-        int maxwidth = 0;
-        for (int row=0; row<tbl.getRowCount(); row++) {
-            TableCellRenderer tcr = tbl.getCellRenderer(row, col);
-            Object val = tbl.getValueAt(row, col);
-            Component comp = tcr.getTableCellRendererComponent(tbl, val, false, false, row, col);
-            maxwidth = Math.max(comp.getPreferredSize().width, maxwidth);
-        }
-        tbl.getColumnModel().getColumn(col).setPreferredWidth(maxwidth);
-    }
-
     public boolean hasActiveSourcesChanged() {
         Collection<? extends SourceEntry> prev = getInitialSourcesList();
         List<SourceEntry> cur = activeSourcesModel.getSources();
@@ -489,10 +483,12 @@ public abstract class SourceEditor extends JPanel {
             this.data = new ArrayList<SourceEntry>();
         }
 
+        @Override
         public int getColumnCount() {
             return isMapPaint ? 2 : 1;
         }
 
+        @Override
         public int getRowCount() {
             return data == null ? 0 : data.size();
         }
@@ -623,11 +619,11 @@ public abstract class SourceEditor extends JPanel {
         public String author;
         public String link;
         public String description;
+        public Integer minJosmVersion;
 
         public ExtendedSourceEntry(String simpleFileName, String url) {
             super(url, null, null, true);
             this.simpleFileName = simpleFileName;
-            version = author = link = description = title = null;
         }
 
         /**
@@ -657,6 +653,9 @@ public abstract class SourceEditor extends JPanel {
             if (version != null) {
                 appendRow(s, tr("Version:"), version);
             }
+            if (minJosmVersion != null) {
+                appendRow(s, tr("Minimum JOSM Version:"), Integer.toString(minJosmVersion));
+            }
             return "<html><style>th{text-align:right}td{width:400px}</style>"
                     + "<table>" + s + "</table></html>";
         }
@@ -681,8 +680,8 @@ public abstract class SourceEditor extends JPanel {
 
     protected class EditSourceEntryDialog extends ExtendedDialog {
 
-        private JTextField tfTitle;
-        private JTextField tfURL;
+        private JosmTextField tfTitle;
+        private JosmTextField tfURL;
         private JCheckBox cbActive;
 
         public EditSourceEntryDialog(Component parent, String title, SourceEntry e) {
@@ -692,11 +691,11 @@ public abstract class SourceEditor extends JPanel {
 
             JPanel p = new JPanel(new GridBagLayout());
 
-            tfTitle = new JTextField(60);
+            tfTitle = new JosmTextField(60);
             p.add(new JLabel(tr("Name (optional):")), GBC.std().insets(15, 0, 5, 5));
             p.add(tfTitle, GBC.eol().insets(0, 0, 5, 5));
 
-            tfURL = new JTextField(60);
+            tfURL = new JosmTextField(60);
             p.add(new JLabel(tr("URL / File:")), GBC.std().insets(15, 0, 5, 0));
             p.add(tfURL, GBC.std().insets(0, 0, 5, 5));
             JButton fileChooser = new JButton(new LaunchFileChooserAction());
@@ -750,8 +749,16 @@ public abstract class SourceEditor extends JPanel {
                 }
             }
 
+            @Override
             public void actionPerformed(ActionEvent e) {
-                JFileChooserManager fcm = new JFileChooserManager(true).createFileChooser();
+                FileFilter ff;
+                if (isMapPaint) {
+                    ff = new ExtensionFileFilter("xml,mapcss,css,zip", "xml", tr("Map paint style file (*.xml, *.mapcss, *.zip)"));
+                } else {
+                    ff = new ExtensionFileFilter("xml,zip", "xml", tr("Preset definition file (*.xml, *.zip)"));
+                }
+                JFileChooserManager fcm = new JFileChooserManager(true)
+                        .createFileChooser(true, null, Arrays.asList(ff, FileFilterAllFiles.getInstance()), ff, JFileChooser.FILES_ONLY);
                 prepareFileChooser(tfURL.getText(), fcm.getFileChooser());
                 JFileChooser fc = fcm.openFileChooser(JOptionPane.getFrameForComponent(SourceEditor.this));
                 if (fc != null) {
@@ -783,6 +790,7 @@ public abstract class SourceEditor extends JPanel {
             putValue(SMALL_ICON, ImageProvider.get("dialogs", "add"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent evt) {
             EditSourceEntryDialog editEntryDialog = new EditSourceEntryDialog(
                     SourceEditor.this,
@@ -815,10 +823,12 @@ public abstract class SourceEditor extends JPanel {
             setEnabled(tblActiveSources.getSelectedRowCount() > 0);
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             activeSourcesModel.removeSelected();
         }
@@ -836,10 +846,12 @@ public abstract class SourceEditor extends JPanel {
             setEnabled(tblActiveSources.getSelectedRowCount() == 1);
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent evt) {
             int pos = tblActiveSources.getSelectedRow();
             if (pos < 0 || pos >= tblActiveSources.getRowCount())
@@ -887,10 +899,12 @@ public abstract class SourceEditor extends JPanel {
             activeSourcesModel.move(increment);
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
 
+        @Override
         public void tableChanged(TableModelEvent e) {
             updateEnabledState();
         }
@@ -907,12 +921,45 @@ public abstract class SourceEditor extends JPanel {
             setEnabled(lstAvailableSources.getSelectedIndices().length > 0);
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             List<ExtendedSourceEntry> sources = availableSourcesModel.getSelected();
+            int josmVersion = Version.getInstance().getVersion();
+            if (josmVersion != Version.JOSM_UNKNOWN_VERSION) {
+                Collection<String> messages = new ArrayList<String>();
+                for (ExtendedSourceEntry entry : sources) {
+                    if (entry.minJosmVersion != null && entry.minJosmVersion > josmVersion) {
+                        messages.add(tr("Entry ''{0}'' requires JOSM Version {1}. (Currently running: {2})",
+                                entry.title,
+                                Integer.toString(entry.minJosmVersion),
+                                Integer.toString(josmVersion))
+                        );
+                    }
+                }
+                if (!messages.isEmpty()) {
+                    ExtendedDialog dlg = new ExtendedDialog(Main.parent, tr("Warning"), new String [] { tr("Cancel"), tr("Continue anyway") });
+                    dlg.setButtonIcons(new Icon[] {
+                        ImageProvider.get("cancel"),
+                        ImageProvider.overlay(
+                            ImageProvider.get("ok"),
+                            new ImageIcon(ImageProvider.get("warning-small").getImage().getScaledInstance(12 , 12, Image.SCALE_SMOOTH)),
+                            ImageProvider.OverlayPosition.SOUTHEAST)
+                    });
+                    dlg.setToolTipTexts(new String[] {
+                        tr("Cancel and return to the previous dialog"),
+                        tr("Ignore warning and install style anyway")});
+                    dlg.setContent("<html>" + tr("Some entries have unmet dependencies:") +
+                            "<br>" + Utils.join("<br>", messages) + "</html>");
+                    dlg.setIcon(JOptionPane.WARNING_MESSAGE);
+                    if (dlg.showDialog().getValue() != 2)
+                        return;
+                }
+            }
             activeSourcesModel.addExtendedSourceEntries(sources);
         }
     }
@@ -925,6 +972,7 @@ public abstract class SourceEditor extends JPanel {
             putValue(SMALL_ICON, ImageProvider.get("preferences", "reset"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             activeSourcesModel.setActiveSources(getDefault());
         }
@@ -941,6 +989,7 @@ public abstract class SourceEditor extends JPanel {
             this.sourceProviders = sourceProviders;
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             MirroredInputStream.cleanup(url);
             reloadAvailableSources(url, sourceProviders);
@@ -956,14 +1005,17 @@ public abstract class SourceEditor extends JPanel {
             this.data = new ArrayList<String>();
         }
 
+        @Override
         public int getColumnCount() {
             return 1;
         }
 
+        @Override
         public int getRowCount() {
             return data == null ? 0 : data.size();
         }
 
+        @Override
         public Object getValueAt(int rowIndex, int columnIndex) {
             return data.get(rowIndex);
         }
@@ -1028,11 +1080,12 @@ public abstract class SourceEditor extends JPanel {
             Collections.sort(
                     data,
                     new Comparator<String>() {
+                        @Override
                         public int compare(String o1, String o2) {
-                            if (o1.equals("") && o2.equals(""))
+                            if (o1.isEmpty() && o2.isEmpty())
                                 return 0;
-                            if (o1.equals("")) return 1;
-                            if (o2.equals("")) return -1;
+                            if (o1.isEmpty()) return 1;
+                            if (o2.isEmpty()) return -1;
                             return o1.compareTo(o2);
                         }
                     }
@@ -1051,6 +1104,7 @@ public abstract class SourceEditor extends JPanel {
             putValue(SMALL_ICON, ImageProvider.get("dialogs", "add"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             iconPathsModel.addPath("");
             tblIconPaths.editCellAt(iconPathsModel.getRowCount() -1,0);
@@ -1069,10 +1123,12 @@ public abstract class SourceEditor extends JPanel {
             setEnabled(tblIconPaths.getSelectedRowCount() > 0);
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             iconPathsModel.removeSelected();
         }
@@ -1090,10 +1146,12 @@ public abstract class SourceEditor extends JPanel {
             setEnabled(tblIconPaths.getSelectedRowCount() == 1);
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             int row = tblIconPaths.getSelectedRow();
             tblIconPaths.editCellAt(row, 0);
@@ -1101,6 +1159,7 @@ public abstract class SourceEditor extends JPanel {
     }
 
     static class SourceEntryListCellRenderer extends JLabel implements ListCellRenderer {
+        @Override
         public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected,
                 boolean cellHasFocus) {
             String s = value.toString();
@@ -1137,15 +1196,8 @@ public abstract class SourceEditor extends JPanel {
         @Override
         protected void cancel() {
             canceled = true;
-            if (reader!= null) {
-                try {
-                    reader.close();
-                } catch(IOException e) {
-                    // ignore
-                }
-            }
+            Utils.close(reader);
         }
-
 
         protected void warn(Exception e) {
             String emsg = e.getMessage() != null ? e.getMessage() : e.toString();
@@ -1188,7 +1240,7 @@ public abstract class SourceEditor extends JPanel {
                 ExtendedSourceEntry last = null;
 
                 while ((line = reader.readLine()) != null && !canceled) {
-                    if (line.trim().equals("")) {
+                    if (line.trim().isEmpty()) {
                         continue; // skip empty lines
                     }
                     if (line.startsWith("\t")) {
@@ -1224,6 +1276,12 @@ public abstract class SourceEditor extends JPanel {
                                 last.link = value;
                             } else if ((lang + "description").equals(key)) {
                                 last.description = value;
+                            } else if ("min-josm-version".equals(key)) {
+                                try {
+                                    last.minJosmVersion = Integer.parseInt(value);
+                                } catch (NumberFormatException e) {
+                                    // ignore
+                                }
                             }
                         }
                     } else {
@@ -1282,7 +1340,7 @@ public abstract class SourceEditor extends JPanel {
     }
 
     class FileOrUrlCellEditor extends JPanel implements TableCellEditor {
-        private JTextField tfFileName;
+        private JosmTextField tfFileName;
         private CopyOnWriteArrayList<CellEditorListener> listeners;
         private String value;
         private boolean isFile;
@@ -1298,7 +1356,7 @@ public abstract class SourceEditor extends JPanel {
             gc.fill = GridBagConstraints.BOTH;
             gc.weightx = 1.0;
             gc.weighty = 1.0;
-            add(tfFileName = new JTextField(), gc);
+            add(tfFileName = new JosmTextField(), gc);
 
             gc.gridx = 1;
             gc.gridy = 0;
@@ -1323,6 +1381,7 @@ public abstract class SourceEditor extends JPanel {
             build();
         }
 
+        @Override
         public void addCellEditorListener(CellEditorListener l) {
             if (l != null) {
                 listeners.addIfAbsent(l);
@@ -1341,28 +1400,34 @@ public abstract class SourceEditor extends JPanel {
             }
         }
 
+        @Override
         public void cancelCellEditing() {
             fireEditingCanceled();
         }
 
+        @Override
         public Object getCellEditorValue() {
             return value;
         }
 
+        @Override
         public boolean isCellEditable(EventObject anEvent) {
             if (anEvent instanceof MouseEvent)
                 return ((MouseEvent)anEvent).getClickCount() >= 2;
                 return true;
         }
 
+        @Override
         public void removeCellEditorListener(CellEditorListener l) {
             listeners.remove(l);
         }
 
+        @Override
         public boolean shouldSelectCell(EventObject anEvent) {
             return true;
         }
 
+        @Override
         public boolean stopCellEditing() {
             value = tfFileName.getText();
             fireEditingStopped();
@@ -1378,6 +1443,7 @@ public abstract class SourceEditor extends JPanel {
             }
         }
 
+        @Override
         public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
             setInitialValue((String)value);
             tfFileName.selectAll();
@@ -1416,6 +1482,7 @@ public abstract class SourceEditor extends JPanel {
                 }
             }
 
+            @Override
             public void actionPerformed(ActionEvent e) {
                 JFileChooserManager fcm = new JFileChooserManager(true).createFileChooser();
                 if (!isFile) {
@@ -1446,23 +1513,9 @@ public abstract class SourceEditor extends JPanel {
 
         abstract public SourceEntry deserialize(Map<String, String> entryStr);
 
-        // migration can be removed end 2012
-        abstract public Map<String, String> migrate(Collection<String> old);
-
         public List<SourceEntry> get() {
 
-            boolean migration = false;
             Collection<Map<String, String>> src = Main.pref.getListOfStructs(pref, (Collection<Map<String, String>>) null);
-            if (src == null) {
-                Collection<Collection<String>> srcOldPrefFormat = Main.pref.getArray(prefOld, null);
-                if (srcOldPrefFormat != null) {
-                    migration = true;
-                    src = new ArrayList<Map<String, String>>();
-                    for (Collection<String> p : srcOldPrefFormat) {
-                        src.add(migrate(p));
-                    }
-                }
-            }
             if (src == null)
                 return new ArrayList<SourceEntry>(getDefault());
 
@@ -1473,14 +1526,11 @@ public abstract class SourceEditor extends JPanel {
                     entries.add(e);
                 }
             }
-            if (migration) {
-                put(entries);
-            }
             return entries;
         }
 
         public boolean put(Collection<? extends SourceEntry> entries) {
-            Collection<Map<String, String>> setting = new ArrayList<Map<String, String>>();
+            Collection<Map<String, String>> setting = new ArrayList<Map<String, String>>(entries.size());
             for (SourceEntry e : entries) {
                 setting.add(serialize(e));
             }

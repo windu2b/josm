@@ -57,6 +57,7 @@ public class MapImage {
                 .setDirs(MapPaintStyles.getIconSourceDirs(source))
                 .setId("mappaint."+source.getPrefName())
                 .setArchive(source.zipIcons)
+                .setInArchiveDir(source.getZipEntryDirName())
                 .setWidth(width)
                 .setHeight(height)
                 .setOptional(true)
@@ -129,7 +130,7 @@ public class MapImage {
 
         @Override
         public boolean equals(Object obj) {
-            if (obj == null || !(obj instanceof BoxProvider))
+            if (!(obj instanceof BoxProvider))
                 return false;
             if (obj instanceof MapImageBoxProvider) {
                 MapImageBoxProvider other = (MapImageBoxProvider) obj;

@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import org.openstreetmap.josm.gui.mappaint.mapcss.CSSColors;
 import org.openstreetmap.josm.tools.Utils;
@@ -16,17 +17,20 @@ import org.openstreetmap.josm.tools.Utils;
  * Simple map of properties with dynamic typing.
  */
 public class Cascade implements Cloneable {
-    
+
     public static final Cascade EMPTY_CASCADE = new Cascade();
 
     protected Map<String, Object> prop = new HashMap<String, Object>();
 
+    private final static Pattern HEX_COLOR_PATTERN = Pattern.compile("#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})");
+
     public <T> T get(String key, T def, Class<T> klass) {
         return get(key, def, klass, false);
     }
-    
+
     /**
      * Get value for the given key
+     * @param <T> the expected type
      * @param key the key
      * @param def default value, can be null
      * @param klass the same as T
@@ -142,7 +146,7 @@ public class Cascade implements Cloneable {
         if (o instanceof float[])
             return (float[]) o;
         if (o instanceof List) {
-            List l = (List) o;
+            List<?> l = (List<?>) o;
             float[] a = new float[l.size()];
             for (int i=0; i<l.size(); ++i) {
                 Float f = toFloat(l.get(i));
@@ -164,12 +168,20 @@ public class Cascade implements Cloneable {
             return (Color) o;
         if (o instanceof Keyword)
             return CSSColors.get(((Keyword) o).val);
+        if (o instanceof String) {
+            Color c = CSSColors.get((String) o);
+            if (c != null)
+                return c;
+            if (HEX_COLOR_PATTERN.matcher((String) o).matches()) {
+                return Utils.hexToColor((String) o);
+            }
+        }
         return null;
     }
 
     @Override
     public Cascade clone() {
-        @SuppressWarnings("unchecked") 
+        @SuppressWarnings("unchecked")
         HashMap<String, Object> clonedProp = (HashMap) ((HashMap) this.prop).clone();
         Cascade c = new Cascade();
         c.prop = clonedProp;

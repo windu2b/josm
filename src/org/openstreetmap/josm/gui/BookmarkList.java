@@ -4,16 +4,13 @@ package org.openstreetmap.josm.gui;
 import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.awt.Component;
-import java.io.IOException;
 import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
-import java.util.Arrays;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -31,6 +28,7 @@ import javax.swing.UIManager;
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.Bounds;
 import org.openstreetmap.josm.tools.ImageProvider;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * List class that read and save its content from the bookmark file.
@@ -68,6 +66,7 @@ public class BookmarkList extends JList {
             return name;
         }
 
+        @Override
         public int compareTo(Bookmark b) {
             return name.toLowerCase().compareTo(b.name.toLowerCase());
         }
@@ -150,7 +149,7 @@ public class BookmarkList extends JList {
                         b.setArea(new Bounds(values));
                         bookmarks.add(b);
                     }
-                    in.close();
+                    Utils.close(in);
                     Collections.sort(bookmarks);
                     for (Bookmark b : bookmarks) {
                         model.addElement(b);
@@ -225,6 +224,7 @@ public class BookmarkList extends JList {
             return sb.toString();
 
         }
+        @Override
         public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected,
                 boolean cellHasFocus) {
 

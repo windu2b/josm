@@ -40,18 +40,20 @@ public class MapPaintPreference implements SubPreferenceSetting {
 
     private static final List<SourceProvider> styleSourceProviders = new ArrayList<SourceProvider>();
 
-    public static final boolean registerSourceProvider(SourceProvider provider) {
+    public static boolean registerSourceProvider(SourceProvider provider) {
         if (provider != null)
             return styleSourceProviders.add(provider);
         return false;
     }
 
     public static class Factory implements PreferenceSettingFactory {
+        @Override
         public PreferenceSetting createPreferenceSetting() {
             return new MapPaintPreference();
         }
     }
 
+    @Override
     public void addGui(final PreferenceTabbedPane gui) {
         enableIconDefault = new JCheckBox(tr("Enable built-in icon defaults"),
                 Main.pref.getBoolean("mappaint.icon.enable-defaults", true));
@@ -64,15 +66,16 @@ public class MapPaintPreference implements SubPreferenceSetting {
         panel.add(sources, GBC.eol().fill(GBC.BOTH));
         panel.add(enableIconDefault, GBC.eol().insets(11,2,5,0));
 
-        gui.getMapPreference().mapcontent.addTab(tr("Map Paint Styles"), panel);
+        gui.getMapPreference().addSubTab(this, tr("Map Paint Styles"), panel);
 
         // this defers loading of style sources to the first time the tab
         // with the map paint preferences is selected by the user
         //
-        gui.getMapPreference().mapcontent.addChangeListener(
+        gui.getMapPreference().getTabPane().addChangeListener(
                 new ChangeListener() {
+                    @Override
                     public void stateChanged(ChangeEvent e) {
-                        if (gui.getMapPreference().mapcontent.getSelectedComponent() == panel) {
+                        if (gui.getMapPreference().getTabPane().getSelectedComponent() == panel) {
                             sources.initiallyLoadAvailableSources();
                         }
                     }
@@ -85,7 +88,7 @@ public class MapPaintPreference implements SubPreferenceSetting {
         final private String iconpref = "mappaint.icon.sources";
 
         public MapPaintSourceEditor() {
-            super(true, "http://josm.openstreetmap.de/styles", styleSourceProviders);
+            super(true, Main.JOSM_WEBSITE+"/styles", styleSourceProviders);
         }
 
         @Override
@@ -159,6 +162,7 @@ public class MapPaintPreference implements SubPreferenceSetting {
 
     }
 
+    @Override
     public boolean ok() {
         boolean reload = Main.pref.put("mappaint.icon.enable-defaults", enableIconDefault.isSelected());
         reload |= sources.finish();
@@ -266,19 +270,6 @@ public class MapPaintPreference implements SubPreferenceSetting {
         @Override
         public SourceEntry deserialize(Map<String, String> s) {
             return new SourceEntry(s.get("url"), s.get("ptoken"), s.get("title"), Boolean.parseBoolean(s.get("active")));
-        }
-
-        @Override
-        public Map<String, String> migrate(Collection<String> old) {
-            List<String> entryStr = new ArrayList<String>(old);
-            if (entryStr.size() < 4)
-                return null;
-            Map<String, String> res = new HashMap<String, String>();
-            res.put("url", entryStr.get(0));
-            res.put("ptoken", entryStr.get(1));
-            res.put("title", entryStr.get(2));
-            res.put("active", entryStr.get(3));
-            return res;
         }
     }
 

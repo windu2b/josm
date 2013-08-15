@@ -159,8 +159,7 @@ public class CustomProjection extends AbstractProjection {
         if (pref.trim().isEmpty()) {
             parts = new String[0];
         }
-        for (int i = 0; i < parts.length; i++) {
-            String part = parts[i];
+        for (String part : parts) {
             if (part.isEmpty() || part.charAt(0) != '+')
                 throw new ProjectionConfigurationException(tr("Parameter must begin with a ''+'' character (found ''{0}'')", part));
             Matcher m = Pattern.compile("\\+([a-zA-Z0-9_]+)(=(.*))?").matcher(part);
@@ -287,16 +286,16 @@ public class CustomProjection extends AbstractProjection {
         if (numStr.length != 3 && numStr.length != 7)
             throw new ProjectionConfigurationException(tr("Unexpected number of arguments for parameter ''towgs84'' (must be 3 or 7)"));
         List<Double> towgs84Param = new ArrayList<Double>();
-        for (int i = 0; i < numStr.length; i++) {
+        for (String str : numStr) {
             try {
-                towgs84Param.add(Double.parseDouble(numStr[i]));
+                towgs84Param.add(Double.parseDouble(str));
             } catch (NumberFormatException e) {
-                throw new ProjectionConfigurationException(tr("Unable to parse value of parameter ''towgs84'' (''{0}'')", numStr[i]));
+                throw new ProjectionConfigurationException(tr("Unable to parse value of parameter ''towgs84'' (''{0}'')", str));
             }
         }
         boolean isCentric = true;
-        for (int i = 0; i<towgs84Param.size(); i++) {
-            if (towgs84Param.get(i) != 0.0) {
+        for (Double param : towgs84Param) {
+            if (param != 0.0) {
                 isCentric = false;
                 break;
             }
@@ -327,7 +326,7 @@ public class CustomProjection extends AbstractProjection {
     }
 
     public Proj parseProjection(Map<String, String> parameters, Ellipsoid ellps) throws ProjectionConfigurationException {
-        String id = (String) parameters.get(Param.proj.key);
+        String id = parameters.get(Param.proj.key);
         if (id == null) throw new ProjectionConfigurationException(tr("Projection required (+proj=*)"));
 
         Proj proj =  Projections.getBaseProjection(id);
@@ -365,8 +364,10 @@ public class CustomProjection extends AbstractProjection {
     }
 
     public static double parseDouble(Map<String, String> parameters, String parameterName) throws ProjectionConfigurationException {
+        if (!parameters.containsKey(parameterName))
+            throw new IllegalArgumentException(tr("Unknown parameter ''{0}''", parameterName));
         String doubleStr = parameters.get(parameterName);
-        if (doubleStr == null && parameters.containsKey(parameterName))
+        if (doubleStr == null)
             throw new ProjectionConfigurationException(
                     tr("Expected number argument for parameter ''{0}''", parameterName));
         return parseDouble(doubleStr, parameterName);

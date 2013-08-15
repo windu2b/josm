@@ -1,5 +1,6 @@
 /**
- * @(#)MenuScroller.java	1.4.0 14/09/10
+ * @(#)MenuScroller.java    1.5.0 04/02/12
+ * License: use / modify without restrictions (see http://tips4java.wordpress.com/about/)
  */
 package org.openstreetmap.josm.gui;
 
@@ -9,12 +10,14 @@ import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseWheelEvent;
+import java.awt.event.MouseWheelListener;
+
 import javax.swing.Icon;
 import javax.swing.JComponent;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
-import javax.swing.JSeparator;
 import javax.swing.MenuSelectionManager;
 import javax.swing.Timer;
 import javax.swing.event.ChangeEvent;
@@ -40,6 +43,7 @@ public class MenuScroller {
     private MenuScrollItem upItem;
     private MenuScrollItem downItem;
     private final MenuScrollListener menuListener = new MenuScrollListener();
+    private final MouseWheelListener mouseWheelListener = new MouseScrollListener();
     private int scrollCount;
     private int interval;
     private int topFixedCount;
@@ -292,6 +296,7 @@ public class MenuScroller {
 
         this.menu = menu;
         menu.addPopupMenuListener(menuListener);
+        menu.addMouseWheelListener(mouseWheelListener);
     }
 
     /**
@@ -418,6 +423,8 @@ public class MenuScroller {
     public void dispose() {
         if (menu != null) {
             menu.removePopupMenuListener(menuListener);
+            menu.removeMouseWheelListener(mouseWheelListener);
+            menu.setPreferredSize(null);
             menu = null;
         }
     }
@@ -447,7 +454,7 @@ public class MenuScroller {
                 menu.add(menuItems[i]);
             }
             if (topFixedCount > 0) {
-                menu.add(new JSeparator());
+                menu.addSeparator();
             }
 
             menu.add(upItem);
@@ -457,7 +464,7 @@ public class MenuScroller {
             menu.add(downItem);
 
             if (bottomFixedCount > 0) {
-                menu.add(new JSeparator());
+                menu.addSeparator();
             }
             for (int i = menuItems.length - bottomFixedCount; i < menuItems.length; i++) {
                 menu.add(menuItems[i]);
@@ -587,6 +594,17 @@ public class MenuScroller {
         @Override
         public int getIconHeight() {
             return 10;
+        }
+    }
+
+    private class MouseScrollListener implements MouseWheelListener {
+        @Override
+        public void mouseWheelMoved(MouseWheelEvent mwe) {
+            if (menu.getComponents().length > scrollCount) {
+                firstIndex += mwe.getWheelRotation();
+                refreshMenu();
+            }
+            mwe.consume(); // (Comment 16, Huw)
         }
     }
 }

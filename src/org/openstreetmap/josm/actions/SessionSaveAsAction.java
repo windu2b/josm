@@ -13,7 +13,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -63,7 +62,7 @@ public class SessionSaveAsAction extends DiskAccessAction {
 
         SessionSaveAsDialog dlg = new SessionSaveAsDialog();
         dlg.showDialog();
-        if (dlg.getValue() != 2) return;
+        if (dlg.getValue() != 1) return;
 
         zipRequired = false;
         for (Layer l : layers) {
@@ -73,7 +72,7 @@ public class SessionSaveAsAction extends DiskAccessAction {
                 break;
             }
         }
-        
+
         FileFilter joz = new ExtensionFileFilter("joz", "joz", tr("Session file (archive) (*.joz)"));
         FileFilter jos = new ExtensionFileFilter("jos", "jos", tr("Session file (*.jos)"));
 
@@ -137,10 +136,10 @@ public class SessionSaveAsAction extends DiskAccessAction {
     public class SessionSaveAsDialog extends ExtendedDialog {
 
         public SessionSaveAsDialog() {
-            super(Main.parent, tr("Save Session"), new String[] {tr("Cancel"), tr("Save As")});
+            super(Main.parent, tr("Save Session"), new String[] {tr("Save As"), tr("Cancel")});
             initialize();
-            setButtonIcons(new String[] {"cancel", "save_as"});
-            setDefaultButton(2);
+            setButtonIcons(new String[] {"save_as", "cancel"});
+            setDefaultButton(1);
             setRememberWindowGeometry(getClass().getName() + ".geometry",
                     WindowGeometry.centerInWindow(Main.parent, new Dimension(350, 450)));
             setContent(build(), false);
@@ -223,6 +222,11 @@ public class SessionSaveAsAction extends DiskAccessAction {
             p.add(GBC.glue(1,0), GBC.std().fill(GBC.HORIZONTAL));
             return p;
         }
+    }
+
+    @Override
+    protected void updateEnabledState() {
+        setEnabled(Main.isDisplayingMapView());
     }
 
 }

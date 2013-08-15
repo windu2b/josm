@@ -9,8 +9,6 @@ import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.ArrayList;
@@ -30,7 +28,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 import javax.swing.JTable;
 import javax.swing.JToolBar;
-import javax.swing.SwingUtilities;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
@@ -49,6 +46,8 @@ import org.openstreetmap.josm.gui.help.HelpUtil;
 import org.openstreetmap.josm.gui.history.HistoryBrowserDialogManager;
 import org.openstreetmap.josm.gui.history.HistoryLoadTask;
 import org.openstreetmap.josm.gui.layer.OsmDataLayer;
+import org.openstreetmap.josm.gui.util.GuiHelper;
+import org.openstreetmap.josm.gui.widgets.PopupMenuLauncher;
 import org.openstreetmap.josm.tools.BugReportExceptionHandler;
 import org.openstreetmap.josm.tools.ImageProvider;
 
@@ -108,7 +107,7 @@ public class ChangesetContentPanel extends JPanel implements PropertyChangeListe
                 new ChangesetContentTableColumnModel(),
                 model.getSelectionModel()
         );
-        tblContent.addMouseListener(new ChangesetContentTablePopupMenuLauncher());
+        tblContent.addMouseListener(new PopupMenuLauncher(new ChangesetContentTablePopupMenu()));
         pnl.add(new JScrollPane(tblContent), BorderLayout.CENTER);
         return pnl;
     }
@@ -138,10 +137,17 @@ public class ChangesetContentPanel extends JPanel implements PropertyChangeListe
 
     }
 
+    /**
+     * Constructs a new {@code ChangesetContentPanel}.
+     */
     public ChangesetContentPanel() {
         build();
     }
 
+    /**
+     * Replies the changeset content model
+     * @return The model
+     */
     public ChangesetContentTableModel getModel() {
         return model;
     }
@@ -160,6 +166,7 @@ public class ChangesetContentPanel extends JPanel implements PropertyChangeListe
     /* ---------------------------------------------------------------------------- */
     /* interface PropertyChangeListener                                             */
     /* ---------------------------------------------------------------------------- */
+    @Override
     public void propertyChange(PropertyChangeEvent evt) {
         if(!evt.getPropertyName().equals(ChangesetCacheManagerModel.CHANGESET_IN_DETAIL_VIEW_PROP))
             return;
@@ -178,6 +185,7 @@ public class ChangesetContentPanel extends JPanel implements PropertyChangeListe
             putValue(SHORT_DESCRIPTION, tr("Download the changeset content from the OSM server"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent evt) {
             if (currentChangeset == null) return;
             ChangesetContentDownloadTask task = new ChangesetContentDownloadTask(ChangesetContentPanel.this,currentChangeset.getId());
@@ -200,36 +208,6 @@ public class ChangesetContentPanel extends JPanel implements PropertyChangeListe
                 putValue(SMALL_ICON, ImageProvider.get("dialogs/changeset","updatechangesetcontent"));
                 putValue(SHORT_DESCRIPTION, tr("Update the changeset content from the OSM server"));
             }
-        }
-    }
-
-    class ChangesetContentTablePopupMenuLauncher extends MouseAdapter {
-        ChangesetContentTablePopupMenu menu = new ChangesetContentTablePopupMenu();
-
-        protected void launch(MouseEvent evt) {
-            if (! evt.isPopupTrigger()) return;
-            if (! model.hasSelectedPrimitives()) {
-                int row = tblContent.rowAtPoint(evt.getPoint());
-                if (row >= 0) {
-                    model.setSelectedByIdx(row);
-                }
-            }
-            menu.show(tblContent, evt.getPoint().x, evt.getPoint().y);
-        }
-
-        @Override
-        public void mouseClicked(MouseEvent evt) {
-            launch(evt);
-        }
-
-        @Override
-        public void mousePressed(MouseEvent evt) {
-            launch(evt);
-        }
-
-        @Override
-        public void mouseReleased(MouseEvent evt) {
-            launch(evt);
         }
     }
 
@@ -273,17 +251,23 @@ public class ChangesetContentPanel extends JPanel implements PropertyChangeListe
             }
 
             Runnable r = new Runnable() {
+                @Override
                 public void run() {
                     try {
                         for (HistoryOsmPrimitive p : primitives) {
-                            History h = HistoryDataSet.getInstance().getHistory(p.getPrimitiveId());
+                            final History h = HistoryDataSet.getInstance().getHistory(p.getPrimitiveId());
                             if (h == null) {
                                 continue;
                             }
-                            HistoryBrowserDialogManager.getInstance().show(h);
+                            GuiHelper.runInEDT(new Runnable() {
+                                @Override public void run() {
+                                    HistoryBrowserDialogManager.getInstance().show(h);
+                                }
+                            });
                         }
                     } catch (final Exception e) {
-                        SwingUtilities.invokeLater(new Runnable() {
+                        GuiHelper.runInEDT(new Runnable() {
+                            @Override
                             public void run() {
                                 BugReportExceptionHandler.handleException(e);
                             }
@@ -299,12 +283,14 @@ public class ChangesetContentPanel extends JPanel implements PropertyChangeListe
             setEnabled(model.hasSelectedPrimitives());
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             Set<HistoryOsmPrimitive> selected = model.getSelectedPrimitives();
             if (selected.isEmpty()) return;
             showHistory(selected);
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
@@ -335,6 +321,7 @@ public class ChangesetContentPanel extends JPanel implements PropertyChangeListe
             );
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             if (!isEnabled())
                 return;
@@ -363,10 +350,12 @@ public class ChangesetContentPanel extends JPanel implements PropertyChangeListe
             setEnabled(model.hasSelectedPrimitives());
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
 
+        @Override
         public void editLayerChanged(OsmDataLayer oldLayer, OsmDataLayer newLayer) {
             updateEnabledState();
         }
@@ -397,6 +386,7 @@ public class ChangesetContentPanel extends JPanel implements PropertyChangeListe
             );
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             if (!isEnabled())
                 return;
@@ -426,10 +416,12 @@ public class ChangesetContentPanel extends JPanel implements PropertyChangeListe
             setEnabled(model.hasSelectedPrimitives());
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
 
+        @Override
         public void editLayerChanged(OsmDataLayer oldLayer, OsmDataLayer newLayer) {
             updateEnabledState();
         }
@@ -466,6 +458,7 @@ public class ChangesetContentPanel extends JPanel implements PropertyChangeListe
                 putValue(SMALL_ICON, ImageProvider.get("dialogs/changeset", "downloadchangesetcontent"));
             }
 
+            @Override
             public void actionPerformed(ActionEvent evt) {
                 if (current == null) return;
                 ChangesetContentDownloadTask task = new ChangesetContentDownloadTask(HeaderPanel.this, current.getId());

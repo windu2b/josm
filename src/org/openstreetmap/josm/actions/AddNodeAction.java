@@ -9,7 +9,6 @@ import java.awt.event.KeyEvent;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.command.AddCommand;
-import org.openstreetmap.josm.data.coor.EastNorth;
 import org.openstreetmap.josm.data.coor.LatLon;
 import org.openstreetmap.josm.data.osm.Node;
 import org.openstreetmap.josm.gui.dialogs.LatLonDialog;
@@ -30,6 +29,7 @@ public final class AddNodeAction extends JosmAction {
         putValue("help", ht("/Action/AddNode"));
     }
 
+    @Override
     public void actionPerformed(ActionEvent e) {
         if (!isEnabled())
             return;
@@ -44,7 +44,7 @@ public final class AddNodeAction extends JosmAction {
         }
 
         dialog.showDialog();
-        
+
         if (dialog.getValue() != 1)
             return;
 

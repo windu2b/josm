@@ -45,7 +45,7 @@ public class LatLon extends Coordinate {
         cDdFormatter = (DecimalFormat) NumberFormat.getInstance(Locale.UK);
         cDdFormatter.applyPattern("###0.0######");
     }
-    
+
     private static final String cDms60 = cDmsSecondFormatter.format(60.0);
     private static final String cDms00 = cDmsSecondFormatter.format( 0.0);
     private static final String cDm60 = cDmMinuteFormatter.format(60.0);
@@ -91,7 +91,7 @@ public class LatLon extends Coordinate {
     /**
      * Returns a valid OSM longitude [-180,+180] for the given extended longitude value.
      * For example, a value of -181 will return +179, a value of +181 will return -179.
-     * @param lon A longitude value not restricted to the [-180,+180] range.
+     * @param value A longitude value not restricted to the [-180,+180] range.
      */
     public static double toIntervalLon(double value) {
         if (isValidLon(value))
@@ -114,11 +114,11 @@ public class LatLon extends Coordinate {
         double tTmpMinutes = (tAbsCoord - tDegree) * 60;
         int tMinutes = (int) tTmpMinutes;
         double tSeconds = (tTmpMinutes - tMinutes) * 60;
-        
+
         String sDegrees = Integer.toString(tDegree);
         String sMinutes = cDmsMinuteFormatter.format(tMinutes);
         String sSeconds = cDmsSecondFormatter.format(tSeconds);
-        
+
         if (sSeconds.equals(cDms60)) {
             sSeconds = cDms00;
             sMinutes = cDmsMinuteFormatter.format(tMinutes+1);
@@ -141,15 +141,15 @@ public class LatLon extends Coordinate {
         double tAbsCoord = Math.abs(pCoordinate);
         int tDegree = (int) tAbsCoord;
         double tMinutes = (tAbsCoord - tDegree) * 60;
-        
+
         String sDegrees = Integer.toString(tDegree);
         String sMinutes = cDmMinuteFormatter.format(tMinutes);
-        
+
         if (sMinutes.equals(cDm60)) {
             sMinutes = cDm00;
             sDegrees = Integer.toString(tDegree+1);
         }
-        
+
         return sDegrees + "\u00B0" + sMinutes + "\'";
     }
 

@@ -1,3 +1,4 @@
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.data.osm;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -198,17 +199,22 @@ public abstract class AbstractPrimitive implements IPrimitive {
     }
 
     /**
-     * Clears the id and version known to the OSM API. The id and the version is set to 0.
-     * incomplete is set to false. It's preferred to use copy constructor with clearId set to true instead
+     * Clears the metadata, including id and version known to the OSM API.
+     * The id is a new unique id. The version, changeset and timestamp are set to 0.
+     * incomplete and deleted are set to false. It's preferred to use copy constructor with clearMetadata set to true instead
      * of calling this method.
+     * @since 6140
      */
-    public void clearOsmId() {
+    public void clearOsmMetadata() {
         // Not part of dataset - no lock necessary
         this.id = generateUniqueId();
         this.version = 0;
         this.user = null;
         this.changesetId = 0; // reset changeset id on a new object
+        this.timestamp = 0;
         this.setIncomplete(false);
+        this.setDeleted(false);
+        this.setVisible(true);
     }
 
     /**
@@ -292,7 +298,7 @@ public abstract class AbstractPrimitive implements IPrimitive {
      */
     @Override
     public Date getTimestamp() {
-        return new Date(timestamp * 1000l);
+        return new Date(timestamp * 1000L);
     }
 
     @Override
@@ -656,9 +662,9 @@ public abstract class AbstractPrimitive implements IPrimitive {
      */
     public boolean hasSameTags(OsmPrimitive other) {
         // We cannot directly use Arrays.equals(keys, other.keys) as keys is not ordered by key
-        // but we can at least check if both arrays are null or of the same size before creating 
+        // but we can at least check if both arrays are null or of the same size before creating
         // and comparing the key maps (costly operation, see #7159)
-        return (keys == null && other.keys == null) 
+        return (keys == null && other.keys == null)
             || (keys != null && other.keys != null && keys.length == other.keys.length && (keys.length == 0 || getKeys().equals(other.getKeys())));
     }
 

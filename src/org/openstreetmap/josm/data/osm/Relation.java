@@ -6,12 +6,14 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.osm.visitor.PrimitiveVisitor;
 import org.openstreetmap.josm.data.osm.visitor.Visitor;
 import org.openstreetmap.josm.tools.CopyList;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * An relation, having a set of tags and any number (0...n) of members.
@@ -161,11 +163,11 @@ public final class Relation extends OsmPrimitive implements IRelation {
         return members[idx].getType();
     }
 
-    @Override public void visit(Visitor visitor) {
+    @Override public void accept(Visitor visitor) {
         visitor.visit(this);
     }
 
-    @Override public void visit(PrimitiveVisitor visitor) {
+    @Override public void accept(PrimitiveVisitor visitor) {
         visitor.visit(this);
     }
 
@@ -180,16 +182,22 @@ public final class Relation extends OsmPrimitive implements IRelation {
         super(0, false);
     }
 
-    public Relation(Relation clone, boolean clearId) {
+    /**
+     * Constructs an identical clone of the argument.
+     * @param clone The relation to clone
+     * @param clearMetadata If {@code true}, clears the OSM id and other metadata as defined by {@link #clearOsmMetadata}. If {@code false}, does nothing
+     */
+    public Relation(Relation clone, boolean clearMetadata) {
         super(clone.getUniqueId(), true);
         cloneFrom(clone);
-        if (clearId) {
-            clearOsmId();
+        if (clearMetadata) {
+            clearOsmMetadata();
         }
     }
 
     /**
      * Create an identical clone of the argument (including the id)
+     * @param clone The relation to clone, including its id
      */
     public Relation(Relation clone) {
         this(clone, false);
@@ -278,7 +286,7 @@ public final class Relation extends OsmPrimitive implements IRelation {
 
     @Override
     public boolean hasEqualSemanticAttributes(OsmPrimitive other) {
-        if (other == null || ! (other instanceof Relation) )
+        if (!(other instanceof Relation))
             return false;
         if (! super.hasEqualSemanticAttributes(other))
             return false;
@@ -350,8 +358,9 @@ public final class Relation extends OsmPrimitive implements IRelation {
      * removes all members with member.member == primitive
      *
      * @param primitives the primitives to check for
+     * @since 5613
      */
-    public void removeMembersFor(Collection<OsmPrimitive> primitives) {
+    public void removeMembersFor(Collection<? extends OsmPrimitive> primitives) {
         if (primitives == null || primitives.isEmpty())
             return;
 
@@ -392,6 +401,15 @@ public final class Relation extends OsmPrimitive implements IRelation {
             }
         }
         return ret;
+    }
+
+    public List<OsmPrimitive> getMemberPrimitivesList() {
+        return Utils.transform(getMembers(), new Utils.Function<RelationMember, OsmPrimitive>() {
+            @Override
+            public OsmPrimitive apply(RelationMember x) {
+                return x.getMember();
+            }
+        });
     }
 
     @Override
@@ -517,5 +535,16 @@ public final class Relation extends OsmPrimitive implements IRelation {
             ret.add(rm.getMember());
         }
         return ret;
+    }
+
+    @Override
+    protected void keysChangedImpl(Map<String, String> originalKeys) {
+        super.keysChangedImpl(originalKeys);
+        // fix #8346 - Clear style cache for multipolygon members after a tag change
+        if (isMultipolygon()) {
+            for (OsmPrimitive member : getMemberPrimitives()) {
+                member.clearCachedStyle();
+            }
+        }
     }
 }

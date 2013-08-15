@@ -20,9 +20,8 @@ import javax.swing.JPanel;
 
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.osm.Tag;
-import org.openstreetmap.josm.gui.preferences.map.TaggingPresetPreference;
 import org.openstreetmap.josm.gui.tagging.TaggingPreset;
-import org.openstreetmap.josm.gui.tagging.TaggingPreset.PresetType;
+import org.openstreetmap.josm.gui.tagging.TaggingPresetType;
 import org.openstreetmap.josm.tools.GBC;
 
 public class PresetListPanel extends JPanel {
@@ -56,6 +55,7 @@ public class PresetListPanel extends JPanel {
             tag = t;
             this.presetHandler = presetHandler;
         }
+        @Override
         public void mouseClicked(MouseEvent arg0) {
             Collection<OsmPrimitive> selection = tag.createSelection(presetHandler.getSelection());
             if (selection == null || selection.isEmpty())
@@ -67,17 +67,21 @@ public class PresetListPanel extends JPanel {
             }
 
         }
+        @Override
         public void mouseEntered(MouseEvent arg0) {
             label.setFont(hover);
         }
+        @Override
         public void mouseExited(MouseEvent arg0) {
             label.setFont(normal);
         }
+        @Override
         public void mousePressed(MouseEvent arg0) {}
+        @Override
         public void mouseReleased(MouseEvent arg0) {}
     }
 
-    public void updatePresets(final Collection<PresetType> types, final Map<String, String> tags, PresetHandler presetHandler) {
+    public void updatePresets(final Collection<TaggingPresetType> types, final Map<String, String> tags, PresetHandler presetHandler) {
 
         removeAll();
         if (types.isEmpty()) {
@@ -85,11 +89,7 @@ public class PresetListPanel extends JPanel {
             return;
         }
 
-        for (TaggingPreset t : TaggingPresetPreference.taggingPresets) {
-            if (!t.matches(types, tags, true)) {
-                continue;
-            }
-
+        for (TaggingPreset t : TaggingPreset.getMatchingPresets(types, tags, true)) {
             JLabel lbl = new JLabel(t.getName() + " …");
             lbl.setIcon((Icon) t.getValue(Action.SMALL_ICON));
             lbl.addMouseListener(new PresetLabelML(lbl, t, presetHandler));

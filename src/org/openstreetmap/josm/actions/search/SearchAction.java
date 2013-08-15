@@ -29,14 +29,14 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
-import javax.swing.JTextField;
 import javax.swing.text.BadLocationException;
+import javax.swing.text.JTextComponent;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.actions.ActionParameter;
+import org.openstreetmap.josm.actions.ActionParameter.SearchSettingsActionParameter;
 import org.openstreetmap.josm.actions.JosmAction;
 import org.openstreetmap.josm.actions.ParameterizedAction;
-import org.openstreetmap.josm.actions.ActionParameter.SearchSettingsActionParameter;
 import org.openstreetmap.josm.actions.search.SearchCompiler.ParseError;
 import org.openstreetmap.josm.data.osm.DataSet;
 import org.openstreetmap.josm.data.osm.Filter;
@@ -50,6 +50,7 @@ import org.openstreetmap.josm.tools.Predicate;
 import org.openstreetmap.josm.tools.Property;
 import org.openstreetmap.josm.tools.Shortcut;
 import org.openstreetmap.josm.tools.Utils;
+
 
 public class SearchAction extends JosmAction implements ParameterizedAction {
 
@@ -79,19 +80,17 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
         }
     }
 
-    private static LinkedList<SearchSetting> searchHistory = null;
-
-    public static Collection<SearchSetting> getSearchHistory() {
-        if (searchHistory == null) {
-            searchHistory = new LinkedList<SearchSetting>();
-            for (String s: Main.pref.getCollection("search.history", Collections.<String>emptyList())) {
-                SearchSetting ss = SearchSetting.readFromString(s);
-                if (ss != null) {
-                    searchHistory.add(ss);
-                }
+    private static final LinkedList<SearchSetting> searchHistory = new LinkedList<SearchSetting>();
+    static {
+        for (String s: Main.pref.getCollection("search.history", Collections.<String>emptyList())) {
+            SearchSetting ss = SearchSetting.readFromString(s);
+            if (ss != null) {
+                searchHistory.add(ss);
             }
         }
+    }
 
+    public static Collection<SearchSetting> getSearchHistory() {
         return searchHistory;
     }
 
@@ -103,7 +102,7 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
         while (searchHistory.size() > maxsize) {
             searchHistory.removeLast();
         }
-        List<String> savedHistory = new ArrayList<String>();
+        List<String> savedHistory = new ArrayList<String>(searchHistory.size());
         for (SearchSetting item: searchHistory) {
             savedHistory.add(item.writeToString());
         }
@@ -126,12 +125,14 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
         putValue("help", ht("/Action/Search"));
     }
 
+    @Override
     public void actionPerformed(ActionEvent e) {
         if (!isEnabled())
             return;
         search();
     }
 
+    @Override
     public void actionPerformed(ActionEvent e, Map<String, Object> parameters) {
         if (parameters.get(SEARCH_EXPRESSION) == null) {
             actionPerformed(e);
@@ -194,7 +195,7 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
                     @Override
                     public void mouseClicked(MouseEvent e) {
                         try {
-                            JTextField tf = (JTextField) hcb.getEditor().getEditorComponent();
+                            JTextComponent tf = (JTextComponent) hcb.getEditor().getEditorComponent();
                             tf.getDocument().insertString(tf.getCaretPosition(), " " + insertText, null);
                         } catch (BadLocationException ex) {
                             throw new RuntimeException(ex.getMessage(), ex);
@@ -408,6 +409,7 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
                 .addKeyword("type:way", "type:way ", tr("all ways"))
                 .addKeyword("type:relation", "type:relation ", tr("all relations"))
                 .addKeyword("closed", "closed ", tr("all closed ways"))
+                .addKeyword("untagged", "untagged ", tr("object without useful tags"))
                 , GBC.eol());
             right.add(new SearchKeywordRow(hcbSearchString)
                 .addTitle(tr("metadata"))
@@ -432,9 +434,11 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
                 .addKeyword("incomplete", "incomplete ", tr("all incomplete objects"))
                 , GBC.eol());
             right.add(new SearchKeywordRow(hcbSearchString)
-                .addTitle(tr("relations"))
+                .addTitle(tr("related objects"))
                 .addKeyword("child <i>expr</i>", "child ", tr("all children of objects matching the expression"), "child building")
                 .addKeyword("parent <i>expr</i>", "parent ", tr("all parents of objects matching the expression"), "parent bus_stop")
+                .addKeyword("nth:<i>7</i>", "nth: ", tr("n-th member of relation and/or n-th node of way"), "nth:5 (child type:relation)")
+                .addKeyword("nth%:<i>7</i>", "nth%: ", tr("every n-th member of relation and/or every n-th node of way"), "nth%:100 (child waterway)")
                 , GBC.eol());
             right.add(new SearchKeywordRow(hcbSearchString)
                 .addTitle(tr("view"))
@@ -723,6 +727,7 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
         setEnabled(getEditLayer() != null);
     }
 
+    @Override
     public List<ActionParameter<?>> getActionParameters() {
         return Collections.<ActionParameter<?>>singletonList(new SearchSettingsActionParameter(SEARCH_EXPRESSION));
     }

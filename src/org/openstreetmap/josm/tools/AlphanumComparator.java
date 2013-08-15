@@ -22,7 +22,9 @@ package org.openstreetmap.josm.tools;
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  *
  */
+import java.text.Collator;
 import java.util.Comparator;
+import java.util.Locale;
 
 /**
  * The Alphanum Algorithm is an improved sorting algorithm for strings
@@ -30,9 +32,9 @@ import java.util.Comparator;
  * sort, this algorithm sorts numbers in numeric order.
  *
  * The Alphanum Algorithm is discussed at http://www.DaveKoelle.com
- * 
+ *
  * This is an updated version with enhancements made by Daniel Migowski, Andre
- * Bogus, and David Koelle.
+ * Bogus, and David Koelle and others.
  *
  */
 public class AlphanumComparator implements Comparator<String> {
@@ -106,7 +108,11 @@ public class AlphanumComparator implements Comparator<String> {
                     }
                 }
             } else {
-                result = thisChunk.compareTo(thatChunk);
+                // Instantiate the collator
+                Collator compareOperator = Collator.getInstance(Locale.getDefault());
+                // Compare regardless of accented letters
+                compareOperator.setStrength(Collator.SECONDARY);
+                result = compareOperator.compare(thisChunk, thatChunk);
             }
 
             if (result != 0) {

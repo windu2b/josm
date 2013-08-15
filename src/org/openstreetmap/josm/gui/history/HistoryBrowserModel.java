@@ -85,8 +85,8 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
     private VersionTableModel versionTableModel;
     private TagTableModel currentTagTableModel;
     private TagTableModel referenceTagTableModel;
-    private RelationMemberTableModel currentRelationMemberTableModel;
-    private RelationMemberTableModel referenceRelationMemberTableModel;
+    private DiffTableModel currentRelationMemberTableModel;
+    private DiffTableModel referenceRelationMemberTableModel;
     private DiffTableModel referenceNodeListTableModel;
     private DiffTableModel currentNodeListTableModel;
 
@@ -99,8 +99,8 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
         referenceTagTableModel = new TagTableModel(PointInTimeType.REFERENCE_POINT_IN_TIME);
         referenceNodeListTableModel = new DiffTableModel();
         currentNodeListTableModel = new DiffTableModel();
-        currentRelationMemberTableModel = new RelationMemberTableModel(PointInTimeType.CURRENT_POINT_IN_TIME);
-        referenceRelationMemberTableModel = new RelationMemberTableModel(PointInTimeType.REFERENCE_POINT_IN_TIME);
+        currentRelationMemberTableModel = new DiffTableModel();
+        referenceRelationMemberTableModel = new DiffTableModel();
 
         if (getEditLayer() != null) {
             getEditLayer().data.addDataSetListener(this);
@@ -207,6 +207,7 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
 
     protected void fireModelChange() {
         initNodeListTableModels();
+        initMemberListTableModels();
         setChanged();
         notifyObservers();
         versionTableModel.fireTableDataChanged();
@@ -246,6 +247,16 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
     }
 
     protected void initMemberListTableModels() {
+        if(current.getType() != OsmPrimitiveType.RELATION || reference.getType() != OsmPrimitiveType.RELATION)
+            return;
+
+        TwoColumnDiff diff = new TwoColumnDiff(
+                ((HistoryRelation)reference).getMembers().toArray(),
+                ((HistoryRelation)current).getMembers().toArray());
+
+        referenceRelationMemberTableModel.setRows(diff.referenceDiff);
+        currentRelationMemberTableModel.setRows(diff.currentDiff);
+
         currentRelationMemberTableModel.fireTableDataChanged();
         referenceRelationMemberTableModel.fireTableDataChanged();
     }
@@ -279,7 +290,7 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
         return null;
     }
 
-    public RelationMemberTableModel getRelationMemberTableModel(PointInTimeType pointInTimeType) throws IllegalArgumentException {
+    public DiffTableModel getRelationMemberTableModel(PointInTimeType pointInTimeType) throws IllegalArgumentException {
         CheckParameterUtil.ensureParameterNotNull(pointInTimeType, "pointInTimeType");
         if (pointInTimeType.equals(PointInTimeType.CURRENT_POINT_IN_TIME))
             return currentRelationMemberTableModel;
@@ -324,8 +335,8 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
      * Sets the {@link HistoryOsmPrimitive} which plays the role of the current point
      * in time (see {@link PointInTimeType}).
      *
-     * @param reference the reference history primitive. Must not be null.
-     * @throws IllegalArgumentException thrown if reference is null
+     * @param current the reference history primitive. Must not be {@code null}.
+     * @throws IllegalArgumentException thrown if reference is {@code null}
      * @throws IllegalStateException thrown if this model isn't a assigned a history yet
      * @throws IllegalArgumentException if reference isn't an history primitive for the history managed by this mode
      *
@@ -428,20 +439,20 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
             case 2:
                 return isCurrentPointInTime(row);
             case 3: {
-                    HistoryOsmPrimitive p = getPrimitive(row);
-                    if (p != null && p.getTimestamp() != null)
-                        return DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(p.getTimestamp());
-                    return null;
-                }
+                HistoryOsmPrimitive p = getPrimitive(row);
+                if (p != null && p.getTimestamp() != null)
+                    return DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(p.getTimestamp());
+                return null;
+            }
             case 4: {
-                    HistoryOsmPrimitive p = getPrimitive(row);
-                    if (p != null) {
-                        User user = p.getUser();
-                        if (user != null)
-                            return "<html>" + XmlWriter.encode(user.getName(), true) + " <font color=gray>(" + user.getId() + ")</font></html>";
-                    }
-                    return null;
+                HistoryOsmPrimitive p = getPrimitive(row);
+                if (p != null) {
+                    User user = p.getUser();
+                    if (user != null)
+                        return "<html>" + XmlWriter.encode(user.getName(), true) + " <font color=gray>(" + user.getId() + ")</font></html>";
                 }
+                return null;
+            }
             }
             return null;
         }
@@ -634,108 +645,6 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
         }
     }
 
-    /**
-     * The table model for the relation members of the version at {@link PointInTimeType#REFERENCE_POINT_IN_TIME}
-     * or {@link PointInTimeType#CURRENT_POINT_IN_TIME}
-     *
-     */
-
-    public class RelationMemberTableModel extends AbstractTableModel {
-
-        private PointInTimeType pointInTimeType;
-
-        private RelationMemberTableModel(PointInTimeType pointInTimeType) {
-            this.pointInTimeType = pointInTimeType;
-        }
-
-        @Override
-        public int getRowCount() {
-            // Match the size of the opposite table so comparison is less confusing.
-            // (scroll bars lines up properly, etc.)
-            int n = 0;
-            if (current != null && current.getType().equals(OsmPrimitiveType.RELATION)) {
-                n = ((HistoryRelation)current).getNumMembers();
-            }
-            if (reference != null && reference.getType().equals(OsmPrimitiveType.RELATION)) {
-                n = Math.max(n,((HistoryRelation)reference).getNumMembers());
-            }
-            return n;
-        }
-
-        protected HistoryRelation getRelation() {
-            if (pointInTimeType.equals(PointInTimeType.CURRENT_POINT_IN_TIME)) {
-                if (! current.getType().equals(OsmPrimitiveType.RELATION))
-                    return null;
-                return (HistoryRelation)current;
-            }
-            if (pointInTimeType.equals(PointInTimeType.REFERENCE_POINT_IN_TIME)) {
-                if (! reference.getType().equals(OsmPrimitiveType.RELATION))
-                    return null;
-                return (HistoryRelation)reference;
-            }
-
-            // should not happen
-            return null;
-        }
-
-        protected HistoryRelation getOppositeRelation() {
-            PointInTimeType opposite = pointInTimeType.opposite();
-            if (opposite.equals(PointInTimeType.CURRENT_POINT_IN_TIME)) {
-                if (! current.getType().equals(OsmPrimitiveType.RELATION))
-                    return null;
-                return (HistoryRelation)current;
-            }
-            if (opposite.equals(PointInTimeType.REFERENCE_POINT_IN_TIME)) {
-                if (! reference.getType().equals(OsmPrimitiveType.RELATION))
-                    return null;
-                return (HistoryRelation)reference;
-            }
-
-            // should not happen
-            return null;
-        }
-
-        @Override
-        public Object getValueAt(int row, int column) {
-            HistoryRelation relation = getRelation();
-            if (relation == null)
-                return null;
-            if (row >= relation.getNumMembers()) // see getRowCount
-                return null;
-            return relation.getMembers().get(row);
-        }
-
-        @Override
-        public boolean isCellEditable(int row, int column) {
-            return false;
-        }
-
-        public boolean isSameInOppositeWay(int row) {
-            HistoryRelation thisRelation = getRelation();
-            HistoryRelation oppositeRelation = getOppositeRelation();
-            if (thisRelation == null || oppositeRelation == null)
-                return false;
-            if (row >= oppositeRelation.getNumMembers())
-                return false;
-            return
-            thisRelation.getMembers().get(row).getMemberId() == oppositeRelation.getMembers().get(row).getMemberId()
-            &&  thisRelation.getMembers().get(row).getRole().equals(oppositeRelation.getMembers().get(row).getRole());
-        }
-
-        public boolean isInOppositeWay(int row) {
-            HistoryRelation thisRelation = getRelation();
-            HistoryRelation oppositeRelation = getOppositeRelation();
-            if (thisRelation == null || oppositeRelation == null)
-                return false;
-            return oppositeRelation.getMembers().contains(thisRelation.getMembers().get(row));
-        }
-
-        @Override
-        public int getColumnCount() {
-            return 1;
-        }
-    }
-
     protected void setLatest(HistoryOsmPrimitive latest) {
         if (latest == null) {
             if (this.current == this.latest) {
@@ -772,6 +681,7 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
     /* ---------------------------------------------------------------------- */
     /* DataSetListener                                                        */
     /* ---------------------------------------------------------------------- */
+    @Override
     public void nodeMoved(NodeMovedEvent event) {
         Node node = event.getNode();
         if (!node.isNew() && node.getId() == history.getId()) {
@@ -779,6 +689,7 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
         }
     }
 
+    @Override
     public void primitivesAdded(PrimitivesAddedEvent event) {
         for (OsmPrimitive p: event.getPrimitives()) {
             if (canShowAsLatest(p)) {
@@ -787,6 +698,7 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
         }
     }
 
+    @Override
     public void primitivesRemoved(PrimitivesRemovedEvent event) {
         for (OsmPrimitive p: event.getPrimitives()) {
             if (!p.isNew() && p.getId() == history.getId()) {
@@ -795,6 +707,7 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
         }
     }
 
+    @Override
     public void relationMembersChanged(RelationMembersChangedEvent event) {
         Relation r = event.getRelation();
         if (!r.isNew() && r.getId() == history.getId()) {
@@ -802,6 +715,7 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
         }
     }
 
+    @Override
     public void tagsChanged(TagsChangedEvent event) {
         OsmPrimitive prim = event.getPrimitive();
         if (!prim.isNew() && prim.getId() == history.getId()) {
@@ -809,6 +723,7 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
         }
     }
 
+    @Override
     public void wayNodesChanged(WayNodesChangedEvent event) {
         Way way = event.getChangedWay();
         if (!way.isNew() && way.getId() == history.getId()) {
@@ -816,6 +731,7 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
         }
     }
 
+    @Override
     public void dataChanged(DataChangedEvent event) {
         OsmPrimitive primitive = event.getDataset().getPrimitiveById(history.getId(), history.getType());
         HistoryOsmPrimitive latest;
@@ -828,6 +744,7 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
         fireModelChange();
     }
 
+    @Override
     public void otherDatasetChange(AbstractDatasetChangedEvent event) {
         // Irrelevant
     }
@@ -835,12 +752,13 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
     /* ---------------------------------------------------------------------- */
     /* LayerChangeListener                                                    */
     /* ---------------------------------------------------------------------- */
+    @Override
     public void activeLayerChange(Layer oldLayer, Layer newLayer) {
-        if (oldLayer != null && oldLayer instanceof OsmDataLayer) {
+        if (oldLayer instanceof OsmDataLayer) {
             OsmDataLayer l = (OsmDataLayer)oldLayer;
             l.data.removeDataSetListener(this);
         }
-        if (newLayer == null || ! (newLayer instanceof OsmDataLayer)) {
+        if (!(newLayer instanceof OsmDataLayer)) {
             latest = null;
             fireModelChange();
             return;
@@ -858,7 +776,9 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
         fireModelChange();
     }
 
+    @Override
     public void layerAdded(Layer newLayer) {}
+    @Override
     public void layerRemoved(Layer oldLayer) {}
 
     /**
@@ -868,11 +788,13 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
     static class HistoryPrimitiveBuilder extends AbstractVisitor {
         private HistoryOsmPrimitive clone;
 
+        @Override
         public void visit(Node n) {
             clone = new HistoryNode(n.getId(), n.getVersion(), n.isVisible(), getCurrentUser(), 0, null, n.getCoor(), false);
             clone.setTags(n.getKeys());
         }
 
+        @Override
         public void visit(Relation r) {
             clone = new HistoryRelation(r.getId(), r.getVersion(), r.isVisible(), getCurrentUser(), 0, null, false);
             clone.setTags(r.getKeys());
@@ -882,6 +804,7 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
             }
         }
 
+        @Override
         public void visit(Way w) {
             clone = new HistoryWay(w.getId(), w.getVersion(), w.isVisible(), getCurrentUser(), 0, null, false);
             clone.setTags(w.getKeys());
@@ -896,7 +819,7 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
         }
 
         public HistoryOsmPrimitive build(OsmPrimitive primitive) {
-            primitive.visit(this);
+            primitive.accept(this);
             return clone;
         }
     }

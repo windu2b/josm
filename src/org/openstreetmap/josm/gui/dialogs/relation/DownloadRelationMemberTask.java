@@ -90,7 +90,7 @@ public class DownloadRelationMemberTask extends PleaseWaitRunnable {
     }
 
     protected String buildDownloadFeedbackMessage() {
-        if (parents.size() == 0) {
+        if (parents.isEmpty()) {
             return trn("Downloading {0} incomplete object",
                     "Downloading {0} incomplete objects",
                     children.size(),
@@ -134,6 +134,7 @@ public class DownloadRelationMemberTask extends PleaseWaitRunnable {
 
             SwingUtilities.invokeLater(
                     new Runnable() {
+                        @Override
                         public void run() {
                             curLayer.mergeFrom(dataSet);
                             curLayer.onPostDownloadFromServer();

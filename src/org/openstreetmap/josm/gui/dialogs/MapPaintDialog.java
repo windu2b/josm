@@ -11,13 +11,10 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
-import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
@@ -41,7 +38,6 @@ import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
-import javax.swing.JTextArea;
 import javax.swing.JViewport;
 import javax.swing.ListSelectionModel;
 import javax.swing.SingleSelectionModel;
@@ -53,12 +49,14 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
+import javax.swing.filechooser.FileFilter;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableModel;
 
 import org.openstreetmap.josm.Main;
+import org.openstreetmap.josm.actions.ExtensionFileFilter;
 import org.openstreetmap.josm.gui.ExtendedDialog;
 import org.openstreetmap.josm.gui.PleaseWaitRunnable;
 import org.openstreetmap.josm.gui.SideButton;
@@ -66,10 +64,13 @@ import org.openstreetmap.josm.gui.mappaint.MapPaintStyles;
 import org.openstreetmap.josm.gui.mappaint.MapPaintStyles.MapPaintStyleLoader;
 import org.openstreetmap.josm.gui.mappaint.MapPaintStyles.MapPaintSylesUpdateListener;
 import org.openstreetmap.josm.gui.mappaint.StyleSource;
+import org.openstreetmap.josm.gui.mappaint.mapcss.MapCSSStyleSource;
 import org.openstreetmap.josm.gui.preferences.PreferenceDialog;
 import org.openstreetmap.josm.gui.preferences.SourceEntry;
+import org.openstreetmap.josm.gui.util.FileFilterAllFiles;
 import org.openstreetmap.josm.gui.widgets.HtmlPanel;
 import org.openstreetmap.josm.gui.widgets.JFileChooserManager;
+import org.openstreetmap.josm.gui.widgets.JosmTextArea;
 import org.openstreetmap.josm.gui.widgets.PopupMenuLauncher;
 import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.ImageProvider;
@@ -89,6 +90,9 @@ public class MapPaintDialog extends ToggleDialog implements Main.WindowSwitchLis
     protected MoveUpDownAction downAction;
     protected JCheckBox cbWireframe;
 
+    /**
+     * Constructs a new {@code MapPaintDialog}.
+     */
     public MapPaintDialog() {
         super(tr("Map Paint Styles"), "mapstyle", tr("configure the map painting style"),
                 Shortcut.registerShortcut("subwindow:mappaint", tr("Toggle: {0}", tr("MapPaint")),
@@ -114,6 +118,7 @@ public class MapPaintDialog extends ToggleDialog implements Main.WindowSwitchLis
             }
         });
         cbWireframe.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 Main.main.menu.wireFrameToggleAction.actionPerformed(null);
             }
@@ -310,6 +315,7 @@ public class MapPaintDialog extends ToggleDialog implements Main.WindowSwitchLis
             setVerticalAlignment(SwingConstants.CENTER);
         }
 
+        @Override
         public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,int row,int column) {
             if (value == null)
                 return this;
@@ -395,6 +401,7 @@ public class MapPaintDialog extends ToggleDialog implements Main.WindowSwitchLis
             model.ensureSelectedIsVisible();
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
@@ -404,6 +411,9 @@ public class MapPaintDialog extends ToggleDialog implements Main.WindowSwitchLis
      * Opens preferences window and selects the mappaint tab.
      */
     public static class LaunchMapPaintPreferencesAction extends AbstractAction {
+        /**
+         * Constructs a new {@code LaunchMapPaintPreferencesAction}.
+         */
         public LaunchMapPaintPreferencesAction() {
             putValue(NAME, tr("Preferences"));
             putValue(SMALL_ICON, ImageProvider.get("dialogs", "mappaintpreference"));
@@ -483,7 +493,15 @@ public class MapPaintDialog extends ToggleDialog implements Main.WindowSwitchLis
 
             JFileChooserManager fcm = new JFileChooserManager(false, "mappaint.clone-style.lastDirectory", System.getProperty("user.home"));
             String suggestion = fcm.getInitialDirectory() + File.separator + s.getFileNamePart();
-            fcm.createFileChooser().getFileChooser().setSelectedFile(new File(suggestion));
+
+            FileFilter ff;
+            if (s instanceof MapCSSStyleSource) {
+                ff = new ExtensionFileFilter("mapcss,css,zip", "mapcss", tr("Map paint style file (*.mapcss, *.zip)"));
+            } else {
+                ff = new ExtensionFileFilter("xml,zip", "xml", tr("Map paint style file (*.xml, *.zip)"));
+            }
+            fcm.createFileChooser(false, null, Arrays.asList(ff, FileFilterAllFiles.getInstance()), ff, JFileChooser.FILES_ONLY)
+                    .getFileChooser().setSelectedFile(new File(suggestion));
             JFileChooser fc = fcm.openFileChooser();
             if (fc == null)
                 return;
@@ -642,7 +660,7 @@ public class MapPaintDialog extends ToggleDialog implements Main.WindowSwitchLis
         }
 
         private void buildSourcePanel(StyleSource s, JPanel p) {
-            JTextArea txtSource = new JTextArea();
+            JosmTextArea txtSource = new JosmTextArea();
             txtSource.setFont(new Font("Monospaced", txtSource.getFont().getStyle(), txtSource.getFont().getSize()));
             txtSource.setEditable(false);
             p.add(new JScrollPane(txtSource), GBC.std().fill());
@@ -663,7 +681,7 @@ public class MapPaintDialog extends ToggleDialog implements Main.WindowSwitchLis
         }
 
         private void buildErrorsPanel(StyleSource s, JPanel p) {
-            JTextArea txtErrors = new JTextArea();
+            JosmTextArea txtErrors = new JosmTextArea();
             txtErrors.setFont(new Font("Monospaced", txtErrors.getFont().getStyle(), txtErrors.getFont().getSize()));
             txtErrors.setEditable(false);
             p.add(new JScrollPane(txtErrors), GBC.std().fill());
@@ -678,20 +696,23 @@ public class MapPaintDialog extends ToggleDialog implements Main.WindowSwitchLis
         public void launch(MouseEvent evt) {
             if (cbWireframe.isSelected())
                 return;
-            Point p = evt.getPoint();
-            int index = tblStyles.rowAtPoint(p);
-            if (index < 0) return;
-            if (!tblStyles.getCellRect(index, 1, false).contains(evt.getPoint()))
-                return;
-            if (!tblStyles.isRowSelected(index)) {
-                tblStyles.setRowSelectionInterval(index, index);
-            }
-            MapPaintPopup menu = new MapPaintPopup();
-            menu.show(tblStyles, p.x, p.y);
+            super.launch(evt);
+        }
+
+        @Override
+        protected void showMenu(MouseEvent evt) {
+            menu = new MapPaintPopup();
+            super.showMenu(evt);
         }
     }
 
+    /**
+     * The popup menu displayed when right-clicking a map paint entry
+     */
     public class MapPaintPopup extends JPopupMenu {
+        /**
+         * Constructs a new {@code MapPaintPopup}.
+         */
         public MapPaintPopup() {
             add(reloadAction);
             add(new SaveAsAction());

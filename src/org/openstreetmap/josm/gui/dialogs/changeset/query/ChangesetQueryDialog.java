@@ -151,7 +151,7 @@ public class ChangesetQueryDialog extends JDialog {
             ).applySafe(this);
             setCanceled(false);
             startUserInput();
-        } else if (!visible && isShowing()){
+        } else if (isShowing()) { // Avoid IllegalComponentStateException like in #8775
             new WindowGeometry(this).remember(getClass().getName() + ".geometry");
             pnlAdvancedQueries.rememberSettings();
         }
@@ -175,6 +175,7 @@ public class ChangesetQueryDialog extends JDialog {
             );
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             try {
                 switch(tpQueryPanels.getSelectedIndex()) {
@@ -190,7 +191,7 @@ public class ChangesetQueryDialog extends JDialog {
                         return;
                     }
                     break;
-    
+
                 case 2:
                     if (getChangesetQuery() == null) {
                         pnlAdvancedQueries.displayMessageIfInvalid();
@@ -218,6 +219,7 @@ public class ChangesetQueryDialog extends JDialog {
             setVisible(false);
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             cancel();
         }

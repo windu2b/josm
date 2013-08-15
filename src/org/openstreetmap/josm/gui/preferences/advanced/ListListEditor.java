@@ -13,22 +13,21 @@ import java.util.List;
 import javax.swing.AbstractAction;
 import javax.swing.AbstractListModel;
 import javax.swing.DefaultCellEditor;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
-import javax.swing.JTextField;
 import javax.swing.JToolBar;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
-import javax.swing.table.TableCellEditor;
 import javax.swing.table.AbstractTableModel;
+import javax.swing.table.TableCellEditor;
 
 import org.openstreetmap.josm.data.Preferences.ListListSetting;
 import org.openstreetmap.josm.gui.ExtendedDialog;
-import org.openstreetmap.josm.gui.preferences.PreferenceTabbedPane;
-import org.openstreetmap.josm.gui.preferences.advanced.AdvancedPreference.PrefEntry;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.WindowGeometry;
@@ -45,7 +44,7 @@ public class ListListEditor extends ExtendedDialog {
 
     ListTableModel tableModel;
 
-    public ListListEditor(final PreferenceTabbedPane gui, PrefEntry entry, ListListSetting setting) {
+    public ListListEditor(final JComponent gui, PrefEntry entry, ListListSetting setting) {
         super(gui, tr("Change list of lists setting"), new String[] {tr("OK"), tr("Cancel")});
         this.entry = entry;
         List<List<String>> orig = setting.getValue();
@@ -94,7 +93,7 @@ public class ListListEditor extends ExtendedDialog {
         table.putClientProperty("terminateEditOnFocusLost", true);
         table.setTableHeader(null);
 
-        DefaultCellEditor editor = new DefaultCellEditor(new JTextField());
+        DefaultCellEditor editor = new DefaultCellEditor(new JosmTextField());
         editor.setClickCountToStart(1);
         table.setDefaultEditor(table.getColumnClass(0), editor);
 
@@ -105,10 +104,12 @@ public class ListListEditor extends ExtendedDialog {
     }
 
     class EntryListModel extends AbstractListModel {
+        @Override
         public Object getElementAt(int index) {
             return (index+1) + ": " + data.get(index).toString();
         }
 
+        @Override
         public int getSize() {
             return data.size();
         }
@@ -131,6 +132,7 @@ public class ListListEditor extends ExtendedDialog {
             putValue(SMALL_ICON, ImageProvider.get("dialogs", "add"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent evt) {
             entryModel.add(new ArrayList<String>());
         }
@@ -148,10 +150,12 @@ public class ListListEditor extends ExtendedDialog {
             setEnabled(entryList.getSelectedIndices().length == 1);
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             int idx = entryList.getSelectedIndices()[0];
             entryModel.remove(idx);
@@ -159,6 +163,7 @@ public class ListListEditor extends ExtendedDialog {
     }
 
     class EntryListener implements ListSelectionListener {
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             TableCellEditor editor = table.getCellEditor();
             if (editor != null) {

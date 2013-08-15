@@ -7,18 +7,10 @@ import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.awt.Toolkit;
-import java.awt.datatransfer.FlavorEvent;
-import java.awt.datatransfer.FlavorListener;
-import java.awt.event.ActionEvent;
-import java.awt.event.MouseEvent;
 
-import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
-import javax.swing.JTextField;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.JTextComponent;
@@ -28,9 +20,7 @@ import org.openstreetmap.josm.data.coor.CoordinateFormat;
 import org.openstreetmap.josm.data.coor.LatLon;
 import org.openstreetmap.josm.gui.JMultilineLabel;
 import org.openstreetmap.josm.tools.GBC;
-import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.OsmUrlToBounds;
-import org.openstreetmap.josm.tools.Utils;
 
 /**
  *
@@ -38,14 +28,14 @@ import org.openstreetmap.josm.tools.Utils;
  */
 public class BoundingBoxSelectionPanel extends JPanel {
 
-    private JTextField[] tfLatLon = null;
-    private final JTextField tfOsmUrl = new JTextField();
+    private JosmTextField[] tfLatLon = null;
+    private final JosmTextField tfOsmUrl = new JosmTextField();
 
     protected void buildInputFields() {
-        tfLatLon = new JTextField[4];
+        tfLatLon = new JosmTextField[4];
         for(int i=0; i< 4; i++) {
-            tfLatLon[i] = new JTextField(11);
-            tfLatLon[i].setMinimumSize(new Dimension(100,new JTextField().getMinimumSize().height));
+            tfLatLon[i] = new JosmTextField(11);
+            tfLatLon[i].setMinimumSize(new Dimension(100,new JosmTextField().getMinimumSize().height));
             SelectAllOnFocusGainedDecorator.decorate(tfLatLon[i]);
         }
         LatitudeValidator.decorate(tfLatLon[0]);
@@ -86,13 +76,6 @@ public class BoundingBoxSelectionPanel extends JPanel {
         gc.gridy = 3;
         gc.insets = new Insets(3,0,0,3);
         add(tfOsmUrl, gc);
-        tfOsmUrl.addMouseListener(new PopupMenuLauncher() {
-            @Override
-            public void launch(MouseEvent e) {
-                OsmUrlPopup popup = new OsmUrlPopup();
-                popup.show(tfOsmUrl, e.getX(), e.getY());
-            }
-        });
     }
 
     public BoundingBoxSelectionPanel() {
@@ -219,39 +202,11 @@ public class BoundingBoxSelectionPanel extends JPanel {
     }
 
     class OsmUrlRefresher implements DocumentListener {
+        @Override
         public void changedUpdate(DocumentEvent e) { parseURL(); }
+        @Override
         public void insertUpdate(DocumentEvent e) { parseURL(); }
+        @Override
         public void removeUpdate(DocumentEvent e) { parseURL(); }
-    }
-
-    class PasteUrlAction extends AbstractAction implements FlavorListener {
-
-        public PasteUrlAction() {
-            putValue(NAME, tr("Paste"));
-            putValue(SMALL_ICON, ImageProvider.get("paste"));
-            putValue(SHORT_DESCRIPTION, tr("Paste URL from clipboard"));
-            Toolkit.getDefaultToolkit().getSystemClipboard().addFlavorListener(this);
-        }
-
-        public void actionPerformed(ActionEvent e) {
-            String content = Utils.getClipboardContent();
-            if (content != null) {
-                tfOsmUrl.setText(content);
-            }
-        }
-
-        protected void updateEnabledState() {
-            setEnabled(Utils.getClipboardContent() != null);
-        }
-
-        public void flavorsChanged(FlavorEvent e) {
-            updateEnabledState();
-        }
-    }
-
-    class OsmUrlPopup extends JPopupMenu {
-        public OsmUrlPopup() {
-            add(new PasteUrlAction());
-        }
     }
 }

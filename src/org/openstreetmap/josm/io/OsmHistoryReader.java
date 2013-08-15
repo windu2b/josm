@@ -32,8 +32,8 @@ import org.xml.sax.helpers.DefaultHandler;
  * Parser for OSM history data.
  *
  * It is slightly different from {@link OsmReader} because we don't build an internal graph of
- * {@link OsmPrimitive}s. We use objects derived from {@link HistoryOsmPrimitive} instead and we
- * keep the data in a dedicated {@link HistoryDataSet}.
+ * {@link org.openstreetmap.josm.data.osm.OsmPrimitive}s. We use objects derived from
+ * {@link HistoryOsmPrimitive} instead and we keep the data in a dedicated {@link HistoryDataSet}.
  *
  */
 public class OsmHistoryReader {
@@ -41,7 +41,7 @@ public class OsmHistoryReader {
     private final InputStream in;
     private final HistoryDataSet data;
 
-    // FIXME: this class has many similarities with OsmChangesetContentParser.Parser and should be merged 
+    // FIXME: this class has many similarities with OsmChangesetContentParser.Parser and should be merged
     private class Parser extends DefaultHandler {
 
         /** the current primitive to be read */
@@ -71,7 +71,7 @@ public class OsmHistoryReader {
             if (v == null) {
                 throwException(tr("Missing mandatory attribute ''{0}''.", name));
             }
-            Long l = 0l;
+            Long l = 0L;
             try {
                 l = Long.parseLong(v);
             } catch(NumberFormatException e) {

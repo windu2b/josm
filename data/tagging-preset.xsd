@@ -56,7 +56,7 @@
 				<element name="key" type="tns:key" />
 				<element name="optional" type="tns:optional" minOccurs="0" />
 			</choice>
-			<element name="roles" type="tns:roles" minOccurs="0" />
+			<element name="roles" type="tns:roles" minOccurs="0" maxOccurs="1" />
 		</sequence>
 		<attribute name="name" type="string" use="required" />
 		<attribute name="icon" type="string" />
@@ -80,6 +80,7 @@
 			<element name="text" type="tns:text" />
 			<element name="combo" type="tns:combo" />
 			<element name="multiselect" type="tns:multiselect" />
+            <element name="checkgroup" type="tns:checkgroup" />
 			<element name="check" type="tns:check" />
 		</choice>
 	</group>
@@ -116,7 +117,9 @@
 		<attribute name="text_context" type="string" />
 		<attribute name="default" type="string" />
 		<attribute name="use_last_as_default" type="tns:last_default" />
+		<attribute name="auto_increment" type="string" />
 		<attribute name="match" type="tns:match" />
+		<attribute name="length" type="positiveInteger" />
 
 		<attribute name="type" use="prohibited" />
 		<attribute name="name" use="prohibited" />
@@ -131,6 +134,8 @@
 		<attribute name="display_value" type="string" />
 		<attribute name="short_description" type="string" />
 		<attribute name="icon" type="string" />
+		<attribute name="icon_size" type="integer" />
+		<anyAttribute processContents="skip" />
 	</complexType>
 
 	<complexType name="combo">
@@ -142,12 +147,14 @@
 		<attribute name="text" type="string" />
 		<attribute name="text_context" type="string" />
 		<attribute name="values" type="string" />
+		<attribute name="values_from" type="string" />
 		<attribute name="values_context" type="string" />
 		<attribute name="display_values" type="string" />
 		<attribute name="default" type="string" />
 		<attribute name="use_last_as_default" type="tns:last_default" />
 		<attribute name="editable" type="boolean" />
 		<attribute name="match" type="tns:match" />
+		<attribute name="length" type="positiveInteger" />
 
 		<attribute name="type" use="prohibited" />
 		<attribute name="value" use="prohibited" />
@@ -158,10 +165,15 @@
 	</complexType>
 
 	<complexType name="multiselect">
+        <!-- use either list_entry's or a combination of values/display_values -->
+        <sequence>
+            <element name="list_entry" type="tns:list_entry" minOccurs="0" maxOccurs="unbounded" />
+        </sequence>
 		<attribute name="key" type="string" use="required" />
 		<attribute name="text" type="string" />
 		<attribute name="text_context" type="string" />
-		<attribute name="values" type="string" use="required" />
+		<attribute name="values" type="string" />
+		<attribute name="values_from" type="string" />
 		<attribute name="values_context" type="string" />
 		<attribute name="display_values" type="string" />
 		<attribute name="default" type="string" />
@@ -176,6 +188,16 @@
 		<attribute name="display-values" use="prohibited" />
 		<anyAttribute processContents="skip" />
 	</complexType>
+
+    <complexType name="checkgroup">
+        <sequence>
+            <choice minOccurs="1" maxOccurs="unbounded">
+                <element name="check" type="tns:check" />
+            </choice>
+        </sequence>
+        <attribute name="columns" type="positiveInteger" />
+        <anyAttribute processContents="skip" />
+    </complexType>
 
 	<complexType name="check">
 		<attribute name="key" type="string" use="required" />
@@ -229,6 +251,8 @@
 		<attribute name="requisite" type="tns:role_requisite" />
 		<attribute name="type" type="string" />
 		<attribute name="count" type="integer" />
+		<attribute name="member_expression" type="string" />
+		<anyAttribute processContents="skip" />
 	</complexType>
 
 	<simpleType name="role_requisite">

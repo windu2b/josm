@@ -16,7 +16,6 @@ import javax.xml.parsers.ParserConfigurationException;
 import oauth.signpost.OAuthConsumer;
 import oauth.signpost.exception.OAuthException;
 
-import org.openstreetmap.josm.data.Version;
 import org.openstreetmap.josm.data.oauth.OAuthParameters;
 import org.openstreetmap.josm.data.oauth.OAuthToken;
 import org.openstreetmap.josm.data.osm.UserInfo;
@@ -29,6 +28,7 @@ import org.openstreetmap.josm.io.OsmServerUserInfoReader;
 import org.openstreetmap.josm.io.OsmTransferException;
 import org.openstreetmap.josm.io.auth.DefaultAuthenticator;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
+import org.openstreetmap.josm.tools.Utils;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -91,7 +91,7 @@ public class TestAccessTokenTask extends PleaseWaitRunnable {
 
         // remove trailing slashes
         while(url.endsWith("/")) {
-            url = url.substring(0, url.lastIndexOf("/"));
+            url = url.substring(0, url.lastIndexOf('/'));
         }
         return url;
     }
@@ -103,13 +103,11 @@ public class TestAccessTokenTask extends PleaseWaitRunnable {
             authenticatorEnabled = DefaultAuthenticator.getInstance().isEnabled();
             DefaultAuthenticator.getInstance().setEnabled(false);
             synchronized(this) {
-                connection = (HttpURLConnection)url.openConnection();
+                connection = Utils.openHttpConnection(url);
             }
 
             connection.setDoOutput(true);
             connection.setRequestMethod("GET");
-            connection.setRequestProperty("User-Agent", Version.getInstance().getAgentString());
-            connection.setRequestProperty("Host", connection.getURL().getHost());
             sign(connection);
             connection.connect();
 
@@ -139,7 +137,7 @@ public class TestAccessTokenTask extends PleaseWaitRunnable {
     }
 
     protected void notifySuccess(UserInfo userInfo) {
-        HelpAwareOptionPane.showOptionDialog(
+        HelpAwareOptionPane.showMessageDialogInEDT(
                 parent,
                 tr("<html>"
                         + "Successfully used the Access Token ''{0}'' to<br>"
@@ -158,7 +156,7 @@ public class TestAccessTokenTask extends PleaseWaitRunnable {
     }
 
     protected void alertFailedAuthentication() {
-        HelpAwareOptionPane.showOptionDialog(
+        HelpAwareOptionPane.showMessageDialogInEDT(
                 parent,
                 tr("<html>"
                         + "Failed to access the OSM server ''{0}''<br>"
@@ -176,7 +174,7 @@ public class TestAccessTokenTask extends PleaseWaitRunnable {
     }
 
     protected void alertFailedAuthorisation() {
-        HelpAwareOptionPane.showOptionDialog(
+        HelpAwareOptionPane.showMessageDialogInEDT(
                 parent,
                 tr("<html>"
                         + "The Access Token ''{1}'' is known to the OSM server ''{0}''.<br>"
@@ -194,7 +192,7 @@ public class TestAccessTokenTask extends PleaseWaitRunnable {
     }
 
     protected void alertFailedConnection() {
-        HelpAwareOptionPane.showOptionDialog(
+        HelpAwareOptionPane.showMessageDialogInEDT(
                 parent,
                 tr("<html>"
                         + "Failed to retrieve information about the current user"
@@ -213,7 +211,7 @@ public class TestAccessTokenTask extends PleaseWaitRunnable {
     }
 
     protected void alertFailedSigning() {
-        HelpAwareOptionPane.showOptionDialog(
+        HelpAwareOptionPane.showMessageDialogInEDT(
                 parent,
                 tr("<html>"
                         + "Failed to sign the request for the OSM server ''{0}'' with the "
@@ -230,7 +228,7 @@ public class TestAccessTokenTask extends PleaseWaitRunnable {
     }
 
     protected void alertInternalError() {
-        HelpAwareOptionPane.showOptionDialog(
+        HelpAwareOptionPane.showMessageDialogInEDT(
                 parent,
                 tr("<html>"
                         + "The test failed because the server responded with an internal error.<br>"

@@ -46,7 +46,7 @@ import org.openstreetmap.josm.tools.GBC;
  *      and add it to the file 'data/epsg' in JOSM trunk
  *  - Search for official references and verify the parameter values. These
  *      documents are often available in the local language only.
- *  - Use {@link #registerProjectionChoice()}, to make the entry known to JOSM.
+ *  - Use {@link #registerProjectionChoice}, to make the entry known to JOSM.
  *
  * In case there is no EPSG code:
  *  - override {@link AbstractProjectionChoice#getProjection()} and provide
@@ -56,6 +56,7 @@ import org.openstreetmap.josm.tools.GBC;
 public class ProjectionPreference implements SubPreferenceSetting {
 
     public static class Factory implements PreferenceSettingFactory {
+        @Override
         public PreferenceSetting createPreferenceSetting() {
             return new ProjectionPreference();
         }
@@ -89,9 +90,9 @@ public class ProjectionPreference implements SubPreferenceSetting {
          * initially EPSG used 3785 but that has been superseded by 3857,
          * see http://www.epsg-registry.org/
          */
-        mercator = registerProjectionChoice(tr("Mercator"), "core:mercator", 
+        mercator = registerProjectionChoice(tr("Mercator"), "core:mercator",
                 3857);
-        
+
         /**
          * UTM.
          */
@@ -154,7 +155,7 @@ public class ProjectionPreference implements SubPreferenceSetting {
         registerProjectionChoice(lambert = new LambertProjectionChoice());                          // FR
         /**
          * Lambert 93 projection.
-         * 
+         *
          * As specified by the IGN in this document
          * http://professionnels.ign.fr/DISPLAY/000/526/702/5267026/NTG_87.pdf
          * @author Don-vip
@@ -201,6 +202,11 @@ public class ProjectionPreference implements SubPreferenceSetting {
          * @author Hanno Hecker
          */
         registerProjectionChoice(tr("SWEREF99 13 30 / EPSG:3008 (Sweden)"), "core:sweref99", 3008); // SE
+
+        /************************
+         * Projection by Code.
+         */
+        registerProjectionChoice(new CodeProjectionChoice());
 
         /************************
          * Custom projection.
@@ -264,6 +270,9 @@ public class ProjectionPreference implements SubPreferenceSetting {
     private JLabel projectionCodeLabel;
     private Component projectionCodeGlue;
     private JLabel projectionCode = new JLabel();
+    private JLabel projectionNameLabel;
+    private Component projectionNameGlue;
+    private JLabel projectionName = new JLabel();
     private JLabel bounds = new JLabel();
 
     /**
@@ -278,6 +287,7 @@ public class ProjectionPreference implements SubPreferenceSetting {
      */
     static private GBC projSubPrefPanelGBC = GBC.std().fill(GBC.BOTH).weight(1.0, 1.0);
 
+    @Override
     public void addGui(PreferenceTabbedPane gui) {
         ProjectionChoice pc = setupProjectionCombo();
 
@@ -303,6 +313,9 @@ public class ProjectionPreference implements SubPreferenceSetting {
         projPanel.add(projectionCodeLabel = new JLabel(tr("Projection code")), GBC.std().insets(25,5,0,5));
         projPanel.add(projectionCodeGlue = GBC.glue(5,0), GBC.std().fill(GBC.HORIZONTAL));
         projPanel.add(projectionCode, GBC.eop().fill(GBC.HORIZONTAL).insets(0,5,5,5));
+        projPanel.add(projectionNameLabel = new JLabel(tr("Projection name")), GBC.std().insets(25,5,0,5));
+        projPanel.add(projectionNameGlue = GBC.glue(5,0), GBC.std().fill(GBC.HORIZONTAL));
+        projPanel.add(projectionName, GBC.eop().fill(GBC.HORIZONTAL).insets(0,5,5,5));
         projPanel.add(new JLabel(tr("Bounds")), GBC.std().insets(25,5,0,5));
         projPanel.add(GBC.glue(5,0), GBC.std().fill(GBC.HORIZONTAL));
         projPanel.add(bounds, GBC.eop().fill(GBC.HORIZONTAL).insets(0,5,5,5));
@@ -318,7 +331,7 @@ public class ProjectionPreference implements SubPreferenceSetting {
         projPanel.add(GBC.glue(1,1), GBC.std().fill(GBC.HORIZONTAL).weight(1.0, 1.0));
 
         JScrollPane scrollpane = new JScrollPane(projPanel);
-        gui.getMapPreference().mapcontent.addTab(tr("Map Projection"), scrollpane);
+        gui.getMapPreference().addSubTab(this, tr("Map Projection"), scrollpane);
 
         selectedProjectionChanged(pc);
     }
@@ -327,16 +340,22 @@ public class ProjectionPreference implements SubPreferenceSetting {
         pc.setPreferences(pc.getPreferences(projSubPrefPanel));
         Projection proj = pc.getProjection();
         projectionCode.setText(proj.toCode());
+        projectionName.setText(proj.toString());
         Bounds b = proj.getWorldBoundsLatLon();
         CoordinateFormat cf = CoordinateFormat.getDefaultFormat();
         bounds.setText(b.getMin().lonToString(cf)+", "+b.getMin().latToString(cf)+" : "+b.getMax().lonToString(cf)+", "+b.getMax().latToString(cf));
         boolean showCode = true;
+        boolean showName = false;
         if (pc instanceof SubPrefsOptions) {
             showCode = ((SubPrefsOptions) pc).showProjectionCode();
+            showName = ((SubPrefsOptions) pc).showProjectionName();
         }
         projectionCodeLabel.setVisible(showCode);
         projectionCodeGlue.setVisible(showCode);
         projectionCode.setVisible(showCode);
+        projectionNameLabel.setVisible(showName);
+        projectionNameGlue.setVisible(showName);
+        projectionName.setVisible(showName);
     }
 
     @Override
@@ -353,7 +372,7 @@ public class ProjectionPreference implements SubPreferenceSetting {
         }
 
         int i = unitsCombo.getSelectedIndex();
-        PROP_SYSTEM_OF_MEASUREMENT.put(unitsValues[i]);
+        NavigatableComponent.setSystemOfMeasurement(unitsValues[i]);
 
         return false;
     }
@@ -387,7 +406,7 @@ public class ProjectionPreference implements SubPreferenceSetting {
     /**
      * Handles all the work related to update the projection-specific
      * preferences
-     * @param proj
+     * @param pc the choice class representing user selection
      */
     private void selectedProjectionChanged(final ProjectionChoice pc) {
         // Don't try to update if we're still starting up
@@ -413,6 +432,7 @@ public class ProjectionPreference implements SubPreferenceSetting {
 
     /**
      * Sets up projection combobox with default values and action listener
+     * @return the choice class for user selection
      */
     private ProjectionChoice setupProjectionCombo() {
         ProjectionChoice pc = null;
@@ -431,6 +451,7 @@ public class ProjectionPreference implements SubPreferenceSetting {
             throw new RuntimeException("Couldn't find the current projection in the list of available projections!");
 
         projectionCombo.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 ProjectionChoice pc = (ProjectionChoice) projectionCombo.getSelectedItem();
                 selectedProjectionChanged(pc);
@@ -451,5 +472,16 @@ public class ProjectionPreference implements SubPreferenceSetting {
     @Override
     public TabPreferenceSetting getTabPreferenceSetting(final PreferenceTabbedPane gui) {
         return gui.getMapPreference();
+    }
+
+    /**
+     * Selects the given projection.
+     * @param projection The projection to select.
+     * @since 5604
+     */
+    public void selectProjection(ProjectionChoice projection) {
+        if (projectionCombo != null && projection != null) {
+            projectionCombo.setSelectedItem(projection);
+        }
     }
 }

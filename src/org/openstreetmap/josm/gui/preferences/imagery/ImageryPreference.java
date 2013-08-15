@@ -28,7 +28,6 @@ import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.JButton;
-import javax.swing.JEditorPane;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -61,7 +60,7 @@ import org.openstreetmap.josm.gui.preferences.DefaultTabPreferenceSetting;
 import org.openstreetmap.josm.gui.preferences.PreferenceSetting;
 import org.openstreetmap.josm.gui.preferences.PreferenceSettingFactory;
 import org.openstreetmap.josm.gui.preferences.PreferenceTabbedPane;
-import org.openstreetmap.josm.gui.util.GuiHelper;
+import org.openstreetmap.josm.gui.widgets.JosmEditorPane;
 import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.LanguageInfo;
@@ -75,7 +74,7 @@ public class ImageryPreference extends DefaultTabPreferenceSetting {
     }
 
     private ImageryPreference() {
-        super("imagery", tr("Imagery Preferences"), tr("Modify list of imagery layers displayed in the Imagery menu"));
+        super("imagery", tr("Imagery Preferences"), tr("Modify list of imagery layers displayed in the Imagery menu"), false, new JTabbedPane());
     }
 
     private ImageryProvidersPanel imageryProviders;
@@ -88,7 +87,7 @@ public class ImageryPreference extends DefaultTabPreferenceSetting {
     private void addSettingsSection(final JPanel p, String name, JPanel section) {
         addSettingsSection(p, name, section, GBC.eol());
     }
-    
+
     private void addSettingsSection(final JPanel p, String name, JPanel section, GBC gbc) {
         final JLabel lbl = new JLabel(name);
         lbl.setFont(lbl.getFont().deriveFont(Font.BOLD));
@@ -114,16 +113,13 @@ public class ImageryPreference extends DefaultTabPreferenceSetting {
     @Override
     public void addGui(final PreferenceTabbedPane gui) {
         JPanel p = gui.createPreferenceTab(this);
-        JTabbedPane pane = new JTabbedPane();
+        JTabbedPane pane = getTabPane();
         layerInfo = new ImageryLayerInfo(ImageryLayerInfo.instance);
         imageryProviders = new ImageryProvidersPanel(gui, layerInfo);
-        pane.add(imageryProviders);
-        pane.add(buildSettingsPanel(gui));
-        pane.add(new OffsetBookmarksPanel(gui));
+        pane.addTab(tr("Imagery providers"), imageryProviders);
+        pane.addTab(tr("Settings"), buildSettingsPanel(gui));
+        pane.addTab(tr("Offset bookmarks"), new OffsetBookmarksPanel(gui));
         loadSettings();
-        pane.setTitleAt(0, tr("Imagery providers"));
-        pane.setTitleAt(1, tr("Settings"));
-        pane.setTitleAt(2, tr("Offset bookmarks"));
         p.add(pane,GBC.std().fill(GBC.BOTH));
     }
 
@@ -142,7 +138,6 @@ public class ImageryPreference extends DefaultTabPreferenceSetting {
         layerInfo.save();
         ImageryLayerInfo.instance.clear();
         ImageryLayerInfo.instance.load();
-        Main.main.menu.imageryMenu.refreshImageryMenu();
         Main.main.menu.imageryMenu.refreshOffsetMenu();
         OffsetBookmark.saveBookmarks();
 
@@ -335,7 +330,8 @@ public class ImageryPreference extends DefaultTabPreferenceSetting {
             activeToolbar.setFloatable(false);
             activeToolbar.setBorderPainted(false);
             activeToolbar.setOpaque(false);
-            activeToolbar.add(new NewEntryAction());
+            activeToolbar.add(new NewEntryAction(ImageryInfo.ImageryType.WMS));
+            activeToolbar.add(new NewEntryAction(ImageryInfo.ImageryType.TMS));
             //activeToolbar.add(edit); TODO
             activeToolbar.add(remove);
             add(activeToolbar, GBC.eol().anchor(GBC.NORTH).insets(0, 0, 5, 5));
@@ -419,19 +415,32 @@ public class ImageryPreference extends DefaultTabPreferenceSetting {
         }
 
         private class NewEntryAction extends AbstractAction {
-            public NewEntryAction() {
-                putValue(NAME, tr("New"));
-                putValue(SHORT_DESCRIPTION, tr("Add a new WMS/TMS entry by entering the URL"));
-                putValue(SMALL_ICON, ImageProvider.get("dialogs", "add"));
+
+            private final ImageryInfo.ImageryType type;
+
+            public NewEntryAction(ImageryInfo.ImageryType type) {
+                putValue(NAME, type.toString());
+                putValue(SHORT_DESCRIPTION, tr("Add a new {0} entry by entering the URL", type.toString()));
+                putValue(SMALL_ICON, ImageProvider.get("dialogs",
+                            "add" + (ImageryInfo.ImageryType.WMS.equals(type) ? "_wms" : ImageryInfo.ImageryType.TMS.equals(type) ? "_tms" : "")));
+                this.type = type;
             }
 
+            @Override
             public void actionPerformed(ActionEvent evt) {
-                final AddWMSLayerPanel p = new AddWMSLayerPanel();
-                GuiHelper.prepareResizeableOptionPane(p, new Dimension(250, 350));
-                int answer = JOptionPane.showConfirmDialog(
-                        gui, p, tr("Add Imagery URL"),
-                        JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-                if (answer == JOptionPane.OK_OPTION) {
+                final AddImageryPanel p;
+                if (ImageryInfo.ImageryType.WMS.equals(type)) {
+                    p = new AddWMSLayerPanel();
+                } else if (ImageryInfo.ImageryType.TMS.equals(type)) {
+                    p = new AddTMSLayerPanel();
+                } else {
+                    throw new IllegalStateException("Type " + type + " not supported");
+                }
+
+                final AddImageryDialog addDialog = new AddImageryDialog(gui, p);
+                addDialog.showDialog();
+
+                if (addDialog.getValue() == 1) {
                     try {
                         activeModel.addRow(p.getImageryInfo());
                     } catch (IllegalArgumentException ex) {
@@ -504,8 +513,9 @@ public class ImageryPreference extends DefaultTabPreferenceSetting {
 
                 Set<String> acceptedEulas = new HashSet<String>();
 
-                outer: for (int i = 0; i < lines.length; i++) {
-                    ImageryInfo info = defaultModel.getRow(lines[i]);
+                outer:
+                for (int line : lines) {
+                    ImageryInfo info = defaultModel.getRow(line);
 
                     // Check if an entry with exactly the same values already
                     // exists
@@ -543,6 +553,7 @@ public class ImageryPreference extends DefaultTabPreferenceSetting {
                 putValue(SMALL_ICON, ImageProvider.get("dialogs", "refresh"));
             }
 
+            @Override
             public void actionPerformed(ActionEvent evt) {
                 layerInfo.loadDefaults(true);
                 defaultModel.fireTableDataChanged();
@@ -654,14 +665,14 @@ public class ImageryPreference extends DefaultTabPreferenceSetting {
             URL url = null;
             try {
                 url = new URL(eulaUrl.replaceAll("\\{lang\\}", LanguageInfo.getWikiLanguagePrefix()));
-                JEditorPane htmlPane = null;
+                JosmEditorPane htmlPane = null;
                 try {
-                    htmlPane = new JEditorPane(url);
+                    htmlPane = new JosmEditorPane(url);
                 } catch (IOException e1) {
                     // give a second chance with a default Locale 'en'
                     try {
                         url = new URL(eulaUrl.replaceAll("\\{lang\\}", ""));
-                        htmlPane = new JEditorPane(url);
+                        htmlPane = new JosmEditorPane(url);
                     } catch (IOException e2) {
                         JOptionPane.showMessageDialog(gui ,tr("EULA license URL not available: {0}", eulaUrl));
                         return false;

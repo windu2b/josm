@@ -24,7 +24,7 @@ public class UTMProjectionChoice extends ListProjectionChoice {
     private static final Hemisphere DEFAULT_HEMISPHERE = Hemisphere.North;
 
     private Hemisphere hemisphere;
-    
+
     private final static List<String> cbEntries = new ArrayList<String>();
     static {
         for (int i = 1; i <= 60; i++) {
@@ -109,7 +109,7 @@ public class UTMProjectionChoice extends ListProjectionChoice {
                 projections.add("EPSG:" + (32600 + zone + (hemisphere == Hemisphere.South?100:0)));
             }
         }
-        return projections.toArray(new String[0]);
+        return projections.toArray(new String[projections.size()]);
     }
 
     @Override
@@ -133,7 +133,7 @@ public class UTMProjectionChoice extends ListProjectionChoice {
         Hemisphere hemisphere = DEFAULT_HEMISPHERE;
 
         if(args != null) {
-            String[] array = args.toArray(new String[0]);
+            String[] array = args.toArray(new String[args.size()]);
 
             if (array.length > 1) {
                 hemisphere = Hemisphere.valueOf(array[1]);

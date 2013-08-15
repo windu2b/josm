@@ -27,6 +27,7 @@ import org.openstreetmap.josm.gui.MapFrame;
 import org.openstreetmap.josm.gui.dialogs.relation.RelationDialogManager;
 import org.openstreetmap.josm.gui.layer.Layer;
 import org.openstreetmap.josm.gui.layer.OsmDataLayer;
+import org.openstreetmap.josm.gui.util.HighlightHelper;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.Shortcut;
@@ -56,9 +57,9 @@ public class DeleteAction extends MapMode implements AWTEventListener {
      * to remove the highlight from them again as otherwise the whole data
      * set would have to be checked.
      */
-    private Set<OsmPrimitive> oldHighlights = new HashSet<OsmPrimitive>();
     private WaySegment oldHighlightedWaySegment = null;
 
+    private static final HighlightHelper highlightHelper = new HighlightHelper();
     private boolean drawTargetHighlight;
 
     private enum DeleteMode {
@@ -172,10 +173,7 @@ public class DeleteAction extends MapMode implements AWTEventListener {
      * removes any highlighting that may have been set beforehand.
      */
     private void removeHighlighting() {
-        for(OsmPrimitive prim : oldHighlights) {
-            prim.setHighlighted(false);
-        }
-        oldHighlights = new HashSet<OsmPrimitive>();
+        highlightHelper.clear();
         DataSet ds = getCurrentDataSet();
         if(ds != null) {
             ds.clearHighlightedWaySegments();
@@ -232,20 +230,7 @@ public class DeleteAction extends MapMode implements AWTEventListener {
             }
             oldHighlightedWaySegment = newHighlightedWaySegment;
         }
-
-        for(OsmPrimitive x : newHighlights) {
-            if(oldHighlights.contains(x)) {
-                continue;
-            }
-            needsRepaint = true;
-            x.setHighlighted(true);
-        }
-        oldHighlights.removeAll(newHighlights);
-        for(OsmPrimitive x : oldHighlights) {
-            x.setHighlighted(false);
-            needsRepaint = true;
-        }
-        oldHighlights = newHighlights;
+        needsRepaint |= highlightHelper.highlightOnly(newHighlights);
         if(needsRepaint) {
             Main.map.mapView.repaint();
         }
@@ -271,7 +256,7 @@ public class DeleteAction extends MapMode implements AWTEventListener {
      * Gives the user feedback for the action he/she is about to do. Currently
      * calls the cursor and target highlighting routines. Allows for modifiers
      * not taken from the given mouse event.
-     * 
+     *
      * Normally the mouse event also contains the modifiers. However, when the
      * mouse is not moved and only modifier keys are pressed, no mouse event
      * occurs. We can use AWTEvent to catch those but still lack a proper
@@ -383,10 +368,10 @@ public class DeleteAction extends MapMode implements AWTEventListener {
      * This function takes any mouse event argument and builds the list of elements
      * that should be deleted but does not actually delete them.
      * @param e MouseEvent from which modifiers and position are taken
-     * @param modifiers For explanation: @see updateCursor
-     * @param silet Set to true if the user should not be bugged with additional
+     * @param modifiers For explanation, see {@link #updateCursor}
+     * @param silent Set to true if the user should not be bugged with additional
      *        dialogs
-     * @return
+     * @return delete command
      */
     private Command buildDeleteCommands(MouseEvent e, int modifiers, boolean silent) {
         DeleteParameters parameters = getDeleteParameters(e, modifiers);
@@ -411,6 +396,7 @@ public class DeleteAction extends MapMode implements AWTEventListener {
     /**
      * This is required to update the cursors when ctrl/shift/alt is pressed
      */
+    @Override
     public void eventDispatched(AWTEvent e) {
         if(oldEvent == null)
             return;

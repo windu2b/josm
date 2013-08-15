@@ -38,7 +38,7 @@ public class Geometry {
      * And makes commands to add the intersection points to ways.
      *
      * Prerequisite: no two nodes have the same coordinates.
-     * 
+     *
      * @param ways  a list of ways to test
      * @param test  if false, do not build list of Commands, just return nodes
      * @param cmds  list of commands, typically empty when handed to this method.
@@ -48,16 +48,16 @@ public class Geometry {
      */
     public static Set<Node> addIntersections(List<Way> ways, boolean test, List<Command> cmds) {
 
-        //stupid java, cannot instantiate array of generic classes..
+        int n = ways.size();
         @SuppressWarnings("unchecked")
-        ArrayList<Node>[] newNodes = new ArrayList[ways.size()];
-        BBox[] wayBounds = new BBox[ways.size()];
-        boolean[] changedWays = new boolean[ways.size()];
+        ArrayList<Node>[] newNodes = new ArrayList[n];
+        BBox[] wayBounds = new BBox[n];
+        boolean[] changedWays = new boolean[n];
 
         Set<Node> intersectionNodes = new LinkedHashSet<Node>();
 
         //copy node arrays for local usage.
-        for (int pos = 0; pos < ways.size(); pos ++) {
+        for (int pos = 0; pos < n; pos ++) {
             newNodes[pos] = new ArrayList<Node>(ways.get(pos).getNodes());
             wayBounds[pos] = getNodesBounds(newNodes[pos]);
             changedWays[pos] = false;
@@ -65,9 +65,8 @@ public class Geometry {
 
         //iterate over all way pairs and introduce the intersections
         Comparator<Node> coordsComparator = new NodePositionComparator();
-
-        WayLoop: for (int seg1Way = 0; seg1Way < ways.size(); seg1Way ++) {
-            for (int seg2Way = seg1Way; seg2Way < ways.size(); seg2Way ++) {
+        for (int seg1Way = 0; seg1Way < n; seg1Way ++) {
+            for (int seg2Way = seg1Way; seg2Way < n; seg2Way ++) {
 
                 //do not waste time on bounds that do not intersect
                 if (!wayBounds[seg1Way].intersects(wayBounds[seg2Way])) {
@@ -127,7 +126,6 @@ public class Geometry {
                                 Node intNode = newNode;
                                 boolean insertInSeg1 = false;
                                 boolean insertInSeg2 = false;
-
                                 //find if the intersection point is at end point of one of the segments, if so use that point
 
                                 //segment 1
@@ -173,7 +171,7 @@ public class Geometry {
                                 }
                             }
                         }
-                        else if (test && intersectionNodes.size() > 0)
+                        else if (test && !intersectionNodes.isEmpty())
                             return intersectionNodes;
                     }
                 }
@@ -207,6 +205,13 @@ public class Geometry {
 
     /**
      * Tests if given point is to the right side of path consisting of 3 points.
+     *
+     * (Imagine the path is continued beyond the endpoints, so you get two rays
+     * starting from lineP2 and going through lineP1 and lineP3 respectively
+     * which divide the plane into two parts. The test returns true, if testPoint
+     * lies in the part that is to the right when traveling in the direction
+     * lineP1, lineP2, lineP3.)
+     *
      * @param lineP1 first point in path
      * @param lineP2 second point in path
      * @param lineP3 third point in path
@@ -239,9 +244,13 @@ public class Geometry {
      * Finds the intersection of two line segments
      * @return EastNorth null if no intersection was found, the EastNorth coordinates of the intersection otherwise
      */
-    public static EastNorth getSegmentSegmentIntersection(
-            EastNorth p1, EastNorth p2,
-            EastNorth p3, EastNorth p4) {
+    public static EastNorth getSegmentSegmentIntersection(EastNorth p1, EastNorth p2, EastNorth p3, EastNorth p4) {
+
+        CheckParameterUtil.ensureValidCoordinates(p1, "p1");
+        CheckParameterUtil.ensureValidCoordinates(p2, "p2");
+        CheckParameterUtil.ensureValidCoordinates(p3, "p3");
+        CheckParameterUtil.ensureValidCoordinates(p4, "p4");
+
         double x1 = p1.getX();
         double y1 = p1.getY();
         double x2 = p2.getX();
@@ -252,32 +261,57 @@ public class Geometry {
         double y4 = p4.getY();
 
         //TODO: do this locally.
+        //TODO: remove this check after careful testing
         if (!Line2D.linesIntersect(x1, y1, x2, y2, x3, y3, x4, y4)) return null;
 
-        // Convert line from (point, point) form to ax+by=c
-        double a1 = y2 - y1;
-        double b1 = x1 - x2;
-        double c1 = x2*y1 - x1*y2;
+        // solve line-line intersection in parametric form:
+        // (x1,y1) + (x2-x1,y2-y1)* u  = (x3,y3) + (x4-x3,y4-y3)* v
+        // (x2-x1,y2-y1)*u - (x4-x3,y4-y3)*v = (x3-x1,y3-y1)
+        // if 0<= u,v <=1, intersection exists at ( x1+ (x2-x1)*u, y1 + (y2-y1)*u )
 
-        double a2 = y4 - y3;
-        double b2 = x3 - x4;
-        double c2 = x4*y3 - x3*y4;
+        double a1 = x2 - x1;
+        double b1 = x3 - x4;
+        double c1 = x3 - x1;
+
+        double a2 = y2 - y1;
+        double b2 = y3 - y4;
+        double c2 = y3 - y1;
 
         // Solve the equations
         double det = a1*b2 - a2*b1;
-        if (det == 0) return null; // Lines are parallel
 
-        double x = (b1*c2 - b2*c1)/det;
-        double y = (a2*c1 -a1*c2)/det;
+        double uu = b2*c1 - b1*c2 ;
+        double vv = a1*c2 - a2*c1;
+        double mag = Math.abs(uu)+Math.abs(vv);
 
-        return new EastNorth(x, y);
+        if (Math.abs(det) > 1e-12 * mag) {
+            double u = uu/det, v = vv/det;
+            if (u>-1e-8 && u < 1+1e-8 && v>-1e-8 && v < 1+1e-8 ) {
+                if (u<0) u=0;
+                if (u>1) u=1.0;
+                return new EastNorth(x1+a1*u, y1+a2*u);
+            } else {
+                return null;
+            }
+        } else {
+            // parallel lines
+            return null;
+        }
     }
 
     /**
      * Finds the intersection of two lines of infinite length.
      * @return EastNorth null if no intersection was found, the coordinates of the intersection otherwise
+     * @throws IllegalArgumentException if a parameter is null or without valid coordinates
      */
     public static EastNorth getLineLineIntersection(EastNorth p1, EastNorth p2, EastNorth p3, EastNorth p4) {
+
+        CheckParameterUtil.ensureValidCoordinates(p1, "p1");
+        CheckParameterUtil.ensureValidCoordinates(p2, "p2");
+        CheckParameterUtil.ensureValidCoordinates(p3, "p3");
+        CheckParameterUtil.ensureValidCoordinates(p4, "p4");
+
+        if (!p1.isValid()) throw new IllegalArgumentException();
 
         // Convert line from (point, point) form to ax+by=c
         double a1 = p2.getY() - p1.getY();
@@ -297,6 +331,12 @@ public class Geometry {
     }
 
     public static boolean segmentsParallel(EastNorth p1, EastNorth p2, EastNorth p3, EastNorth p4) {
+
+        CheckParameterUtil.ensureValidCoordinates(p1, "p1");
+        CheckParameterUtil.ensureValidCoordinates(p2, "p2");
+        CheckParameterUtil.ensureValidCoordinates(p3, "p3");
+        CheckParameterUtil.ensureValidCoordinates(p4, "p4");
+
         // Convert line from (point, point) form to ax+by=c
         double a1 = p2.getY() - p1.getY();
         double b1 = p1.getX() - p2.getX();
@@ -311,57 +351,76 @@ public class Geometry {
         return Math.abs(det) < 1e-3;
     }
 
-    /**
-     * Calculates closest point to a line segment.
-     * @param segmentP1
-     * @param segmentP2
-     * @param point
-     * @return segmentP1 if it is the closest point, segmentP2 if it is the closest point,
-     * a new point if closest point is between segmentP1 and segmentP2.
-     */
-    public static EastNorth closestPointToSegment(EastNorth segmentP1, EastNorth segmentP2, EastNorth point) {
+    private static EastNorth closestPointTo(EastNorth p1, EastNorth p2, EastNorth point, boolean segmentOnly) {
+        CheckParameterUtil.ensureParameterNotNull(p1, "p1");
+        CheckParameterUtil.ensureParameterNotNull(p2, "p2");
+        CheckParameterUtil.ensureParameterNotNull(point, "point");
 
-        double ldx = segmentP2.getX() - segmentP1.getX();
-        double ldy = segmentP2.getY() - segmentP1.getY();
+        double ldx = p2.getX() - p1.getX();
+        double ldy = p2.getY() - p1.getY();
 
         if (ldx == 0 && ldy == 0) //segment zero length
-            return segmentP1;
+            return p1;
 
-        double pdx = point.getX() - segmentP1.getX();
-        double pdy = point.getY() - segmentP1.getY();
+        double pdx = point.getX() - p1.getX();
+        double pdy = point.getY() - p1.getY();
 
         double offset = (pdx * ldx + pdy * ldy) / (ldx * ldx + ldy * ldy);
 
-        if (offset <= 0)
-            return segmentP1;
-        else if (offset >= 1)
-            return segmentP2;
+        if (segmentOnly && offset <= 0)
+            return p1;
+        else if (segmentOnly && offset >= 1)
+            return p2;
         else
-            return new EastNorth(segmentP1.getX() + ldx * offset, segmentP1.getY() + ldy * offset);
+            return new EastNorth(p1.getX() + ldx * offset, p1.getY() + ldy * offset);
     }
 
+    /**
+     * Calculates closest point to a line segment.
+     * @param segmentP1 First point determining line segment
+     * @param segmentP2 Second point determining line segment
+     * @param point Point for which a closest point is searched on line segment [P1,P2]
+     * @return segmentP1 if it is the closest point, segmentP2 if it is the closest point,
+     * a new point if closest point is between segmentP1 and segmentP2.
+     * @since 3650
+     * @see #closestPointToLine
+     */
+    public static EastNorth closestPointToSegment(EastNorth segmentP1, EastNorth segmentP2, EastNorth point) {
+        return closestPointTo(segmentP1, segmentP2, point, true);
+    }
+
+    /**
+     * Calculates closest point to a line.
+     * @param lineP1 First point determining line
+     * @param lineP2 Second point determining line
+     * @param point Point for which a closest point is searched on line (P1,P2)
+     * @return The closest point found on line. It may be outside the segment [P1,P2].
+     * @since 4134
+     * @see #closestPointToSegment
+     */
     public static EastNorth closestPointToLine(EastNorth lineP1, EastNorth lineP2, EastNorth point) {
-        double ldx = lineP2.getX() - lineP1.getX();
-        double ldy = lineP2.getY() - lineP1.getY();
-
-        if (ldx == 0 && ldy == 0) //segment zero length
-            return lineP1;
-
-        double pdx = point.getX() - lineP1.getX();
-        double pdy = point.getY() - lineP1.getY();
-
-        double offset = (pdx * ldx + pdy * ldy) / (ldx * ldx + ldy * ldy);
-        return new EastNorth(lineP1.getX() + ldx * offset, lineP1.getY() + ldy * offset);
+        return closestPointTo(lineP1, lineP2, point, false);
     }
 
     /**
      * This method tests if secondNode is clockwise to first node.
+     *
+     * The line through the two points commonNode and firstNode divides the
+     * plane into two parts. The test returns true, if secondNode lies in
+     * the part that is to the right when traveling in the direction from
+     * commonNode to firstNode.
+     *
      * @param commonNode starting point for both vectors
      * @param firstNode first vector end node
      * @param secondNode second vector end node
      * @return true if first vector is clockwise before second vector.
      */
     public static boolean angleIsClockwise(EastNorth commonNode, EastNorth firstNode, EastNorth secondNode) {
+
+        CheckParameterUtil.ensureValidCoordinates(commonNode, "commonNode");
+        CheckParameterUtil.ensureValidCoordinates(firstNode, "firstNode");
+        CheckParameterUtil.ensureValidCoordinates(secondNode, "secondNode");
+
         double dy1 = (firstNode.getY() - commonNode.getY());
         double dy2 = (secondNode.getY() - commonNode.getY());
         double dx1 = (firstNode.getX() - commonNode.getX());
@@ -385,10 +444,10 @@ public class Geometry {
         if (!begin) {
             path.closePath();
         }
-        
+
         return new Area(path);
     }
-    
+
     /**
      * Tests if two polygons intersect.
      * @param first
@@ -396,15 +455,15 @@ public class Geometry {
      * @return intersection kind
      */
     public static PolygonIntersection polygonIntersection(List<Node> first, List<Node> second) {
-        
+
         Area a1 = getArea(first);
         Area a2 = getArea(second);
-        
+
         Area inter = new Area(a1);
         inter.intersect(a2);
-        
+
         Rectangle bounds = inter.getBounds();
-        
+
         if (inter.isEmpty() || bounds.getHeight()*bounds.getWidth() <= 1.0) {
             return PolygonIntersection.OUTSIDE;
         } else if (inter.equals(a1)) {
@@ -561,6 +620,10 @@ public class Geometry {
      * @return Angle in radians (-pi, pi]
      */
     public static double getSegmentAngle(EastNorth p1, EastNorth p2) {
+
+        CheckParameterUtil.ensureValidCoordinates(p1, "p1");
+        CheckParameterUtil.ensureValidCoordinates(p2, "p2");
+
         return Math.atan2(p2.north() - p1.north(), p2.east() - p1.east());
     }
 
@@ -573,6 +636,11 @@ public class Geometry {
      * @return Angle in radians (-pi, pi]
      */
     public static double getCornerAngle(EastNorth p1, EastNorth p2, EastNorth p3) {
+
+        CheckParameterUtil.ensureValidCoordinates(p1, "p1");
+        CheckParameterUtil.ensureValidCoordinates(p2, "p2");
+        CheckParameterUtil.ensureValidCoordinates(p3, "p3");
+
         Double result = getSegmentAngle(p2, p1) - getSegmentAngle(p2, p3);
         if (result <= -Math.PI) {
             result += 2 * Math.PI;
@@ -584,7 +652,7 @@ public class Geometry {
 
         return result;
     }
-    
+
     public static EastNorth getCentroid(List<Node> nodes) {
         // Compute the centroid of nodes
 
@@ -597,16 +665,18 @@ public class Geometry {
             EastNorth n0 = nodes.get(i).getEastNorth();
             EastNorth n1 = nodes.get((i+1) % nodes.size()).getEastNorth();
 
-            BigDecimal x0 = new BigDecimal(n0.east());
-            BigDecimal y0 = new BigDecimal(n0.north());
-            BigDecimal x1 = new BigDecimal(n1.east());
-            BigDecimal y1 = new BigDecimal(n1.north());
+            if (n0.isValid() && n1.isValid()) {
+                BigDecimal x0 = new BigDecimal(n0.east());
+                BigDecimal y0 = new BigDecimal(n0.north());
+                BigDecimal x1 = new BigDecimal(n1.east());
+                BigDecimal y1 = new BigDecimal(n1.north());
 
-            BigDecimal k = x0.multiply(y1, MathContext.DECIMAL128).subtract(y0.multiply(x1, MathContext.DECIMAL128));
+                BigDecimal k = x0.multiply(y1, MathContext.DECIMAL128).subtract(y0.multiply(x1, MathContext.DECIMAL128));
 
-            area = area.add(k, MathContext.DECIMAL128);
-            east = east.add(k.multiply(x0.add(x1, MathContext.DECIMAL128), MathContext.DECIMAL128));
-            north = north.add(k.multiply(y0.add(y1, MathContext.DECIMAL128), MathContext.DECIMAL128));
+                area = area.add(k, MathContext.DECIMAL128);
+                east = east.add(k.multiply(x0.add(x1, MathContext.DECIMAL128), MathContext.DECIMAL128));
+                north = north.add(k.multiply(y0.add(y1, MathContext.DECIMAL128), MathContext.DECIMAL128));
+            }
         }
 
         BigDecimal d = new BigDecimal(3, MathContext.DECIMAL128); // 1/2 * 6 = 3
@@ -629,8 +699,12 @@ public class Geometry {
      * @param ap
      * @return Intersection coordinate or null
      */
-    public static EastNorth getSegmentAltituteIntersection(EastNorth sp1,
-            EastNorth sp2, EastNorth ap) {
+    public static EastNorth getSegmentAltituteIntersection(EastNorth sp1, EastNorth sp2, EastNorth ap) {
+
+        CheckParameterUtil.ensureValidCoordinates(sp1, "sp1");
+        CheckParameterUtil.ensureValidCoordinates(sp2, "sp2");
+        CheckParameterUtil.ensureValidCoordinates(ap, "ap");
+
         Double segmentLenght = sp1.distance(sp2);
         Double altitudeAngle = getSegmentAngle(sp1, sp2) + Math.PI / 2;
 

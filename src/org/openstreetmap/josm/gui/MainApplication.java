@@ -40,6 +40,7 @@ import org.openstreetmap.josm.data.Version;
 import org.openstreetmap.josm.gui.download.DownloadDialog;
 import org.openstreetmap.josm.gui.preferences.server.OAuthAccessTokenHolder;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
+import org.openstreetmap.josm.gui.util.GuiHelper;
 import org.openstreetmap.josm.io.DefaultProxySelector;
 import org.openstreetmap.josm.io.auth.CredentialsManager;
 import org.openstreetmap.josm.io.auth.DefaultAuthenticator;
@@ -49,6 +50,7 @@ import org.openstreetmap.josm.plugins.PluginInformation;
 import org.openstreetmap.josm.tools.BugReportExceptionHandler;
 import org.openstreetmap.josm.tools.I18n;
 import org.openstreetmap.josm.tools.ImageProvider;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * Main window class application.
@@ -62,11 +64,11 @@ public class MainApplication extends Main {
     public MainApplication() {}
 
     /**
-     * Construct an main frame, ready sized and operating. Does not
-     * display the frame.
+     * Constructs a main frame, ready sized and operating. Does not display the frame.
+     * @param mainFrame The main JFrame of the application
      */
     public MainApplication(JFrame mainFrame) {
-        super();
+        addListener();
         mainFrame.setContentPane(contentPanePrivate);
         mainFrame.setJMenuBar(menu);
         geometry.applySafe(mainFrame);
@@ -81,7 +83,7 @@ public class MainApplication extends Main {
         mainFrame.setIconImages(l);
         mainFrame.addWindowListener(new WindowAdapter(){
             @Override public void windowClosing(final WindowEvent arg0) {
-                Main.exitJosm(true);
+                Main.exitJosm(true, 0);
             }
         });
         mainFrame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -89,7 +91,7 @@ public class MainApplication extends Main {
 
     /**
      * Displays help on the console
-     *
+     * @since 2748
      */
     public static void showHelp() {
         // TODO: put in a platformHook for system that have no console by default
@@ -129,18 +131,38 @@ public class MainApplication extends Main {
                 );
     }
 
+    /**
+     * JOSM command line options.
+     * @see <a href="http://josm.openstreetmap.de/wiki/Help/CommandLineOptions">Help/CommandLineOptions</a>
+     * @since 5279
+     */
     public enum Option {
+        /** --help|-h                                 Show this help */
         HELP(false),
+        /** --version                                 Displays the JOSM version and exits */
         VERSION(false),
+        /** --language=<language>                     Set the language */
         LANGUAGE(true),
+        /** --reset-preferences                       Reset the preferences to default */
         RESET_PREFERENCES(false),
+        /** --load-preferences=<url-to-xml>           Changes preferences according to the XML file */
         LOAD_PREFERENCES(true),
+        /** --set=<key>=<value>                       Set preference key to value */
         SET(true),
+        /** --geometry=widthxheight(+|-)x(+|-)y       Standard unix geometry argument */
         GEOMETRY(true),
+        /** --no-maximize                             Do not launch in maximized mode */
         NO_MAXIMIZE(false),
+        /** --maximize                                Launch in maximized mode */
         MAXIMIZE(false),
+        /** --download=minlat,minlon,maxlat,maxlon    Download the bounding box <br>
+         *  --download=<URL>                          Download the location at the URL (with lat=x&lon=y&zoom=z) <br>
+         *  --download=<filename>                     Open a file (any file type that can be opened with File/Open) */
         DOWNLOAD(true),
+        /** --downloadgps=minlat,minlon,maxlat,maxlon Download the bounding box as raw GPS <br>
+         *  --downloadgps=<URL>                       Download the location at the URL (with lat=x&lon=y&zoom=z) as raw GPS */
         DOWNLOADGPS(true),
+        /** --selection=<searchstring>                Select with the given search */
         SELECTION(true);
 
         private String name;
@@ -151,10 +173,18 @@ public class MainApplication extends Main {
             this.requiresArgument = requiresArgument;
         }
 
+        /**
+         * Replies the option name
+         * @return The option name, in lowercase
+         */
         public String getName() {
             return name;
         }
 
+        /**
+         * Determines if this option requires an argument.
+         * @return {@code true} if this option requires an argument, {@code false} otherwise
+         */
         public boolean requiresArgument() {
             return requiresArgument;
         }
@@ -178,7 +208,7 @@ public class MainApplication extends Main {
             los.add(new LongOpt(o.getName(), o.requiresArgument() ? LongOpt.REQUIRED_ARGUMENT : LongOpt.NO_ARGUMENT, null, 0));
         }
 
-        Getopt g = new Getopt("JOSM", args, "hv", los.toArray(new LongOpt[0]));
+        Getopt g = new Getopt("JOSM", args, "hv", los.toArray(new LongOpt[los.size()]));
 
         Map<Option, Collection<String>> argMap = new HashMap<Option, Collection<String>>();
 
@@ -221,10 +251,26 @@ public class MainApplication extends Main {
 
     /**
      * Main application Startup
+     * @param argArray Command-line arguments
      */
     public static void main(final String[] argArray) {
         I18n.init();
         Main.checkJava6();
+
+        // construct argument table
+        Map<Option, Collection<String>> args = null;
+        try {
+            args = buildCommandLineArgumentMap(argArray);
+        } catch (IllegalArgumentException e) {
+            System.exit(1);
+        }
+        
+        final boolean languageGiven = args.containsKey(Option.LANGUAGE);
+
+        if (languageGiven) {
+            I18n.set(args.get(Option.LANGUAGE).iterator().next());
+        }
+
         Main.pref = new Preferences();
 
         Policy.setPolicy(new Policy() {
@@ -254,32 +300,21 @@ public class MainApplication extends Main {
         // call the really early hook before we do anything else
         Main.platform.preStartupHook();
 
-        // construct argument table
-        Map<Option, Collection<String>> args = null;
-        try {
-            args = buildCommandLineArgumentMap(argArray);
-        } catch (IllegalArgumentException e) {
-            System.exit(1);
-        }
-
+        Main.commandLineArgs = argArray;
+        
         if (args.containsKey(Option.VERSION)) {
             System.out.println(Version.getInstance().getAgentString());
             System.exit(0);
-        } //else {
-        //    System.out.println(Version.getInstance().getReleaseAttributes());
-        //}
+        }
 
         Main.pref.init(args.containsKey(Option.RESET_PREFERENCES));
 
-        // Check if passed as parameter
-        if (args.containsKey(Option.LANGUAGE)) {
-            I18n.set(args.get(Option.LANGUAGE).iterator().next());
-        } else {
+        if (!languageGiven) {
             I18n.set(Main.pref.get("language", null));
         }
         Main.pref.updateSystemProperties();
 
-        JFrame mainFrame = new JFrame(tr("Java OpenStreetMap Editor"));
+        final JFrame mainFrame = new JFrame(tr("Java OpenStreetMap Editor"));
         Main.parent = mainFrame;
 
         if (args.containsKey(Option.LOAD_PREFERENCES)) {
@@ -287,8 +322,7 @@ public class MainApplication extends Main {
             for (String i : args.get(Option.LOAD_PREFERENCES)) {
                 System.out.println("Reading preferences from " + i);
                 try {
-                    URL url = new URL(i);
-                    config.openAndReadXML(url.openStream());
+                    config.openAndReadXML(Utils.openURL(new URL(i)));
                 } catch (Exception ex) {
                     throw new RuntimeException(ex);
                 }
@@ -313,7 +347,7 @@ public class MainApplication extends Main {
             System.exit(0);
         }
 
-        SplashScreen splash = new SplashScreen();
+        final SplashScreen splash = new SplashScreen();
         final ProgressMonitor monitor = splash.getProgressMonitor();
         monitor.beginTask(tr("Initializing"));
         splash.setVisible(Main.pref.getBoolean("draw.splashscreen", true));
@@ -341,15 +375,21 @@ public class MainApplication extends Main {
         preConstructorInit(args);
 
         monitor.indeterminateSubTask(tr("Creating main GUI"));
-        Main.addListener();
         final Main main = new MainApplication(mainFrame);
 
         monitor.indeterminateSubTask(tr("Loading plugins"));
         PluginHandler.loadLatePlugins(splash,pluginsToLoad,  monitor.createSubTaskMonitor(1, false));
         toolbar.refreshToolbarControl();
-        splash.setVisible(false);
-        splash.dispose();
-        mainFrame.setVisible(true);
+
+        GuiHelper.runInEDT(new Runnable() {
+            @Override
+            public void run() {
+                splash.setVisible(false);
+                splash.dispose();
+                mainFrame.setVisible(true);
+            }
+        });
+
         Main.MasterWindowListener.setup();
 
         boolean maximized = Boolean.parseBoolean(Main.pref.get("gui.maximized"));
@@ -371,6 +411,7 @@ public class MainApplication extends Main {
         final Map<Option, Collection<String>> args_final = args;
 
         SwingUtilities.invokeLater(new Runnable() {
+            @Override
             public void run() {
                 if (AutosaveTask.PROP_AUTOSAVE_ENABLED.get()) {
                     AutosaveTask autosaveTask = new AutosaveTask();
@@ -385,7 +426,7 @@ public class MainApplication extends Main {
                                 trn("JOSM found {0} unsaved osm data layer. ",
                                         "JOSM found {0} unsaved osm data layers. ", unsavedLayerFiles.size(), unsavedLayerFiles.size()) +
                                         tr("It looks like JOSM crashed last time. Would you like to restore the data?"));
-                        dialog.setButtonIcons(new String[] {"ok", "cancel", "dialogs/remove"});
+                        dialog.setButtonIcons(new String[] {"ok", "cancel", "dialogs/delete"});
                         int selection = dialog.showDialog().getValue();
                         if (selection == 1) {
                             autosaveTask.recoverUnsavedLayers();
@@ -396,7 +437,7 @@ public class MainApplication extends Main {
                     autosaveTask.schedule();
                 }
 
-                main.postConstructorProcessCmdLine(args_final);
+                postConstructorProcessCmdLine(args_final);
 
                 DownloadDialog.autostartIfNeeded();
             }

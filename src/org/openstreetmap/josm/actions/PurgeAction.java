@@ -97,19 +97,23 @@ public class PurgeAction extends JosmAction {
 
         // Add referrer, unless the object to purge is not new
         // and the parent is a relation
+        HashSet<OsmPrimitive> toPurgeRecursive = new HashSet<OsmPrimitive>();
         while (!toPurge.isEmpty()) {
-            OsmPrimitive osm = toPurge.iterator().next();
-            for (OsmPrimitive parent: osm.getReferrers()) {
-                if (toPurge.contains(parent) || toPurgeChecked.contains(parent)) {
-                    continue;
+
+            for (OsmPrimitive osm: toPurge) {
+                for (OsmPrimitive parent: osm.getReferrers()) {
+                    if (toPurge.contains(parent) || toPurgeChecked.contains(parent) || toPurgeRecursive.contains(parent)) {
+                        continue;
+                    }
+                    if (parent instanceof Way || (parent instanceof Relation && osm.isNew())) {
+                        toPurgeAdditionally.add(parent);
+                        toPurgeRecursive.add(parent);
+                    }
                 }
-                if (parent instanceof Way || (parent instanceof Relation && osm.isNew())) {
-                    toPurgeAdditionally.add(parent);
-                    toPurge.add(parent);
-                }
+                toPurgeChecked.add(osm);
             }
-            toPurge.remove(osm);
-            toPurgeChecked.add(osm);
+            toPurge = toPurgeRecursive;
+            toPurgeRecursive = new HashSet<OsmPrimitive>();
         }
 
         makeIncomplete = new HashSet<OsmPrimitive>();
@@ -232,6 +236,7 @@ public class PurgeAction extends JosmAction {
                             ImageProvider.get("warning-small"), JLabel.LEFT), GBC.eol().fill(GBC.HORIZONTAL));
 
             Collections.sort(toPurgeAdditionally, new Comparator<OsmPrimitive>() {
+                @Override
                 public int compare(OsmPrimitive o1, OsmPrimitive o2) {
                     int type = o2.getType().compareTo(o1.getType());
                     if (type != 0)
@@ -239,7 +244,7 @@ public class PurgeAction extends JosmAction {
                     return (Long.valueOf(o1.getUniqueId())).compareTo(o2.getUniqueId());
                 }
             });
-            JList list = new JList(toPurgeAdditionally.toArray(new OsmPrimitive[0]));
+            JList list = new JList(toPurgeAdditionally.toArray(new OsmPrimitive[toPurgeAdditionally.size()]));
             /* force selection to be active for all entries */
             list.setCellRenderer(new OsmPrimitivRenderer() {
                 @Override
@@ -262,6 +267,7 @@ public class PurgeAction extends JosmAction {
                     putValue(SMALL_ICON, ImageProvider.get("dialogs","select"));
                 }
 
+                @Override
                 public void actionPerformed(ActionEvent e) {
                     layer.data.addSelected(toPurgeAdditionally);
                 }

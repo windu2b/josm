@@ -254,7 +254,7 @@ public class I18n {
     private static final String gettext(String text, String ctx, boolean lazy)
     {
         int i;
-        if(ctx == null && text.startsWith("_:") && (i = text.indexOf("\n")) >= 0)
+        if(ctx == null && text.startsWith("_:") && (i = text.indexOf('\n')) >= 0)
         {
             ctx = text.substring(2,i-1);
             text = text.substring(i+1);
@@ -286,7 +286,7 @@ public class I18n {
     private static final String gettextn(String text, String plural, String ctx, long num)
     {
         int i;
-        if(ctx == null && text.startsWith("_:") && (i = text.indexOf("\n")) >= 0)
+        if(ctx == null && text.startsWith("_:") && (i = text.indexOf('\n')) >= 0)
         {
             ctx = text.substring(2,i-1);
             text = text.substring(i+1);
@@ -329,6 +329,7 @@ public class I18n {
         Locale[] l = new Locale[v.size()];
         l = v.toArray(l);
         Arrays.sort(l, new Comparator<Locale>() {
+            @Override
             public int compare(Locale o1, Locale o2) {
                 return o1.toString().compareTo(o2.toString());
             }
@@ -421,26 +422,13 @@ public class I18n {
                 if(found)
                     load(jar, jarTrans, true);
             }
-        }
-        catch(IOException e)
-        {
-        }
-        finally
-        {
-            try
-            {
-                if(jar != null)
-                    jar.close();
-                if(fis != null)
-                    fis.close();
-                if(jarTrans != null)
-                    jarTrans.close();
-                if(fisTrans != null)
-                    fisTrans.close();
-            }
-            catch(IOException e)
-            {
-            }
+        } catch(IOException e) {
+            // Ignore
+        } finally {
+            Utils.close(jar);
+            Utils.close(fis);
+            Utils.close(jarTrans);
+            Utils.close(fisTrans);
         }
     }
 
@@ -468,17 +456,21 @@ public class I18n {
             if(tr == null || !languages.containsKey(l))
                 return false;
         }
-        try
-        {
-            if(load(en.openStream(), tr.openStream(), false))
-            {
+        InputStream enStream = null;
+        InputStream trStream = null;
+        try {
+            enStream = en.openStream();
+            trStream = tr.openStream();
+            if (load(enStream, trStream, false)) {
                 pluralMode = languages.get(l);
                 loadedCode = l;
                 return true;
             }
-        }
-        catch(IOException e)
-        {
+        } catch(IOException e) {
+            // Ignore exception
+        } finally {
+            Utils.close(trStream);
+            Utils.close(enStream);
         }
         return false;
     }

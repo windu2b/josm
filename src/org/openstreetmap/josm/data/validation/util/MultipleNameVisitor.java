@@ -19,7 +19,7 @@ import org.openstreetmap.josm.tools.ImageProvider;
 public class MultipleNameVisitor extends NameVisitor
 {
     public static final int MULTIPLE_NAME_MAX_LENGTH = 80;
-    
+
     /** The class name of the combined primitives */
     private String multipleClassname;
     /* name to be displayed */
@@ -49,7 +49,7 @@ public class MultipleNameVisitor extends NameVisitor
                 multipleName += name;
             }
 
-            osm.visit(this);
+            osm.accept(this);
             if (multipleClassname == null) {
                 multipleClassname = className;
                 multiplePluralClassname = classNamePlural;
@@ -59,7 +59,7 @@ public class MultipleNameVisitor extends NameVisitor
             }
         }
 
-        if (size == 1) {
+        if (size <= 1) {
             displayName = name;
         } else {
             displayName = size + " " + trn(multipleClassname, multiplePluralClassname, size);
@@ -91,7 +91,7 @@ public class MultipleNameVisitor extends NameVisitor
      * @return the icon of the items
      */
     public Icon getIcon() {
-        if (size == 1)
+        if (size <= 1)
             return icon;
         else
             return ImageProvider.get("data", multipleClassname);

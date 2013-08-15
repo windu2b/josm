@@ -7,6 +7,7 @@ import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.awt.MouseInfo;
 import java.awt.Point;
+import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
@@ -21,16 +22,23 @@ import org.openstreetmap.josm.data.osm.NodeData;
 import org.openstreetmap.josm.data.osm.OsmPrimitiveType;
 import org.openstreetmap.josm.data.osm.PrimitiveData;
 import org.openstreetmap.josm.data.osm.PrimitiveDeepCopy;
+import org.openstreetmap.josm.data.osm.PrimitiveDeepCopy.PasteBufferChangedListener;
 import org.openstreetmap.josm.data.osm.RelationData;
 import org.openstreetmap.josm.data.osm.RelationMemberData;
 import org.openstreetmap.josm.data.osm.WayData;
-import org.openstreetmap.josm.data.osm.PrimitiveDeepCopy.PasteBufferChangedListener;
 import org.openstreetmap.josm.gui.ExtendedDialog;
 import org.openstreetmap.josm.gui.layer.Layer;
 import org.openstreetmap.josm.tools.Shortcut;
 
+/**
+ * Paste OSM primitives from clipboard to the current edit layer.
+ * @since 404
+ */
 public final class PasteAction extends JosmAction implements PasteBufferChangedListener {
 
+    /**
+     * Constructs a new {@code PasteAction}.
+     */
     public PasteAction() {
         super(tr("Paste"), "paste", tr("Paste contents of paste buffer."),
                 Shortcut.registerShortcut("system:paste", tr("Edit: {0}", tr("Paste")), KeyEvent.VK_V, Shortcut.CTRL), true);
@@ -38,13 +46,20 @@ public final class PasteAction extends JosmAction implements PasteBufferChangedL
         Main.pasteBuffer.addPasteBufferChangedListener(this);
     }
 
+    @Override
     public void actionPerformed(ActionEvent e) {
         if (!isEnabled())
             return;
         pasteData(Main.pasteBuffer, Main.pasteSource, e);
     }
 
-    public  void pasteData(PrimitiveDeepCopy pasteBuffer, Layer source, ActionEvent e) {
+    /**
+     * Paste OSM primitives from the given paste buffer and OSM data layer source to the current edit layer.
+     * @param pasteBuffer The paste buffer containing primitive ids to copy
+     * @param source The OSM data layer used to look for primitive ids
+     * @param e The ActionEvent that triggered this operation
+     */
+    public void pasteData(PrimitiveDeepCopy pasteBuffer, Layer source, ActionEvent e) {
         /* Find the middle of the pasteBuffer area */
         double maxEast = -1E100, minEast = 1E100, maxNorth = -1E100, minNorth = 1E100;
         boolean incomplete = false;
@@ -72,7 +87,7 @@ public final class PasteAction extends JosmAction implements PasteBufferChangedL
 
         // default to paste in center of map (pasted via menu or cursor not in MapView)
         EastNorth mPosition = Main.map.mapView.getCenter();
-        if((e.getModifiers() & ActionEvent.CTRL_MASK) != 0) {
+        if((e.getModifiers() & Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()) != 0) {
             final Point mp = MouseInfo.getPointerInfo().getLocation();
             final Point tl = Main.map.mapView.getLocationOnScreen();
             final Point pos = new Point(mp.x-tl.x, mp.y-tl.y);
@@ -86,6 +101,7 @@ public final class PasteAction extends JosmAction implements PasteBufferChangedL
 
         // Make a copy of pasteBuffer and map from old id to copied data id
         List<PrimitiveData> bufferCopy = new ArrayList<PrimitiveData>();
+        List<PrimitiveData> toSelect = new ArrayList<PrimitiveData>();
         Map<Long, Long> newNodeIds = new HashMap<Long, Long>();
         Map<Long, Long> newWayIds = new HashMap<Long, Long>();
         Map<Long, Long> newRelationIds = new HashMap<Long, Long>();
@@ -94,7 +110,7 @@ public final class PasteAction extends JosmAction implements PasteBufferChangedL
                 continue;
             }
             PrimitiveData copy = data.makeCopy();
-            copy.clearOsmId();
+            copy.clearOsmMetadata();
             if (data instanceof NodeData) {
                 newNodeIds.put(data.getUniqueId(), copy.getUniqueId());
             } else if (data instanceof WayData) {
@@ -103,6 +119,9 @@ public final class PasteAction extends JosmAction implements PasteBufferChangedL
                 newRelationIds.put(data.getUniqueId(), copy.getUniqueId());
             }
             bufferCopy.add(copy);
+            if (pasteBuffer.getDirectlyAdded().contains(data)) {
+                toSelect.add(copy);
+            }
         }
 
         // Update references in copied buffer
@@ -147,7 +166,7 @@ public final class PasteAction extends JosmAction implements PasteBufferChangedL
 
         /* Now execute the commands to add the duplicated contents of the paste buffer to the map */
 
-        Main.main.undoRedo.add(new AddPrimitivesCommand(bufferCopy));
+        Main.main.undoRedo.add(new AddPrimitivesCommand(bufferCopy, toSelect));
         Main.map.mapView.repaint();
     }
 

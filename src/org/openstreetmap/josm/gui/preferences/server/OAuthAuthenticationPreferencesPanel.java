@@ -21,7 +21,6 @@ import javax.swing.BorderFactory;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JTextField;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.oauth.OAuthParameters;
@@ -33,6 +32,7 @@ import org.openstreetmap.josm.gui.oauth.OAuthAuthorizationWizard;
 import org.openstreetmap.josm.gui.oauth.TestAccessTokenTask;
 import org.openstreetmap.josm.io.auth.CredentialsManager;
 import org.openstreetmap.josm.tools.ImageProvider;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 
 /**
  * The preferences panel for the OAuth preferences. This just a summary panel
@@ -54,7 +54,7 @@ public class OAuthAuthenticationPreferencesPanel extends JPanel implements Prope
     /**
      * Builds the panel for entering the advanced OAuth parameters
      *
-     * @return
+     * @return panel with advanced settings
      */
     protected JPanel buildAdvancedPropertiesPanel() {
         JPanel pnl = new JPanel(new GridBagLayout());
@@ -68,6 +68,7 @@ public class OAuthAuthenticationPreferencesPanel extends JPanel implements Prope
         cbShowAdvancedParameters.setSelected(false);
         cbShowAdvancedParameters.addItemListener(
                 new ItemListener() {
+                    @Override
                     public void itemStateChanged(ItemEvent evt) {
                         pnlAdvancedProperties.setVisible(evt.getStateChange() == ItemEvent.SELECTED);
                     }
@@ -213,8 +214,8 @@ public class OAuthAuthenticationPreferencesPanel extends JPanel implements Prope
      *
      */
     private class AlreadyAuthorisedPanel extends JPanel {
-        private JTextField tfAccessTokenKey;
-        private JTextField tfAccessTokenSecret;
+        private JosmTextField tfAccessTokenKey;
+        private JosmTextField tfAccessTokenSecret;
 
         protected void build() {
             setLayout(new GridBagLayout());
@@ -237,7 +238,7 @@ public class OAuthAuthenticationPreferencesPanel extends JPanel implements Prope
 
             gc.gridx = 1;
             gc.weightx = 1.0;
-            add(tfAccessTokenKey = new JTextField(), gc);
+            add(tfAccessTokenKey = new JosmTextField(), gc);
             tfAccessTokenKey.setEditable(false);
 
             // -- access token secret
@@ -249,7 +250,7 @@ public class OAuthAuthenticationPreferencesPanel extends JPanel implements Prope
 
             gc.gridx = 1;
             gc.weightx = 1.0;
-            add(tfAccessTokenSecret = new JTextField(), gc);
+            add(tfAccessTokenSecret = new JosmTextField(), gc);
             tfAccessTokenSecret.setEditable(false);
 
             // -- access token secret
@@ -310,6 +311,7 @@ public class OAuthAuthenticationPreferencesPanel extends JPanel implements Prope
             putValue(SMALL_ICON, ImageProvider.get("oauth", "oauth"));
 
         }
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             OAuthAuthorizationWizard wizard = new OAuthAuthorizationWizard(
                     OAuthAuthenticationPreferencesPanel.this,
@@ -335,6 +337,7 @@ public class OAuthAuthenticationPreferencesPanel extends JPanel implements Prope
             putValue(SMALL_ICON, ImageProvider.get("oauth", "oauth"));
 
         }
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             OAuthAuthorizationWizard wizard = new OAuthAuthorizationWizard(
                     OAuthAuthenticationPreferencesPanel.this,
@@ -361,6 +364,7 @@ public class OAuthAuthenticationPreferencesPanel extends JPanel implements Prope
 
         }
 
+        @Override
         public void actionPerformed(ActionEvent evt) {
             OAuthToken token = OAuthAccessTokenHolder.getInstance().getAccessToken();
             OAuthParameters parameters = OAuthParameters.createFromPreferences(Main.pref);
@@ -374,6 +378,7 @@ public class OAuthAuthenticationPreferencesPanel extends JPanel implements Prope
         }
     }
 
+    @Override
     public void propertyChange(PropertyChangeEvent evt) {
         if (! evt.getPropertyName().equals(OsmApiUrlInputPanel.API_URL_PROP))
             return;

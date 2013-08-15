@@ -26,6 +26,7 @@ import org.openstreetmap.josm.tools.GBC;
 public class DrawingPreference implements SubPreferenceSetting {
 
     public static class Factory implements PreferenceSettingFactory {
+        @Override
         public PreferenceSetting createPreferenceSetting() {
             return new DrawingPreference();
         }
@@ -47,6 +48,7 @@ public class DrawingPreference implements SubPreferenceSetting {
     private JCheckBox useWireframeAntialiasing = new JCheckBox(tr("Smooth map graphics in wireframe mode (antialiasing)"));
     private JCheckBox outlineOnly = new JCheckBox(tr("Draw only outlines of areas"));
 
+    @Override
     public void addGui(PreferenceTabbedPane gui) {
         //gui.display.setPreferredSize(new Dimension(400,600));
         gpxPanel = new GPXSettingsPanel();
@@ -55,12 +57,13 @@ public class DrawingPreference implements SubPreferenceSetting {
 
         JScrollPane scrollpane = new JScrollPane(panel);
         scrollpane.setBorder(BorderFactory.createEmptyBorder( 0, 0, 0, 0 ));
-        gui.getDisplayPreference().displaycontent.addTab(tr("GPS Points"), scrollpane);
+        gui.getDisplayPreference().addSubTab(this, tr("GPS Points"), scrollpane);
         panel = new JPanel(new GridBagLayout());
         panel.setBorder(BorderFactory.createEmptyBorder(5,5,5,5));
 
         // directionHint
         directionHint.addActionListener(new ActionListener(){
+            @Override
             public void actionPerformed(ActionEvent e) {
                 if (directionHint.isSelected()){
                     headArrow.setSelected(Main.pref.getBoolean("draw.segment.head_only", false));
@@ -72,38 +75,31 @@ public class DrawingPreference implements SubPreferenceSetting {
         });
         directionHint.setToolTipText(tr("Draw direction hints for way segments."));
         directionHint.setSelected(Main.pref.getBoolean("draw.segment.direction", false));
-        panel.add(directionHint, GBC.eop().insets(20,0,0,0));
 
         // only on the head of a way
         headArrow.setToolTipText(tr("Only on the head of a way."));
         headArrow.setSelected(Main.pref.getBoolean("draw.segment.head_only", false));
         headArrow.setEnabled(directionHint.isSelected());
-        panel.add(headArrow, GBC.eop().insets(40, 0, 0, 0));
 
         // draw oneway arrows
         onewayArrow.setToolTipText(tr("Draw arrows in the direction of oneways and other directed features."));
         onewayArrow.setSelected(Main.pref.getBoolean("draw.oneway", true));
-        panel.add(onewayArrow, GBC.eop().insets(20,0,0,0));
 
         // segment order number
         segmentOrderNumber.setToolTipText(tr("Draw the order numbers of all segments within their way."));
         segmentOrderNumber.setSelected(Main.pref.getBoolean("draw.segment.order_number", false));
-        panel.add(segmentOrderNumber, GBC.eop().insets(20,0,0,0));
 
         // downloaded area
         sourceBounds.setToolTipText(tr("Draw the boundaries of data loaded from the server."));
         sourceBounds.setSelected(Main.pref.getBoolean("draw.data.downloaded_area", true));
-        panel.add(sourceBounds, GBC.eop().insets(20,0,0,0));
 
         // virtual nodes
         virtualNodes.setToolTipText(tr("Draw virtual nodes in select mode for easy way modification."));
         virtualNodes.setSelected(Main.pref.getInteger("mappaint.node.virtual-size", 8) != 0);
-        panel.add(virtualNodes, GBC.eop().insets(20,0,0,0));
 
         // background layers in inactive color
         inactive.setToolTipText(tr("Draw the inactive data layers in a different color."));
         inactive.setSelected(Main.pref.getBoolean("draw.data.inactive_color", true));
-        panel.add(inactive, GBC.eop().insets(20,0,0,0));
 
         // antialiasing
         useAntialiasing.setToolTipText(tr("Apply antialiasing to the map view resulting in a smoother appearance."));
@@ -119,18 +115,35 @@ public class DrawingPreference implements SubPreferenceSetting {
 
         drawHelperLine.setToolTipText(tr("Draw rubber-band helper line"));
         drawHelperLine.setSelected(Main.pref.getBoolean("draw.helper-line", true));
-        panel.add(drawHelperLine, GBC.eop().insets(20, 0, 0, 0));
 
         // outlineOnly
         outlineOnly.setSelected(Main.pref.getBoolean("draw.data.area_outline_only", false));
         outlineOnly.setToolTipText(tr("This option suppresses the filling of areas, overriding anything specified in the selected style."));
 
         JLabel performanceLabel = new JLabel(tr("Options that affect drawing performance"));
+
+        panel.add(new JLabel(tr("Segment drawing options")),
+                GBC.eop().insets(5,10,0,0));
+        panel.add(directionHint, GBC.eop().insets(20,0,0,0));
+        panel.add(headArrow, GBC.eop().insets(40, 0, 0, 0));
+        panel.add(onewayArrow, GBC.eop().insets(20,0,0,0));
+        panel.add(segmentOrderNumber, GBC.eop().insets(20,0,0,0));
+
+        panel.add(new JLabel(tr("Select and draw mode options")),
+                GBC.eop().insets(5,10,0,0));
+        panel.add(virtualNodes, GBC.eop().insets(20,0,0,0));
+        panel.add(drawHelperLine, GBC.eop().insets(20, 0, 0, 0));
+
         panel.add(performanceLabel, GBC.eop().insets(5,10,0,0));
-        panel.add(useAntialiasing, GBC.eop().insets(20,5,0,0));
+        panel.add(useAntialiasing, GBC.eop().insets(20,0,0,0));
         panel.add(useWireframeAntialiasing, GBC.eop().insets(20, 0, 0, 0));
         panel.add(useHighlighting, GBC.eop().insets(20,0,0,0));
-        panel.add(outlineOnly, GBC.eol().insets(20,0,0,5));
+        panel.add(outlineOnly, GBC.eol().insets(20,0,0,0));
+
+        panel.add(new JLabel(tr("Other options")),
+                GBC.eop().insets(5,10,0,0));
+        panel.add(sourceBounds, GBC.eop().insets(20,0,0,0));
+        panel.add(inactive, GBC.eop().insets(20,0,0,0));
 
         ExpertToggleAction.addVisibilitySwitcher(performanceLabel);
         ExpertToggleAction.addVisibilitySwitcher(useAntialiasing);
@@ -141,9 +154,10 @@ public class DrawingPreference implements SubPreferenceSetting {
         panel.add(Box.createVerticalGlue(), GBC.eol().fill(GBC.BOTH));
         scrollpane = new JScrollPane(panel);
         scrollpane.setBorder(BorderFactory.createEmptyBorder( 0, 0, 0, 0 ));
-        gui.getDisplayPreference().displaycontent.addTab(tr("OSM Data"), scrollpane);
+        gui.getDisplayPreference().addSubTab(this, tr("OSM Data"), scrollpane);
     }
 
+    @Override
     public boolean ok() {
         gpxPanel.savePreferences();
         Main.pref.put("draw.data.area_outline_only", outlineOnly.isSelected());

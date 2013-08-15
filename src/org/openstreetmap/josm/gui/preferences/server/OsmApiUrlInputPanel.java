@@ -20,7 +20,6 @@ import javax.swing.AbstractAction;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -33,13 +32,14 @@ import org.openstreetmap.josm.gui.widgets.AbstractTextComponentValidator;
 import org.openstreetmap.josm.gui.widgets.SelectAllOnFocusGainedDecorator;
 import org.openstreetmap.josm.io.OsmApi;
 import org.openstreetmap.josm.tools.ImageProvider;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 
 public class OsmApiUrlInputPanel extends JPanel {
     static public final String API_URL_PROP = OsmApiUrlInputPanel.class.getName() + ".apiUrl";
 
     private JLabel lblValid;
     private JLabel lblApiUrl;
-    private JTextField tfOsmServerUrl;
+    private JosmTextField tfOsmServerUrl;
     private ApiUrlValidator valOsmServerUrl;
     private SideButton btnTest;
     /** indicates whether to use the default OSM URL or not */
@@ -89,7 +89,7 @@ public class OsmApiUrlInputPanel extends JPanel {
 
         gc.gridx = 1;
         gc.weightx = 1.0;
-        add(tfOsmServerUrl = new JTextField(), gc);
+        add(tfOsmServerUrl = new JosmTextField(), gc);
         SelectAllOnFocusGainedDecorator.decorate(tfOsmServerUrl);
         valOsmServerUrl = new ApiUrlValidator(tfOsmServerUrl);
         valOsmServerUrl.validate();
@@ -165,15 +165,18 @@ public class OsmApiUrlInputPanel extends JPanel {
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             final String url = tfOsmServerUrl.getText().trim();
             final ApiUrlTestTask task = new ApiUrlTestTask(OsmApiUrlInputPanel.this, url);
             Main.worker.submit(task);
             Runnable r = new Runnable() {
+                @Override
                 public void run() {
                     if (task.isCanceled())
                         return;
                     Runnable r = new Runnable() {
+                        @Override
                         public void run() {
                             if (task.isSuccess()) {
                                 lblValid.setIcon(ImageProvider.get("dialogs/changeset", "valid"));
@@ -194,7 +197,7 @@ public class OsmApiUrlInputPanel extends JPanel {
 
         protected void updateEnabledState() {
             boolean enabled =
-                !tfOsmServerUrl.getText().trim().equals("")
+                !tfOsmServerUrl.getText().trim().isEmpty()
                 && !tfOsmServerUrl.getText().trim().equals(lastTestedUrl);
             if (enabled) {
                 lblValid.setIcon(null);
@@ -202,14 +205,17 @@ public class OsmApiUrlInputPanel extends JPanel {
             setEnabled(enabled);
         }
 
+        @Override
         public void changedUpdate(DocumentEvent arg0) {
             updateEnabledState();
         }
 
+        @Override
         public void insertUpdate(DocumentEvent arg0) {
             updateEnabledState();
         }
 
+        @Override
         public void removeUpdate(DocumentEvent arg0) {
             updateEnabledState();
         }
@@ -229,7 +235,7 @@ public class OsmApiUrlInputPanel extends JPanel {
 
         @Override
         public boolean isValid() {
-            if (getComponent().getText().trim().equals(""))
+            if (getComponent().getText().trim().isEmpty())
                 return false;
 
             try {
@@ -242,7 +248,7 @@ public class OsmApiUrlInputPanel extends JPanel {
 
         @Override
         public void validate() {
-            if (getComponent().getText().trim().equals("")) {
+            if (getComponent().getText().trim().isEmpty()) {
                 feedbackInvalid(tr("OSM API URL must not be empty. Please enter the OSM API URL."));
                 return;
             }
@@ -258,6 +264,7 @@ public class OsmApiUrlInputPanel extends JPanel {
      * Handles changes in the default URL
      */
     class UseDefaultServerUrlChangeHandler implements ItemListener {
+        @Override
         public void itemStateChanged(ItemEvent e) {
             switch(e.getStateChange()) {
             case ItemEvent.SELECTED:
@@ -279,6 +286,7 @@ public class OsmApiUrlInputPanel extends JPanel {
             firePropertyChange(API_URL_PROP, null, tfOsmServerUrl.getText());
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             propagate();
         }

@@ -11,6 +11,8 @@ import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.awt.event.AWTEventListener;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
@@ -44,10 +46,12 @@ import org.openstreetmap.josm.data.osm.visitor.paint.WireframeMapRenderer;
 import org.openstreetmap.josm.gui.ExtendedDialog;
 import org.openstreetmap.josm.gui.MapFrame;
 import org.openstreetmap.josm.gui.MapView;
+import org.openstreetmap.josm.gui.NavigatableComponent;
 import org.openstreetmap.josm.gui.SelectionManager;
 import org.openstreetmap.josm.gui.SelectionManager.SelectionEnded;
 import org.openstreetmap.josm.gui.layer.Layer;
 import org.openstreetmap.josm.gui.layer.OsmDataLayer;
+import org.openstreetmap.josm.gui.util.GuiHelper;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.Pair;
 import org.openstreetmap.josm.tools.PlatformHookOsx;
@@ -202,10 +206,11 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
     }
 
     int previousModifiers;
-    
+
      /**
      * This is called whenever the keyboard modifier status changes
      */
+    @Override
     public void eventDispatched(AWTEvent e) {
         if(oldEvent == null)
             return;
@@ -223,8 +228,8 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
     /**
      * handles adding highlights and updating the cursor for the given mouse event.
      * Please note that the highlighting for merging while moving is handled via mouseDragged.
-     * @param MouseEvent which should be used as base for the feedback
-     * @return true if repaint is required
+     * @param e {@code MouseEvent} which should be used as base for the feedback
+     * @return {@code true} if repaint is required
      */
     private boolean giveUserFeedback(MouseEvent e) {
         return giveUserFeedback(e, e.getModifiers());
@@ -233,9 +238,9 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
     /**
      * handles adding highlights and updating the cursor for the given mouse event.
      * Please note that the highlighting for merging while moving is handled via mouseDragged.
-     * @param MouseEvent which should be used as base for the feedback
-     * @param define custom keyboard modifiers if the ones from MouseEvent are outdated or similar
-     * @return true if repaint is required
+     * @param e {@code MouseEvent} which should be used as base for the feedback
+     * @param modifiers define custom keyboard modifiers if the ones from MouseEvent are outdated or similar
+     * @return {@code true} if repaint is required
      */
     private boolean giveUserFeedback(MouseEvent e, int modifiers) {
         Collection<OsmPrimitive> c = MapView.asColl(
@@ -277,7 +282,7 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
         }
         return repaintIfRequired(newHighlights);
     }
-    
+
     /**
      * works out which cursor should be displayed for most of SelectAction's
      * features. The only exception is the "move" cursor when actually dragging
@@ -376,7 +381,7 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
         oldHighlights = newHighlights;
         return needsRepaint;
     }
-    
+
      /**
      * Look, whether any object is selected. If not, select the nearest node.
      * If there are no nodes in the dataset, do nothing.
@@ -392,9 +397,9 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
         // return early
         if (!mv.isActiveLayerVisible() || !(Boolean) this.getValue("active") || mouseDownButton != MouseEvent.BUTTON1)
             return;
-        
+
         // left-button mouse click only is processed here
-        
+
         // request focus in order to enable the expected keyboard shortcuts
         mv.requestFocus();
 
@@ -411,11 +416,11 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
         startEN = mv.getEastNorth(lastMousePos.x,lastMousePos.y);
 
         // primitives under cursor are stored in c collection
-        
+
         OsmPrimitive nearestPrimitive = mv.getNearestNodeOrWay(e.getPoint(), OsmPrimitive.isSelectablePredicate, true);
 
         determineMapMode(nearestPrimitive!=null);
-        
+
         switch(mode) {
         case rotate:
         case scale:
@@ -436,8 +441,15 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
                 virtualManager.activateVirtualNodeNearPoint(e.getPoint());
             }
             OsmPrimitive toSelect = cycleManager.cycleSetup(nearestPrimitive, e.getPoint());
-            selectPrims(mv.asColl(toSelect), false, false);
+            selectPrims(NavigatableComponent.asColl(toSelect), false, false);
             useLastMoveCommandIfPossible();
+            // Schedule a timer to update status line "initialMoveDelay+1" ms in the future
+            GuiHelper.scheduleTimer(initialMoveDelay+1, new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent evt) {
+                    updateStatusLine();
+                }
+            }, false);
             break;
         case select:
         default:
@@ -451,7 +463,7 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
         }
         updateStatusLine();
     }
-    
+
     @Override
     public void mouseMoved(MouseEvent e) {
         // Mac OSX simulates with  ctrl + mouse 1  the second mouse button hence no dragging events get fired.
@@ -464,7 +476,7 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
             mv.repaint();
         }
     }
-    
+
     /**
      * If the left mouse button is pressed, move all currently selected
      * objects (if one of them is under the mouse) or the current one under the
@@ -474,12 +486,12 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
     public void mouseDragged(MouseEvent e) {
         if (!mv.isActiveLayerVisible())
             return;
-        
+
         // Swing sends random mouseDragged events when closing dialogs by double-clicking their top-left icon on Windows
         // Ignore such false events to prevent issues like #7078
         if (mouseDownButton == MouseEvent.BUTTON1 && mouseReleaseTime > mouseDownTime)
             return;
-        
+
         cancelDrawMode = true;
         if (mode == Mode.select)
             return;
@@ -531,7 +543,7 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
         }
         if (e.getPoint().equals(lastMousePos))
             return;
-        
+
         EastNorth currentEN = mv.getEastNorth(e.getX(), e.getY());
 
         if (virtualManager.hasVirtualWaysToBeConstructed()) {
@@ -548,7 +560,7 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
         didMouseDrag = true;
     }
 
-    
+
 
     @Override
     public void mouseExited(MouseEvent e) {
@@ -557,7 +569,7 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
         }
     }
 
-    
+
     @Override
     public void mouseReleased(MouseEvent e) {
         if (!mv.isActiveLayerVisible())
@@ -572,6 +584,7 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
             // Select Draw Tool if no selection has been made
             if (getCurrentDataSet().getSelected().isEmpty() && !cancelDrawMode) {
                 Main.map.selectDrawTool(true);
+                updateStatusLine();
                 return;
             }
         }
@@ -592,6 +605,7 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
                         // We need to do it like this as otherwise drawAction will see a double
                         // click and switch back to SelectMode
                         Main.worker.execute(new Runnable() {
+                            @Override
                             public void run() {
                                 Main.map.selectDrawTool(true);
                             }
@@ -641,7 +655,7 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
             mode = Mode.select;
         }
     }
-    
+
     /** returns true whenever elements have been grabbed and moved (i.e. the initial
      * thresholds have been exceeded) and is still in progress (i.e. mouse button
      * still pressed)
@@ -650,9 +664,9 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
         return didMouseDrag && startingDraggingPos != null;
     }
 
-    
+
     /**
-     * Create or update data modification command while dragging mouse - implementation of 
+     * Create or update data modification command while dragging mouse - implementation of
      * continuous moving, scaling and rotation
      * @param currentEN - mouse position
      * @return status of action (<code>true</code> when action was performed)
@@ -665,7 +679,7 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
             OsmPrimitive nearestPrimitive = mv.getNearestNodeOrWay(mv.getPoint(startEN), OsmPrimitive.isSelectablePredicate, true);
             getCurrentDataSet().setSelected(nearestPrimitive);
         }
-        
+
         Collection<Node> affectedNodes = AllNodesVisitor.getAllNodes(selection);
         // for these transformations, having only one node makes no sense - quit silently
         if (affectedNodes.size() < 2 && (mode == Mode.rotate || mode == Mode.scale)) {
@@ -673,6 +687,7 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
         }
         Command c = getLastCommand();
         if (mode == Mode.move) {
+            if (startEN == null) return false; // fix #8128
             getCurrentDataSet().beginUpdate();
             if (c instanceof MoveCommand && affectedNodes.equals(((MoveCommand) c).getParticipatingPrimitives())) {
                 ((MoveCommand) c).saveCheckpoint();
@@ -685,6 +700,7 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
                 if (n.getCoor().isOutSideWorld()) {
                     // Revert move
                     ((MoveCommand) c).resetToCheckpoint();
+                    getCurrentDataSet().endUpdate();
                     JOptionPane.showMessageDialog(
                             Main.parent,
                             tr("Cannot move objects outside of the world."),
@@ -694,32 +710,49 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
                     return false;
                 }
             }
-            getCurrentDataSet().endUpdate();
-            return true;
-        } 
+        } else {
+            startEN = currentEN; // drag can continue after scaling/rotation
 
-        startEN = currentEN; // drag can continue after scaling/rotation
+            if (mode != Mode.rotate && mode != Mode.scale) {
+                return false;
+            }
 
-        if (mode == Mode.rotate) {
             getCurrentDataSet().beginUpdate();
-            if (c instanceof RotateCommand && affectedNodes.equals(((RotateCommand) c).getTransformedNodes())) {
-                ((RotateCommand) c).handleEvent(currentEN);
-            } else {
-                Main.main.undoRedo.add(new RotateCommand(selection, currentEN));
+
+            if (mode == Mode.rotate) {
+                if (c instanceof RotateCommand && affectedNodes.equals(((RotateCommand) c).getTransformedNodes())) {
+                    ((RotateCommand) c).handleEvent(currentEN);
+                } else {
+                    Main.main.undoRedo.add(new RotateCommand(selection, currentEN));
+                }
+            } else if (mode == Mode.scale) {
+                if (c instanceof ScaleCommand && affectedNodes.equals(((ScaleCommand) c).getTransformedNodes())) {
+                    ((ScaleCommand) c).handleEvent(currentEN);
+                } else {
+                    Main.main.undoRedo.add(new ScaleCommand(selection, currentEN));
+                }
             }
-            getCurrentDataSet().endUpdate();
-        } else if (mode == Mode.scale) {
-            getCurrentDataSet().beginUpdate();
-            if (c instanceof ScaleCommand && affectedNodes.equals(((ScaleCommand) c).getTransformedNodes())) {
-                ((ScaleCommand) c).handleEvent(currentEN);
-            } else {
-                Main.main.undoRedo.add(new ScaleCommand(selection, currentEN));
+
+            Collection<Way> ways = getCurrentDataSet().getSelectedWays();
+            if (doesImpactStatusLine(affectedNodes, ways)) {
+                Main.map.statusLine.setDist(ways);
             }
-            getCurrentDataSet().endUpdate();
         }
+        getCurrentDataSet().endUpdate();
         return true;
     }
-    
+
+    private boolean doesImpactStatusLine(Collection<Node> affectedNodes, Collection<Way> selectedWays) {
+        for (Way w : selectedWays) {
+            for (Node n : w.getNodes()) {
+                if (affectedNodes.contains(n)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     /**
      * Adapt last move command (if it is suitable) to work with next drag, started at point startEN
      */
@@ -731,7 +764,7 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
             ((MoveCommand) c).changeStartPoint(startEN);
         }
     }
-       
+
     /**
      * Obtain command in undoRedo stack to "continue" when dragging
      */
@@ -743,7 +776,7 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
         }
         return c;
     }
-    
+
     /**
      * Present warning in case of large and possibly unwanted movements and undo
      * unwanted movements.
@@ -781,7 +814,7 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
         }
         getCurrentDataSet().fireSelectionChanged();
     }
-    
+
     /**
      * Merges the selected nodes to the one closest to the given mouse position iff the control
      * key is pressed. If there is no such node, no action will be done and no error will be
@@ -819,14 +852,14 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
         // Virtual Ways: if non-empty the cursor is above a virtual node. So don't highlight
         // anything if about to drag the virtual node (i.e. !released) but continue if the
         // cursor is only released above a virtual node by accident (i.e. released). See #7018
-        if ((shift && ctrl) || (ctrl && !released) || (virtualManager.hasVirtualWaysToBeConstructed() && !released))
+        if (ds == null || (shift && ctrl) || (ctrl && !released) || (virtualManager.hasVirtualWaysToBeConstructed() && !released))
             return;
 
         if (!released) {
             // Don't replace the selection if the user clicked on a
             // selected object (it breaks moving of selected groups).
             // Do it later, on mouse release.
-            shift |= getCurrentDataSet().getSelected().containsAll(prims);
+            shift |= ds.getSelected().containsAll(prims);
         }
 
         if (ctrl) {
@@ -849,18 +882,19 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
 
     @Override
     public String getModeHelpText() {
-        if (mode == Mode.select)
-            return tr("Release the mouse button to select the objects in the rectangle.");
-        else if (mode == Mode.move) {
-            final boolean canMerge = getCurrentDataSet()!=null && !getCurrentDataSet().getSelectedNodes().isEmpty();
-            final String mergeHelp = canMerge ? (" " + tr("Ctrl to merge with nearest node.")) : "";
-            return tr("Release the mouse button to stop moving.") + mergeHelp;
-        } else if (mode == Mode.rotate)
-            return tr("Release the mouse button to stop rotating.");
-        else if (mode == Mode.scale)
-            return tr("Release the mouse button to stop scaling.");
-        else
-            return tr("Move objects by dragging; Shift to add to selection (Ctrl to toggle); Shift-Ctrl to rotate selected; Alt-Ctrl to scale selected; or change selection");
+        if (mouseDownButton == MouseEvent.BUTTON1 && mouseReleaseTime < mouseDownTime) {
+            if (mode == Mode.select)
+                return tr("Release the mouse button to select the objects in the rectangle.");
+            else if (mode == Mode.move && (System.currentTimeMillis() - mouseDownTime >= initialMoveDelay)) {
+                final boolean canMerge = getCurrentDataSet()!=null && !getCurrentDataSet().getSelectedNodes().isEmpty();
+                final String mergeHelp = canMerge ? (" " + tr("Ctrl to merge with nearest node.")) : "";
+                return tr("Release the mouse button to stop moving.") + mergeHelp;
+            } else if (mode == Mode.rotate)
+                return tr("Release the mouse button to stop rotating.");
+            else if (mode == Mode.scale)
+                return tr("Release the mouse button to stop scaling.");
+        }
+        return tr("Move objects by dragging; Shift to add to selection (Ctrl to toggle); Shift-Ctrl to rotate selected; Alt-Ctrl to scale selected; or change selection");
     }
 
     @Override
@@ -868,14 +902,18 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
         return l instanceof OsmDataLayer;
     }
 
+    /**
+     * Enable or diable the lasso mode
+     * @param lassoMode true to enable the lasso mode, false otherwise
+     */
     public void setLassoMode(boolean lassoMode) {
         this.selectionManager.setLassoMode(lassoMode);
         this.lassoMode = lassoMode;
     }
-    
+
     CycleManager cycleManager = new CycleManager();
     VirtualManager virtualManager = new VirtualManager();
-    
+
     private class CycleManager {
 
         private Collection<OsmPrimitive> cycleList = Collections.emptyList();
@@ -890,7 +928,7 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
             waitForMouseUpParameter = Main.pref.getBoolean("mappaint.select.waits-for-mouse-up", false);
             multipleMatchesParameter = Main.pref.getBoolean("selectaction.cycles.multiple.matches", false);
         }
-        
+
         /**
          * Determine prmitive to be selected and build cycleList
          * @param nearest primitive found by simple method
@@ -905,9 +943,9 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
 
                 // Point p = e.getPoint();
 //              updateKeyModifiers(e); // cycleSetup called only after updateModifiers !
-                
+
                 if (!(alt || multipleMatchesParameter)) {
-                    // no real cycling, just one element in cycle list                    
+                    // no real cycling, just one element in cycle list
                     cycleList = MapView.asColl(osm);
 
                     if (waitForMouseUpParameter) {
@@ -985,7 +1023,7 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
                         foundInDS = nxt;
                         // first selected primitive in cycleList is found
                         if (cyclePrims || ctrl) {
-                            ds.clearSelection(foundInDS); // deselect it 
+                            ds.clearSelection(foundInDS); // deselect it
                             nxt = i.hasNext() ? i.next() : first;
                             // return next one in cycle list (last->first)
                         }
@@ -993,7 +1031,7 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
                     }
                 }
             }
-            
+
             // if "no-alt-cycling" is enabled, Ctrl-Click arrives here.
             if (ctrl) {
                 // a member of cycleList was found in the current dataset selection
@@ -1018,7 +1056,7 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
             return MapView.asColl(nxt);
         }
     }
-    
+
     private class VirtualManager {
 
         private Node virtualNode = null;
@@ -1026,21 +1064,21 @@ public class SelectAction extends MapMode implements AWTEventListener, Selection
         private int nodeVirtualSize;
         private int virtualSnapDistSq2;
         private int virtualSpace;
-        
+
         private void init() {
             nodeVirtualSize = Main.pref.getInteger("mappaint.node.virtual-size", 8);
             int virtualSnapDistSq = Main.pref.getInteger("mappaint.node.virtual-snap-distance", 8);
             virtualSnapDistSq2 = virtualSnapDistSq*virtualSnapDistSq;
             virtualSpace = Main.pref.getInteger("mappaint.node.virtual-space", 70);
         }
-        
+
         /**
          * Calculate a virtual node if there is enough visual space to draw a
          * crosshair node and the middle of a way segment is clicked. If the
          * user drags the crosshair node, it will be added to all ways in
          * <code>virtualWays</code>.
          *
-         * @param e contains the point clicked
+         * @param p the point clicked
          * @return whether
          * <code>virtualNode</code> and
          * <code>virtualWays</code> were setup.

@@ -45,6 +45,7 @@ import org.openstreetmap.josm.gui.DefaultNameFormatter;
 import org.openstreetmap.josm.gui.SideButton;
 import org.openstreetmap.josm.gui.help.ContextSensitiveHelpAction;
 import org.openstreetmap.josm.gui.help.HelpUtil;
+import org.openstreetmap.josm.gui.util.GuiHelper;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.Utils;
@@ -96,7 +97,11 @@ public class CombinePrimitiveResolverDialog extends JDialog {
     @Deprecated
     public static CombinePrimitiveResolverDialog getInstance() {
         if (instance == null) {
-            instance = new CombinePrimitiveResolverDialog(Main.parent);
+            GuiHelper.runInEDTAndWait(new Runnable() {
+                @Override public void run() {
+                    instance = new CombinePrimitiveResolverDialog(Main.parent);
+                }
+            });
         }
         return instance;
     }
@@ -128,14 +133,18 @@ public class CombinePrimitiveResolverDialog extends JDialog {
      *
      * @param primitive the target primitive
      */
-    public void setTargetPrimitive(OsmPrimitive primitive) {
+    public void setTargetPrimitive(final OsmPrimitive primitive) {
         this.targetPrimitive = primitive;
-        updateTitle();
-        if (primitive instanceof Way) {
-            pnlRelationMemberConflictResolver.initForWayCombining();
-        } else if (primitive instanceof Node) {
-            pnlRelationMemberConflictResolver.initForNodeMerging();
-        }
+        GuiHelper.runInEDTAndWait(new Runnable() {
+            @Override public void run() {
+                updateTitle();
+                if (primitive instanceof Way) {
+                    pnlRelationMemberConflictResolver.initForWayCombining();
+                } else if (primitive instanceof Node) {
+                    pnlRelationMemberConflictResolver.initForNodeMerging();
+                }
+            }
+        });
     }
 
     protected void updateTitle() {
@@ -249,11 +258,13 @@ public class CombinePrimitiveResolverDialog extends JDialog {
         List<Command> cmds = new LinkedList<Command>();
 
         TagCollection allResolutions = getTagConflictResolverModel().getAllResolutions();
-        if (allResolutions.size() > 0) {
+        if (!allResolutions.isEmpty()) {
             cmds.addAll(buildTagChangeCommand(targetPrimitive, allResolutions));
         }
-        if (targetPrimitive.get("created_by") != null) {
-            cmds.add(new ChangePropertyCommand(targetPrimitive, "created_by", null));
+        for(String p : OsmPrimitive.getDiscardableKeys()) {
+            if (targetPrimitive.get(p) != null) {
+                cmds.add(new ChangePropertyCommand(targetPrimitive, p, null));
+            }
         }
 
         if (getRelationMemberConflictResolverModel().getNumDecisions() > 0) {
@@ -362,7 +373,7 @@ public class CombinePrimitiveResolverDialog extends JDialog {
                     new Dimension(600, 400))).applySafe(this);
             setCanceled(false);
             btnApply.requestFocusInWindow();
-        } else {
+        } else if (isShowing()) { // Avoid IllegalComponentStateException like in #8775
             new WindowGeometry(this).remember(getClass().getName() + ".geometry");
         }
         super.setVisible(visible);
@@ -377,6 +388,7 @@ public class CombinePrimitiveResolverDialog extends JDialog {
             setEnabled(true);
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             setCanceled(true);
             setVisible(false);
@@ -392,6 +404,7 @@ public class CombinePrimitiveResolverDialog extends JDialog {
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             setVisible(false);
             pnlTagConflictResolver.rememberPreferences();
@@ -402,6 +415,7 @@ public class CombinePrimitiveResolverDialog extends JDialog {
                     && pnlRelationMemberConflictResolver.getModel().getNumConflicts() == 0);
         }
 
+        @Override
         public void propertyChange(PropertyChangeEvent evt) {
             if (evt.getPropertyName().equals(TagConflictResolverModel.NUM_CONFLICTS_PROP)) {
                 updateEnabledState();
@@ -432,14 +446,17 @@ public class CombinePrimitiveResolverDialog extends JDialog {
             addHierarchyBoundsListener(this);
         }
 
+        @Override
         public void ancestorResized(HierarchyEvent e) {
             setDividerLocation((int) (dividerLocation * getHeight()));
         }
 
+        @Override
         public void ancestorMoved(HierarchyEvent e) {
             // do nothing
         }
 
+        @Override
         public void propertyChange(PropertyChangeEvent evt) {
             if (evt.getPropertyName().equals(JSplitPane.DIVIDER_LOCATION_PROPERTY)) {
                 int newVal = (Integer) evt.getNewValue();
@@ -451,12 +468,12 @@ public class CombinePrimitiveResolverDialog extends JDialog {
     }
 
     /**
-     * Replies the list of {@link Command commands} needed to resolve specified conflicts, 
+     * Replies the list of {@link Command commands} needed to resolve specified conflicts,
      * by displaying if necessary a {@link CombinePrimitiveResolverDialog} to the user.
      * This dialog will allow the user to choose conflict resolution actions.
-     * 
+     *
      * Non-expert users are informed first of the meaning of these operations, allowing them to cancel.
-     * 
+     *
      * @param tagsOfPrimitives The tag collection of the primitives to be combined.
      *                         Should generally be equal to {@code TagCollection.unionOfAllPrimitives(primitives)}
      * @param primitives The primitives to be combined
@@ -468,7 +485,7 @@ public class CombinePrimitiveResolverDialog extends JDialog {
             final TagCollection tagsOfPrimitives,
             final Collection<? extends OsmPrimitive> primitives,
             final Collection<? extends OsmPrimitive> targetPrimitives) throws UserCancelException {
-        
+
         CheckParameterUtil.ensureParameterNotNull(tagsOfPrimitives, "tagsOfPrimitives");
         CheckParameterUtil.ensureParameterNotNull(primitives, "primitives");
         CheckParameterUtil.ensureParameterNotNull(targetPrimitives, "targetPrimitives");
@@ -499,7 +516,7 @@ public class CombinePrimitiveResolverDialog extends JDialog {
         dialog.getTagConflictResolverModel().populate(tagsToEdit, completeWayTags.getKeysWithMultipleValues());
         dialog.getRelationMemberConflictResolverModel().populate(parentRelations, primitives);
         dialog.prepareDefaultDecisions();
-        
+
         // Ensure a proper title is displayed instead of a previous target (fix #7925)
         if (targetPrimitives.size() == 1) {
             dialog.setTargetPrimitive(targetPrimitives.iterator().next());
@@ -543,7 +560,7 @@ public class CombinePrimitiveResolverDialog extends JDialog {
                 + "Do you want to continue?",
                 parentRelations.size(), parentRelations.size(), primitives.size(),
                 DefaultNameFormatter.getInstance().formatAsHtmlUnorderedList(parentRelations));
-        
+
         if (!ConditionalOptionPaneUtil.showConfirmationDialog(
                 "combine_tags",
                 Main.parent,
@@ -584,7 +601,7 @@ public class CombinePrimitiveResolverDialog extends JDialog {
                 + "If you want to continue, you are shown a dialog to fix the conflicting tags.<br/><br/>"
                 + "Do you want to continue?",
                 primitives.size(), conflicts);
-        
+
         if (!ConditionalOptionPaneUtil.showConfirmationDialog(
                 "combine_tags",
                 Main.parent,

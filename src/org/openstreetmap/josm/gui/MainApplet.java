@@ -21,13 +21,13 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JPasswordField;
-import javax.swing.JTextField;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.actions.JosmAction;
 import org.openstreetmap.josm.data.ServerSidePreferences;
 import org.openstreetmap.josm.gui.MainApplication.Option;
+import org.openstreetmap.josm.gui.widgets.JosmPasswordField;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.I18n;
 import org.openstreetmap.josm.tools.Shortcut;
@@ -39,17 +39,20 @@ public class MainApplet extends JApplet {
     public static final class UploadPreferencesAction extends JosmAction {
         public UploadPreferencesAction() {
             super(tr("Upload Preferences"), "upload-preferences", tr("Upload the current preferences to the server"),
-                    Shortcut.registerShortcut("applet:uploadprefs", tr("Upload Preferences"), KeyEvent.VK_U, Shortcut.ALT_CTRL_SHIFT), true);
+                    Shortcut.registerShortcut("applet:uploadprefs", tr("Upload Preferences"), KeyEvent.CHAR_UNDEFINED, Shortcut.NONE), true);
         }
+        @Override
         public void actionPerformed(ActionEvent e) {
             ((ServerSidePreferences)Main.pref).upload();
         }
     }
 
     private final class MainCaller extends Main {
-        private MainCaller() {
+        private MainCaller(Map<Option, Collection<String>> mapargs) {
+            addListener();
             setContentPane(contentPanePrivate);
             setJMenuBar(menu);
+            postConstructorProcessCmdLine(mapargs);
         }
     }
 
@@ -98,6 +101,7 @@ public class MainApplet extends JApplet {
 
         String lang = getParameter("language");
         I18n.set(lang != null ? lang : Main.pref.get("language", null));
+        Main.pref.updateSystemProperties();
 
         try
         {
@@ -109,10 +113,10 @@ public class MainApplet extends JApplet {
                 JPanel p = new JPanel(new GridBagLayout());
                 p.add(new JLabel(tr(e.realm)), GBC.eol().fill(GBC.HORIZONTAL));
                 p.add(new JLabel(tr("Username")), GBC.std().insets(0,0,20,0));
-                JTextField user = new JTextField(username == null ? "" : username);
+                JosmTextField user = new JosmTextField(username == null ? "" : username);
                 p.add(user, GBC.eol().fill(GBC.HORIZONTAL));
                 p.add(new JLabel(tr("Password")), GBC.std().insets(0,0,20,0));
-                JPasswordField pass = new JPasswordField(password == null ? "" : password);
+                JosmPasswordField pass = new JosmPasswordField(password == null ? "" : password);
                 p.add(pass, GBC.eol().fill(GBC.HORIZONTAL));
                 JOptionPane.showMessageDialog(null, p);
                 username = user.getText();
@@ -128,10 +132,10 @@ public class MainApplet extends JApplet {
         }
 
         Main.preConstructorInit(Option.fromStringMap(args));
+        Main.pref.updateSystemProperties();
         Main.parent = frame;
-        Main.addListener();
 
-        new MainCaller().postConstructorProcessCmdLine(Option.fromStringMap(args));
+        new MainCaller(Option.fromStringMap(args));
 
         MainMenu m = Main.main.menu; // shortcut
 
@@ -160,14 +164,17 @@ public class MainApplet extends JApplet {
         MainApplet applet = new MainApplet();
         Main.pref = new ServerSidePreferences(applet.getCodeBase());
         applet.setStub(new AppletStub() {
+            @Override
             public void appletResize(int w, int h) {
                 frame.setSize(w, h);
             }
 
+            @Override
             public AppletContext getAppletContext() {
                 return null;
             }
 
+            @Override
             public URL getCodeBase() {
                 try {
                     return new File(".").toURI().toURL();
@@ -177,14 +184,17 @@ public class MainApplet extends JApplet {
                 }
             }
 
+            @Override
             public URL getDocumentBase() {
                 return getCodeBase();
             }
 
+            @Override
             public String getParameter(String k) {
                 return null;
             }
 
+            @Override
             public boolean isActive() {
                 return true;
             }

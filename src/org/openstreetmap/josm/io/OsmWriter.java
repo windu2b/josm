@@ -39,6 +39,7 @@ public class OsmWriter extends XmlWriter implements PrimitiveVisitor {
 
     private boolean osmConform;
     private boolean withBody = true;
+    private boolean isOsmChange;
     private String version;
     private Changeset changeset;
 
@@ -54,6 +55,11 @@ public class OsmWriter extends XmlWriter implements PrimitiveVisitor {
     public void setWithBody(boolean wb) {
         this.withBody = wb;
     }
+
+    public void setIsOsmChange(boolean isOsmChange) {
+        this.isOsmChange = isOsmChange;
+    }
+
     public void setChangeset(Changeset cs) {
         this.changeset = cs;
     }
@@ -64,6 +70,7 @@ public class OsmWriter extends XmlWriter implements PrimitiveVisitor {
     public void header() {
         header(null);
     }
+
     public void header(Boolean upload) {
         out.println("<?xml version='1.0' encoding='UTF-8'?>");
         out.print("<osm version='");
@@ -74,6 +81,7 @@ public class OsmWriter extends XmlWriter implements PrimitiveVisitor {
         }
         out.println("' generator='JOSM'>");
     }
+
     public void footer() {
         out.println("</osm>");
     }
@@ -84,13 +92,13 @@ public class OsmWriter extends XmlWriter implements PrimitiveVisitor {
         }
     };
 
-    protected Collection<OsmPrimitive> sortById(Collection<? extends OsmPrimitive> primitives) {
-        List<OsmPrimitive> result = new ArrayList<OsmPrimitive>(primitives.size());
+    protected <T extends OsmPrimitive> Collection<T> sortById(Collection<T> primitives) {
+        List<T> result = new ArrayList<T>(primitives.size());
         result.addAll(primitives);
         Collections.sort(result, byIdComparator);
         return result;
     }
-    
+
     public void writeLayer(OsmDataLayer layer) {
         header(!layer.isUploadDiscouraged());
         writeDataSources(layer.data);
@@ -98,20 +106,51 @@ public class OsmWriter extends XmlWriter implements PrimitiveVisitor {
         footer();
     }
 
+    /**
+     * Writes the contents of the given dataset (nodes, then ways, then relations)
+     * @param ds The dataset to write
+     */
     public void writeContent(DataSet ds) {
-        for (OsmPrimitive n : sortById(ds.getNodes())) {
+        writeNodes(ds.getNodes());
+        writeWays(ds.getWays());
+        writeRelations(ds.getRelations());
+    }
+
+    /**
+     * Writes the given nodes sorted by id
+     * @param nodes The nodes to write
+     * @since 5737
+     */
+    public void writeNodes(Collection<Node> nodes) {
+        for (Node n : sortById(nodes)) {
             if (shouldWrite(n)) {
-                visit((Node)n);
+                visit(n);
             }
         }
-        for (OsmPrimitive w : sortById(ds.getWays())) {
+    }
+
+    /**
+     * Writes the given ways sorted by id
+     * @param ways The ways to write
+     * @since 5737
+     */
+    public void writeWays(Collection<Way> ways) {
+        for (Way w : sortById(ways)) {
             if (shouldWrite(w)) {
-                visit((Way)w);
+                visit(w);
             }
         }
-        for (OsmPrimitive e: sortById(ds.getRelations())) {
-            if (shouldWrite(e)) {
-                visit((Relation)e);
+    }
+
+    /**
+     * Writes the given relations sorted by id
+     * @param relations The relations to write
+     * @since 5737
+     */
+    public void writeRelations(Collection<Relation> relations) {
+        for (Relation r : sortById(relations)) {
+            if (shouldWrite(r)) {
+                visit(r);
             }
         }
     }
@@ -135,12 +174,12 @@ public class OsmWriter extends XmlWriter implements PrimitiveVisitor {
     public void visit(INode n) {
         if (n.isIncomplete()) return;
         addCommon(n, "node");
-        if (n.getCoor() != null) { 
-            out.print(" lat='"+n.getCoor().lat()+"' lon='"+n.getCoor().lon()+"'");
-        } 
         if (!withBody) {
             out.println("/>");
         } else {
+            if (n.getCoor() != null) {
+                out.print(" lat='"+n.getCoor().lat()+"' lon='"+n.getCoor().lon()+"'");
+            }
             addTags(n, "node", true);
         }
     }
@@ -239,31 +278,33 @@ public class OsmWriter extends XmlWriter implements PrimitiveVisitor {
             out.print(" id='"+ osm.getUniqueId()+"'");
         } else
             throw new IllegalStateException(tr("Unexpected id 0 for osm primitive found"));
-        if (!osmConform) {
-            String action = null;
-            if (osm.isDeleted()) {
-                action = "delete";
-            } else if (osm.isModified()) {
-                action = "modify";
+        if (!isOsmChange) {
+            if (!osmConform) {
+                String action = null;
+                if (osm.isDeleted()) {
+                    action = "delete";
+                } else if (osm.isModified()) {
+                    action = "modify";
+                }
+                if (action != null) {
+                    out.print(" action='"+action+"'");
+                }
             }
-            if (action != null) {
-                out.print(" action='"+action+"'");
+            if (!osm.isTimestampEmpty()) {
+                out.print(" timestamp='"+DateUtils.fromDate(osm.getTimestamp())+"'");
             }
-        }
-        if (!osm.isTimestampEmpty()) {
-            out.print(" timestamp='"+DateUtils.fromDate(osm.getTimestamp())+"'");
-        }
-        // user and visible added with 0.4 API
-        if (osm.getUser() != null) {
-            if(osm.getUser().isLocalUser()) {
-                out.print(" user='"+XmlWriter.encode(osm.getUser().getName())+"'");
-            } else if (osm.getUser().isOsmUser()) {
-                // uid added with 0.6
-                out.print(" uid='"+ osm.getUser().getId()+"'");
-                out.print(" user='"+XmlWriter.encode(osm.getUser().getName())+"'");
+            // user and visible added with 0.4 API
+            if (osm.getUser() != null) {
+                if(osm.getUser().isLocalUser()) {
+                    out.print(" user='"+XmlWriter.encode(osm.getUser().getName())+"'");
+                } else if (osm.getUser().isOsmUser()) {
+                    // uid added with 0.6
+                    out.print(" uid='"+ osm.getUser().getId()+"'");
+                    out.print(" user='"+XmlWriter.encode(osm.getUser().getName())+"'");
+                }
             }
+            out.print(" visible='"+osm.isVisible()+"'");
         }
-        out.print(" visible='"+osm.isVisible()+"'");
         if (osm.getVersion() != 0) {
             out.print(" version='"+osm.getVersion()+"'");
         }
@@ -272,14 +313,5 @@ public class OsmWriter extends XmlWriter implements PrimitiveVisitor {
         } else if (osm.getChangesetId() > 0 && !osm.isNew()) {
             out.print(" changeset='"+osm.getChangesetId()+"'" );
         }
-    }
-
-    public void close() {
-        out.close();
-    }
-
-    @Override
-    public void flush() {
-        out.flush();
     }
 }

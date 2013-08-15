@@ -13,7 +13,6 @@ import java.util.Set;
 
 import org.openstreetmap.josm.data.osm.DataSet;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
-import org.openstreetmap.josm.data.osm.OsmUtils;
 import org.openstreetmap.josm.data.osm.Relation;
 import org.openstreetmap.josm.data.osm.RelationMember;
 import org.openstreetmap.josm.data.osm.event.AbstractDatasetChangedEvent;
@@ -26,6 +25,8 @@ import org.openstreetmap.josm.data.osm.event.RelationMembersChangedEvent;
 import org.openstreetmap.josm.data.osm.event.TagsChangedEvent;
 import org.openstreetmap.josm.data.osm.event.WayNodesChangedEvent;
 import org.openstreetmap.josm.gui.tagging.TaggingPreset;
+import org.openstreetmap.josm.gui.tagging.TaggingPresetItem;
+import org.openstreetmap.josm.gui.tagging.TaggingPresetItems;
 import org.openstreetmap.josm.tools.MultiMap;
 
 /**
@@ -147,16 +148,19 @@ public class AutoCompletionManager implements DataSetListener {
      */
     public static void cachePresets(Collection<TaggingPreset> presets) {
         for (final TaggingPreset p : presets) {
-            for (TaggingPreset.Item item : p.data) {
-                if (item instanceof TaggingPreset.KeyedItem) {
-                    TaggingPreset.KeyedItem ki = (TaggingPreset.KeyedItem) item;
-                    if (ki.key == null) {
-                        continue;
+            for (TaggingPresetItem item : p.data) {
+                if (item instanceof TaggingPresetItems.KeyedItem) {
+                    TaggingPresetItems.KeyedItem ki = (TaggingPresetItems.KeyedItem) item;
+                    if (ki.key != null && ki.getValues() != null) {
+                        try {
+                            presetTagCache.putAll(ki.key, ki.getValues());
+                        } catch (NullPointerException e) {
+                            System.err.println(p+": Unable to cache "+ki);
+                        }
                     }
-                    presetTagCache.putAll(ki.key, ki.getValues());
-                } else if (item instanceof TaggingPreset.Roles) {
-                    TaggingPreset.Roles r = (TaggingPreset.Roles) item;
-                    for (TaggingPreset.Role i : r.roles) {
+                } else if (item instanceof TaggingPresetItems.Roles) {
+                    TaggingPresetItems.Roles r = (TaggingPresetItems.Roles) item;
+                    for (TaggingPresetItems.Role i : r.roles) {
                         if (i.key != null) {
                             presetRoleCache.add(i.key);
                         }
@@ -285,16 +289,19 @@ public class AutoCompletionManager implements DataSetListener {
      *
      **/
 
+    @Override
     public void primitivesAdded(PrimitivesAddedEvent event) {
         if (dirty)
             return;
         cachePrimitives(event.getPrimitives());
     }
 
+    @Override
     public void primitivesRemoved(PrimitivesRemovedEvent event) {
         dirty = true;
     }
 
+    @Override
     public void tagsChanged(TagsChangedEvent event) {
         if (dirty)
             return;
@@ -316,16 +323,21 @@ public class AutoCompletionManager implements DataSetListener {
         }
     }
 
+    @Override
     public void nodeMoved(NodeMovedEvent event) {/* ignored */}
 
+    @Override
     public void wayNodesChanged(WayNodesChangedEvent event) {/* ignored */}
 
+    @Override
     public void relationMembersChanged(RelationMembersChangedEvent event) {
         dirty = true; // TODO: not necessary to rebuid if a member is added
     }
 
+    @Override
     public void otherDatasetChange(AbstractDatasetChangedEvent event) {/* ignored */}
 
+    @Override
     public void dataChanged(DataChangedEvent event) {
         dirty = true;
     }

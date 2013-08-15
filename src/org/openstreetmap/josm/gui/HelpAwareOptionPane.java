@@ -10,12 +10,25 @@ import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 
-import javax.swing.*;
+import javax.swing.AbstractAction;
+import javax.swing.Action;
+import javax.swing.Icon;
+import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JDialog;
+import javax.swing.JOptionPane;
+import javax.swing.KeyStroke;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 
 import org.openstreetmap.josm.gui.help.HelpBrowser;
 import org.openstreetmap.josm.gui.help.HelpUtil;
+import org.openstreetmap.josm.gui.util.GuiHelper;
+import org.openstreetmap.josm.gui.widgets.JosmEditorPane;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.InputMapUtils;
 import org.openstreetmap.josm.tools.WindowGeometry;
@@ -23,23 +36,68 @@ import org.openstreetmap.josm.tools.WindowGeometry;
 public class HelpAwareOptionPane {
 
     public static class ButtonSpec {
-        public String text;
-        public Icon icon;
-        public String tooltipText;
-        public String helpTopic;
+        public final String text;
+        public final Icon icon;
+        public final String tooltipText;
+        public final String helpTopic;
+        private boolean enabled;
+
+        private final Collection<ChangeListener> listeners = new HashSet<ChangeListener>();
 
         /**
-         *
-         * @param text  the button text
-         * @param icon  the icon to display. Can be null
-         * @param tooltipText  the tooltip text. Can be null.
+         * Constructs a new {@code ButtonSpec}.
+         * @param text the button text
+         * @param icon the icon to display. Can be null
+         * @param tooltipText the tooltip text. Can be null.
          * @param helpTopic the help topic. Can be null.
          */
         public ButtonSpec(String text, Icon icon, String tooltipText, String helpTopic) {
+            this(text, icon, tooltipText, helpTopic, true);
+        }
+
+        /**
+         * Constructs a new {@code ButtonSpec}.
+         * @param text the button text
+         * @param icon the icon to display. Can be null
+         * @param tooltipText the tooltip text. Can be null.
+         * @param helpTopic the help topic. Can be null.
+         * @param enabled the enabled status
+         * @since 5951
+         */
+        public ButtonSpec(String text, Icon icon, String tooltipText, String helpTopic, boolean enabled) {
             this.text = text;
             this.icon = icon;
             this.tooltipText = tooltipText;
             this.helpTopic = helpTopic;
+            setEnabled(enabled);
+        }
+
+        /**
+         * Determines if this button spec is enabled
+         * @return {@code true} if this button spec is enabled, {@code false} otherwise
+         * @since 6051
+         */
+        public final boolean isEnabled() {
+            return enabled;
+        }
+
+        /**
+         * Enables or disables this button spec, depending on the value of the parameter {@code b}.
+         * @param enabled if {@code true}, this button spec is enabled; otherwise this button spec is disabled
+         * @since 6051
+         */
+        public final void setEnabled(boolean enabled) {
+            if (this.enabled != enabled) {
+                this.enabled = enabled;
+                ChangeEvent event = new ChangeEvent(this);
+                for (ChangeListener listener : listeners) {
+                    listener.stateChanged(event);
+                }
+            }
+        }
+
+        private final boolean addChangeListener(ChangeListener listener) {
+            return listener != null ? listeners.add(listener) : false;
         }
     }
 
@@ -54,6 +112,7 @@ public class HelpAwareOptionPane {
             this.value = value;
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             pane.setValue(value);
             dialog.setVisible(false);
@@ -77,14 +136,20 @@ public class HelpAwareOptionPane {
             b.setFocusable(true);
             buttons.add(b);
         } else {
-            for (ButtonSpec spec: options) {
-                JButton b = new JButton(spec.text);
+            for (final ButtonSpec spec: options) {
+                final JButton b = new JButton(spec.text);
                 b.setIcon(spec.icon);
                 b.setToolTipText(spec.tooltipText == null? "" : spec.tooltipText);
                 if (helpTopic != null) {
                     HelpUtil.setHelpContext(b, helpTopic);
                 }
                 b.setFocusable(true);
+                b.setEnabled(spec.isEnabled());
+                spec.addChangeListener(new ChangeListener() {
+                    @Override public void stateChanged(ChangeEvent e) {
+                        b.setEnabled(spec.isEnabled());
+                    }
+                });
                 buttons.add(b);
             }
         }
@@ -103,6 +168,7 @@ public class HelpAwareOptionPane {
         b.setToolTipText(tr("Show help information"));
         HelpUtil.setHelpContext(b, helpTopic);
         Action a = new AbstractAction() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 HelpBrowser.setUrlForHelpTopic(helpTopic);
             }
@@ -157,9 +223,7 @@ public class HelpAwareOptionPane {
         }
 
         if (msg instanceof String) {
-            JEditorPane pane = new JEditorPane();
-            pane.setContentType("text/html");
-            pane.setText((String) msg);
+            JosmEditorPane pane = new JosmEditorPane("text/html", (String) msg);
             pane.setEditable(false);
             pane.setOpaque(false);
             msg = pane;
@@ -208,6 +272,7 @@ public class HelpAwareOptionPane {
         });
         dialog.getRootPane().getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE,0), "close");
         dialog.getRootPane().getActionMap().put("close", new AbstractAction() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 pane.setValue(JOptionPane.CLOSED_OPTION);
                 dialog.setVisible(false);
@@ -238,13 +303,14 @@ public class HelpAwareOptionPane {
     }
 
     /**
+     * Displays an option dialog which is aware of a help context.
      *
-     * @param parentComponent
-     * @param msg
-     * @param title
-     * @param messageType
-     * @param helpTopic
-     * @return
+     * @param parentComponent the parent component
+     * @param msg the message
+     * @param title the title
+     * @param messageType the message type (see {@link JOptionPane})
+     * @param helpTopic the help topic. Can be null.
+     * @return the index of the selected option or {@link JOptionPane#CLOSED_OPTION}
      * @see #showOptionDialog(Component, Object, String, int, Icon, ButtonSpec[], ButtonSpec, String)
      */
     static public int showOptionDialog(Component parentComponent, Object msg, String title, int messageType,final String helpTopic)  {
@@ -259,7 +325,8 @@ public class HelpAwareOptionPane {
      * e.g. from PleaseWaitRunnable
      */
     static public void showMessageDialogInEDT(final Component parentComponent, final Object msg, final String title, final int messageType, final String helpTopic)  {
-        SwingUtilities.invokeLater(new Runnable() {
+        GuiHelper.runInEDT(new Runnable() {
+            @Override
             public void run() {
                 showOptionDialog(parentComponent, msg, title, messageType, null, null, null, helpTopic);
             }

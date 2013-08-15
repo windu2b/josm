@@ -46,7 +46,7 @@ public class MergeLayerAction extends AbstractMergeAction {
                             }
                         }
                         targetLayer.mergeFrom(sourceLayer);
-                        Main.map.mapView.removeLayer(sourceLayer);
+                        Main.main.removeLayer(sourceLayer);
                         layerMerged = true;
                     }
                 }
@@ -56,7 +56,7 @@ public class MergeLayerAction extends AbstractMergeAction {
             }
         });
     }
-    
+
     public void merge(List<Layer> sourceLayers) {
         doMerge(sourceLayers, sourceLayers);
     }
@@ -72,6 +72,7 @@ public class MergeLayerAction extends AbstractMergeAction {
         doMerge(targetLayers, Collections.singleton(sourceLayer));
     }
 
+    @Override
     public void actionPerformed(ActionEvent e) {
         Layer sourceLayer = Main.main.getEditLayer();
         if (sourceLayer == null)
@@ -92,7 +93,7 @@ public class MergeLayerAction extends AbstractMergeAction {
             }
         });
     }
-    
+
     /**
      * returns true if the user wants to cancel, false if they want to continue
      */

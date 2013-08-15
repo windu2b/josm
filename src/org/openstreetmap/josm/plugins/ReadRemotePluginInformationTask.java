@@ -27,7 +27,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.openstreetmap.josm.Main;
-import org.openstreetmap.josm.data.Version;
 import org.openstreetmap.josm.gui.PleaseWaitRunnable;
 import org.openstreetmap.josm.gui.progress.NullProgressMonitor;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
@@ -161,10 +160,8 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable{
 
             URL url = new URL(site);
             synchronized(this) {
-                connection = (HttpURLConnection)url.openConnection();
+                connection = Utils.openHttpConnection(url);
                 connection.setRequestProperty("Cache-Control", "no-cache");
-                connection.setRequestProperty("User-Agent",Version.getInstance().getAgentString());
-                connection.setRequestProperty("Host", url.getHost());
                 connection.setRequestProperty("Accept-Charset", "utf-8");
             }
             in = new BufferedReader(new InputStreamReader(connection.getInputStream(), "UTF-8"));
@@ -210,10 +207,8 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable{
 
             URL url = new URL(site);
             synchronized(this) {
-                connection = (HttpURLConnection)url.openConnection();
+                connection = Utils.openHttpConnection(url);
                 connection.setRequestProperty("Cache-Control", "no-cache");
-                connection.setRequestProperty("User-Agent",Version.getInstance().getAgentString());
-                connection.setRequestProperty("Host", url.getHost());
             }
             in = connection.getInputStream();
             out = new FileOutputStream(destFile);
@@ -221,8 +216,6 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable{
             for (int read = in.read(buffer); read != -1; read = in.read(buffer)) {
                 out.write(buffer, 0, read);
             }
-            out.close();
-            in.close();
         } catch(MalformedURLException e) {
             if (canceled) return;
             e.printStackTrace();
@@ -232,6 +225,7 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable{
             e.printStackTrace();
             return;
         } finally {
+            Utils.close(out);
             synchronized(this) {
                 if (connection != null) {
                     connection.disconnect();
@@ -277,7 +271,7 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable{
         } finally {
             if (writer != null) {
                 writer.flush();
-                writer.close();
+                Utils.close(writer);
             }
         }
     }
@@ -336,6 +330,7 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable{
         for (String location : PluginInformation.getPluginLocations()) {
             File [] f = new File(location).listFiles(
                     new FilenameFilter() {
+                        @Override
                         public boolean accept(File dir, String name) {
                             return name.matches("^([0-9]+-)?site.*\\.txt$") ||
                             name.matches("^([0-9]+-)?site.*-icons\\.zip$");
@@ -375,7 +370,7 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable{
 
     /**
      * Replies true if the task was canceled
-     * @return
+     * @return <code>true</code> if the task was stopped by the user
      */
     public boolean isCanceled() {
         return canceled;
@@ -385,8 +380,9 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable{
      * Replies the list of plugins described in the downloaded plugin lists
      *
      * @return  the list of plugins
+     * @since 5601
      */
-    public List<PluginInformation> getAvailabePlugins() {
+    public List<PluginInformation> getAvailablePlugins() {
         return availablePlugins;
     }
 }

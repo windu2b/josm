@@ -20,13 +20,13 @@ import org.openstreetmap.josm.tools.CheckParameterUtil;
 public class OAuthParameters {
 
     /**
-     * The default JOSM OAuth consumer key.
+     * The default JOSM OAuth consumer key (created by user josmeditor).
      */
-    static public final String DEFAULT_JOSM_CONSUMER_KEY = "AdCRxTpvnbmfV8aPqrTLyA";
+    static public final String DEFAULT_JOSM_CONSUMER_KEY = "F7zPYlVCqE2BUH9Hr4SsWZSOnrKjpug1EgqkbsSb";
     /**
-     * The default JOSM OAuth consumer secret.
+     * The default JOSM OAuth consumer secret (created by user josmeditor).
      */
-    static public final String DEFAULT_JOSM_CONSUMER_SECRET = "XmYOiGY9hApytcBC3xCec3e28QBqOWz5g6DSb5UpE";
+    static public final String DEFAULT_JOSM_CONSUMER_SECRET = "rIkjpPcBNkMQxrqzcOvOC4RRuYupYr7k8mfP13H5";
     /**
      * The default OSM OAuth request token URL.
      */
@@ -55,7 +55,7 @@ public class OAuthParameters {
      * Replies a set of default parameters for a consumer accessing an OSM server
      * at the given API url. URL parameters are only set if the URL equals {@link OsmApi#DEFAULT_API_URL}
      * or references the domain "dev.openstreetmap.org", otherwise they may be <code>null</code>.
-     * 
+     *
      * @param apiUrl The API URL for which the OAuth default parameters are created. If null or empty, the default OSM API url is used.
      * @return a set of default parameters for the given {@code apiUrl}
      * @since 5422
@@ -64,11 +64,10 @@ public class OAuthParameters {
         OAuthParameters parameters = new OAuthParameters();
         parameters.setConsumerKey(DEFAULT_JOSM_CONSUMER_KEY);
         parameters.setConsumerSecret(DEFAULT_JOSM_CONSUMER_SECRET);
-        if (apiUrl == null || apiUrl.isEmpty() || apiUrl.equals(OsmApi.DEFAULT_API_URL)) {
-            parameters.setRequestTokenUrl(DEFAULT_REQUEST_TOKEN_URL);
-            parameters.setAccessTokenUrl(DEFAULT_ACCESS_TOKEN_URL);
-            parameters.setAuthoriseUrl(DEFAULT_AUTHORISE_URL);
-        } else {
+        parameters.setRequestTokenUrl(DEFAULT_REQUEST_TOKEN_URL);
+        parameters.setAccessTokenUrl(DEFAULT_ACCESS_TOKEN_URL);
+        parameters.setAuthoriseUrl(DEFAULT_AUTHORISE_URL);
+        if(!apiUrl.equals(OsmApi.DEFAULT_API_URL)) {
             try {
                 String host = new URL(apiUrl).getHost();
                 if (host.endsWith("dev.openstreetmap.org")) {
@@ -90,30 +89,13 @@ public class OAuthParameters {
      * @return the parameters
      */
     static public OAuthParameters createFromPreferences(Preferences pref) {
-        boolean useDefault = pref.getBoolean("oauth.settings.use-default", true );
-        if (useDefault)
-            return createDefault(pref.get("osm-server.url"));
-        OAuthParameters parameters = new OAuthParameters();
-        parameters.setConsumerKey(pref.get("oauth.settings.consumer-key", ""));
-        parameters.setConsumerSecret(pref.get("oauth.settings.consumer-secret", ""));
-        parameters.setRequestTokenUrl(pref.get("oauth.settings.request-token-url", ""));
-        parameters.setAccessTokenUrl(pref.get("oauth.settings.access-token-url", ""));
-        parameters.setAuthoriseUrl(pref.get("oauth.settings.authorise-url", ""));
+        OAuthParameters parameters = createDefault(pref.get("osm-server.url"));
+        parameters.setConsumerKey(pref.get("oauth.settings.consumer-key", parameters.getConsumerKey()));
+        parameters.setConsumerSecret(pref.get("oauth.settings.consumer-secret", parameters.getConsumerSecret()));
+        parameters.setRequestTokenUrl(pref.get("oauth.settings.request-token-url", parameters.getRequestTokenUrl()));
+        parameters.setAccessTokenUrl(pref.get("oauth.settings.access-token-url", parameters.getAccessTokenUrl()));
+        parameters.setAuthoriseUrl(pref.get("oauth.settings.authorise-url", parameters.getAuthoriseUrl()));
         return parameters;
-    }
-
-    /**
-     * Clears the preferences for OAuth parameters
-     *
-     * @param pref the preferences in which keys related to OAuth parameters are
-     * removed
-     */
-    static public void clearPreferences(Preferences pref) {
-        pref.put("oauth.settings.consumer-key", null);
-        pref.put("oauth.settings.consumer-secret", null);
-        pref.put("oauth.settings.request-token-url", null);
-        pref.put("oauth.settings.access-token-url", null);
-        pref.put("oauth.settings.authorise-url", null);
     }
 
     private String consumerKey;
@@ -124,7 +106,7 @@ public class OAuthParameters {
 
     /**
      * Constructs a new, unitialized, {@code OAuthParameters}.
-     * 
+     *
      * @see #createDefault
      * @see #createFromPreferences
      */
@@ -153,7 +135,7 @@ public class OAuthParameters {
     public String getConsumerKey() {
         return consumerKey;
     }
-    
+
     /**
      * Sets the consumer key.
      * @param consumerKey The consumer key
@@ -161,15 +143,15 @@ public class OAuthParameters {
     public void setConsumerKey(String consumerKey) {
         this.consumerKey = consumerKey;
     }
-    
+
     /**
-     * Gets the consumer secret. 
+     * Gets the consumer secret.
      * @return The consumer secret
      */
     public String getConsumerSecret() {
         return consumerSecret;
     }
-    
+
     /**
      * Sets the consumer secret.
      * @param consumerSecret The consumer secret
@@ -177,7 +159,7 @@ public class OAuthParameters {
     public void setConsumerSecret(String consumerSecret) {
         this.consumerSecret = consumerSecret;
     }
-    
+
     /**
      * Gets the request token URL.
      * @return The request token URL
@@ -185,7 +167,7 @@ public class OAuthParameters {
     public String getRequestTokenUrl() {
         return requestTokenUrl;
     }
-    
+
     /**
      * Sets the request token URL.
      * @param requestTokenUrl the request token URL
@@ -193,7 +175,7 @@ public class OAuthParameters {
     public void setRequestTokenUrl(String requestTokenUrl) {
         this.requestTokenUrl = requestTokenUrl;
     }
-    
+
     /**
      * Gets the access token URL.
      * @return The access token URL
@@ -201,7 +183,7 @@ public class OAuthParameters {
     public String getAccessTokenUrl() {
         return accessTokenUrl;
     }
-    
+
     /**
      * Sets the access token URL.
      * @param accessTokenUrl The access token URL
@@ -209,7 +191,7 @@ public class OAuthParameters {
     public void setAccessTokenUrl(String accessTokenUrl) {
         this.accessTokenUrl = accessTokenUrl;
     }
-    
+
     /**
      * Gets the authorise URL.
      * @return The authorise URL
@@ -217,7 +199,7 @@ public class OAuthParameters {
     public String getAuthoriseUrl() {
         return authoriseUrl;
     }
-    
+
     /**
      * Sets the authorise URL.
      * @param authoriseUrl The authorise URL
@@ -256,12 +238,6 @@ public class OAuthParameters {
      * @param pref The Preferences into which are saved these OAuth parameters with the prefix "oauth.settings"
      */
     public void saveToPreferences(Preferences pref) {
-        if (this.equals(createDefault(pref.get("osm-server.url")))) {
-            pref.put("oauth.settings.use-default", true );
-            clearPreferences(pref);
-            return;
-        }
-        pref.put("oauth.settings.use-default", false);
         pref.put("oauth.settings.consumer-key", consumerKey);
         pref.put("oauth.settings.consumer-secret", consumerSecret);
         pref.put("oauth.settings.request-token-url", requestTokenUrl);

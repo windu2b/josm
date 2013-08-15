@@ -54,12 +54,12 @@ import org.openstreetmap.josm.tools.CheckParameterUtil;
  *
  * A ListMergeModel can be ''frozen''. If it's frozen, it doesn't accept additional merge
  * decisions. {@link PropertyChangeListener}s can register for property value changes of
- * {@link #PROP_FROZEN}.
+ * {@link #FROZEN_PROP}.
  *
  * ListMergeModel is an abstract class. Three methods have to be implemented by subclasses:
  * <ul>
- *   <li>{@link ListMergeModel#cloneEntryForMergedList(Object)} - clones an entry of type T</li>
- *   <li>{@link ListMergeModel#isEqualEntry(Object, Object)} - checks whether two entries are equals </li>
+ *   <li>{@link ListMergeModel#cloneEntryForMergedList} - clones an entry of type T</li>
+ *   <li>{@link ListMergeModel#isEqualEntry} - checks whether two entries are equals </li>
  *   <li>{@link ListMergeModel#setValueAt(DefaultTableModel, Object, int, int)} - handles values edited in
  *     a JTable, dispatched from {@link TableModel#setValueAt(Object, int, int)} </li>
  * </ul>
@@ -86,7 +86,7 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
     private final List<PropertyChangeListener> listeners;
     private boolean isFrozen = false;
     private final ComparePairListModel comparePairListModel;
-    
+
     private DataSet myDataset;
     private Map<PrimitiveId, PrimitiveId> mergedMap;
 
@@ -129,7 +129,7 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
     public OsmPrimitive getMyPrimitive(T entry) {
         return getMyPrimitiveById(entry);
     }
-    
+
     public final OsmPrimitive getMyPrimitiveById(PrimitiveId entry) {
         OsmPrimitive result = myDataset.getPrimitiveById(entry);
         if (result == null && mergedMap != null) {
@@ -335,7 +335,7 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
         getMergedEntries().clear();
         fireModelDataChanged();
     }
-    
+
     protected final void initPopulate(OsmPrimitive my, OsmPrimitive their, Map<PrimitiveId, PrimitiveId> mergedMap) {
         CheckParameterUtil.ensureParameterNotNull(my, "my");
         CheckParameterUtil.ensureParameterNotNull(their, "their");
@@ -585,7 +585,6 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
      *
      * From the point of view of the {@link JTable} it is a {@link TableModel}.
      *
-     * @param <T>
      * @see ListMergeModel#getMyTableModel()
      * @see ListMergeModel#getTheirTableModel()
      * @see ListMergeModel#getMergedTableModel()
@@ -842,20 +841,24 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
             selectedIdx = 0;
         }
 
+        @Override
         public Object getElementAt(int index) {
             if (index < compareModes.size())
                 return compareModes.get(index);
             throw new IllegalArgumentException(tr("Unexpected value of parameter ''index''. Got {0}.", index));
         }
 
+        @Override
         public int getSize() {
             return compareModes.size();
         }
 
+        @Override
         public Object getSelectedItem() {
             return compareModes.get(selectedIdx);
         }
 
+        @Override
         public void setSelectedItem(Object anItem) {
             int i = compareModes.indexOf(anItem);
             if (i < 0)

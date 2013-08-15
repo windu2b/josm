@@ -169,7 +169,7 @@ public class UploadSelectionDialog extends JDialog {
                             new Dimension(200,400)
                     )
             ).applySafe(this);
-        } else if (!visible && isShowing()){
+        } else if (isShowing()) { // Avoid IllegalComponentStateException like in #8775
             new WindowGeometry(this).remember(getClass().getName() + ".geometry");
         }
         super.setVisible(visible);
@@ -209,6 +209,7 @@ public class UploadSelectionDialog extends JDialog {
                     data,
                     new Comparator<OsmPrimitive>() {
                         private DefaultNameFormatter formatter = DefaultNameFormatter.getInstance();
+                        @Override
                         public int compare(OsmPrimitive o1, OsmPrimitive o2) {
                             int ret = OsmPrimitiveType.from(o1).compareTo(OsmPrimitiveType.from(o2));
                             if (ret != 0) return ret;
@@ -232,12 +233,14 @@ public class UploadSelectionDialog extends JDialog {
             }
         }
 
+        @Override
         public Object getElementAt(int index) {
             if (data == null)
                 return null;
             return data.get(index);
         }
 
+        @Override
         public int getSize() {
             if (data == null)
                 return 0;
@@ -263,12 +266,13 @@ public class UploadSelectionDialog extends JDialog {
             putValue(Action.SHORT_DESCRIPTION, tr("Cancel uploading"));
             putValue(Action.NAME, tr("Cancel"));
             putValue(Action.SMALL_ICON, ImageProvider.get("", "cancel"));
-            getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW) 
-            .put(KeyStroke.getKeyStroke("ESCAPE"), "ESCAPE"); 
+            getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+            .put(KeyStroke.getKeyStroke("ESCAPE"), "ESCAPE");
             getRootPane().getActionMap().put("ESCAPE", this);
             setEnabled(true);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             setCanceled(true);
             setVisible(false);
@@ -283,6 +287,7 @@ public class UploadSelectionDialog extends JDialog {
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             setCanceled(false);
             setVisible(false);
@@ -293,6 +298,7 @@ public class UploadSelectionDialog extends JDialog {
                     || lstDeletedPrimitives.getSelectedIndex() >= 0);
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }

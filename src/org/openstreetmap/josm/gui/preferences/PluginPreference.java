@@ -29,7 +29,6 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
-import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.event.DocumentEvent;
@@ -44,6 +43,7 @@ import org.openstreetmap.josm.gui.preferences.PreferenceTabbedPane.PreferencePan
 import org.openstreetmap.josm.gui.preferences.plugin.PluginListPanel;
 import org.openstreetmap.josm.gui.preferences.plugin.PluginPreferencesModel;
 import org.openstreetmap.josm.gui.preferences.plugin.PluginUpdatePolicyPanel;
+import org.openstreetmap.josm.gui.util.GuiHelper;
 import org.openstreetmap.josm.gui.widgets.SelectAllOnFocusGainedDecorator;
 import org.openstreetmap.josm.plugins.PluginDownloadTask;
 import org.openstreetmap.josm.plugins.PluginInformation;
@@ -51,16 +51,18 @@ import org.openstreetmap.josm.plugins.ReadLocalPluginInformationTask;
 import org.openstreetmap.josm.plugins.ReadRemotePluginInformationTask;
 import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.ImageProvider;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 
 public class PluginPreference extends DefaultTabPreferenceSetting {
     public static class Factory implements PreferenceSettingFactory {
+        @Override
         public PreferenceSetting createPreferenceSetting() {
             return new PluginPreference();
         }
     }
 
     private PluginPreference() {
-        super("plugin", tr("Plugins"), tr("Configure available plugins."));
+        super("plugin", tr("Plugins"), tr("Configure available plugins."), false, new JTabbedPane());
     }
 
     public static String buildDownloadSummary(PluginDownloadTask task) {
@@ -96,7 +98,7 @@ public class PluginPreference extends DefaultTabPreferenceSetting {
         return sb.toString();
     }
 
-    private JTextField tfFilter;
+    private JosmTextField tfFilter;
     private PluginListPanel pnlPluginPreferences;
     private PluginPreferencesModel model;
     private JScrollPane spPluginPreferences;
@@ -121,7 +123,7 @@ public class PluginPreference extends DefaultTabPreferenceSetting {
 
         gc.gridx = 1;
         gc.weightx = 1.0;
-        pnl.add(tfFilter = new JTextField(), gc);
+        pnl.add(tfFilter = new JosmTextField(), gc);
         tfFilter.setToolTipText(tr("Enter a search expression"));
         SelectAllOnFocusGainedDecorator.decorate(tfFilter);
         tfFilter.getDocument().addDocumentListener(new SearchFieldAdapter());
@@ -162,18 +164,14 @@ public class PluginPreference extends DefaultTabPreferenceSetting {
         return pnl;
     }
 
-    protected JPanel buildContentPanel() {
-        JPanel pnl = new JPanel(new BorderLayout());
-        JTabbedPane tpPluginPreferences = new JTabbedPane();
-        tpPluginPreferences.add(buildPluginListPanel());
-        tpPluginPreferences.add(pnlPluginUpdatePolicy  =new PluginUpdatePolicyPanel());
-        tpPluginPreferences.setTitleAt(0, tr("Plugins"));
-        tpPluginPreferences.setTitleAt(1, tr("Plugin update policy"));
-
-        pnl.add(tpPluginPreferences, BorderLayout.CENTER);
-        return pnl;
+    protected JTabbedPane buildContentPane() {
+        JTabbedPane pane = getTabPane();
+        pane.addTab(tr("Plugins"), buildPluginListPanel());
+        pane.addTab(tr("Plugin update policy"), pnlPluginUpdatePolicy = new PluginUpdatePolicyPanel());
+        return pane;
     }
 
+    @Override
     public void addGui(final PreferenceTabbedPane gui) {
         GridBagConstraints gc = new GridBagConstraints();
         gc.weightx = 1.0;
@@ -181,7 +179,7 @@ public class PluginPreference extends DefaultTabPreferenceSetting {
         gc.anchor = GridBagConstraints.NORTHWEST;
         gc.fill = GridBagConstraints.BOTH;
         PreferencePanel plugins = gui.createPreferenceTab(this);
-        plugins.add(buildContentPanel(), gc);
+        plugins.add(buildContentPane(), gc);
         readLocalPluginInformation();
         pluginPreferencesActivated = true;
     }
@@ -228,6 +226,7 @@ public class PluginPreference extends DefaultTabPreferenceSetting {
         return model != null ? model.getPluginsScheduledForUpdateOrDownload() : null;
     }
 
+    @Override
     public boolean ok() {
         if (! pluginPreferencesActivated)
             return false;
@@ -250,9 +249,11 @@ public class PluginPreference extends DefaultTabPreferenceSetting {
     public void readLocalPluginInformation() {
         final ReadLocalPluginInformationTask task = new ReadLocalPluginInformationTask();
         Runnable r = new Runnable() {
+            @Override
             public void run() {
                 if (task.isCanceled()) return;
                 SwingUtilities.invokeLater(new Runnable() {
+                    @Override
                     public void run() {
                         model.setAvailablePlugins(task.getAvailablePlugins());
                         pnlPluginPreferences.refreshView();
@@ -276,14 +277,17 @@ public class PluginPreference extends DefaultTabPreferenceSetting {
             putValue(SMALL_ICON, ImageProvider.get("download"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             final ReadRemotePluginInformationTask task = new ReadRemotePluginInformationTask(Main.pref.getPluginSites());
             Runnable continuation = new Runnable() {
+                @Override
                 public void run() {
                     if (task.isCanceled()) return;
                     SwingUtilities.invokeLater(new Runnable() {
+                        @Override
                         public void run() {
-                            model.updateAvailablePlugins(task.getAvailabePlugins());
+                            model.updateAvailablePlugins(task.getAvailablePlugins());
                             pnlPluginPreferences.refreshView();
                             Main.pref.putInteger("pluginmanager.version", Version.getInstance().getVersion()); // fix #7030
                         }
@@ -307,27 +311,33 @@ public class PluginPreference extends DefaultTabPreferenceSetting {
         }
 
         protected void notifyDownloadResults(PluginDownloadTask task) {
-            Collection<PluginInformation> downloaded = task.getDownloadedPlugins();
-            Collection<PluginInformation> failed = task.getFailedPlugins();
-            StringBuilder sb = new StringBuilder();
+            final Collection<PluginInformation> downloaded = task.getDownloadedPlugins();
+            final Collection<PluginInformation> failed = task.getFailedPlugins();
+            final StringBuilder sb = new StringBuilder();
             sb.append("<html>");
             sb.append(buildDownloadSummary(task));
             if (!downloaded.isEmpty()) {
                 sb.append(tr("Please restart JOSM to activate the downloaded plugins."));
             }
             sb.append("</html>");
-            HelpAwareOptionPane.showOptionDialog(
-                    pnlPluginPreferences,
-                    sb.toString(),
-                    tr("Update plugins"),
-                    !failed.isEmpty() ? JOptionPane.WARNING_MESSAGE : JOptionPane.INFORMATION_MESSAGE,
-                            HelpUtil.ht("/Preferences/Plugins")
-                    );
+            GuiHelper.runInEDTAndWait(new Runnable() {
+                @Override
+                public void run() {
+                    HelpAwareOptionPane.showOptionDialog(
+                            pnlPluginPreferences,
+                            sb.toString(),
+                            tr("Update plugins"),
+                            !failed.isEmpty() ? JOptionPane.WARNING_MESSAGE : JOptionPane.INFORMATION_MESSAGE,
+                                    HelpUtil.ht("/Preferences/Plugins")
+                            );
+                }
+            });
         }
 
         protected void alertNothingToUpdate() {
             try {
                 SwingUtilities.invokeAndWait(new Runnable() {
+                    @Override
                     public void run() {
                         HelpAwareOptionPane.showOptionDialog(
                                 pnlPluginPreferences,
@@ -336,13 +346,14 @@ public class PluginPreference extends DefaultTabPreferenceSetting {
                                 JOptionPane.INFORMATION_MESSAGE,
                                 null // FIXME: provide help context
                                 );
-                    };
+                    }
                 });
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             final List<PluginInformation> toUpdate = model.getSelectedPlugins();
             // the async task for downloading plugins
@@ -357,23 +368,29 @@ public class PluginPreference extends DefaultTabPreferenceSetting {
             // to be run asynchronously after the plugin download
             //
             final Runnable pluginDownloadContinuation = new Runnable() {
+                @Override
                 public void run() {
                     if (pluginDownloadTask.isCanceled())
                         return;
                     notifyDownloadResults(pluginDownloadTask);
                     model.refreshLocalPluginVersion(pluginDownloadTask.getDownloadedPlugins());
                     model.clearPendingPlugins(pluginDownloadTask.getDownloadedPlugins());
-                    pnlPluginPreferences.refreshView();
+                    GuiHelper.runInEDT(new Runnable() {
+                        @Override
+                        public void run() {
+                            pnlPluginPreferences.refreshView();                        }
+                    });
                 }
             };
 
             // to be run asynchronously after the plugin list download
             //
             final Runnable pluginInfoDownloadContinuation = new Runnable() {
+                @Override
                 public void run() {
                     if (pluginInfoDownloadTask.isCanceled())
                         return;
-                    model.updateAvailablePlugins(pluginInfoDownloadTask.getAvailabePlugins());
+                    model.updateAvailablePlugins(pluginInfoDownloadTask.getAvailablePlugins());
                     // select plugins which actually have to be updated
                     //
                     Iterator<PluginInformation> it = toUpdate.iterator();
@@ -410,6 +427,7 @@ public class PluginPreference extends DefaultTabPreferenceSetting {
             putValue(SMALL_ICON, ImageProvider.get("dialogs", "settings"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             configureSites();
         }
@@ -422,21 +440,24 @@ public class PluginPreference extends DefaultTabPreferenceSetting {
     class SearchFieldAdapter implements DocumentListener {
         public void filter() {
             String expr = tfFilter.getText().trim();
-            if (expr.equals("")) {
+            if (expr.isEmpty()) {
                 expr = null;
             }
             model.filterDisplayedPlugins(expr);
             pnlPluginPreferences.refreshView();
         }
 
+        @Override
         public void changedUpdate(DocumentEvent arg0) {
             filter();
         }
 
+        @Override
         public void insertUpdate(DocumentEvent arg0) {
             filter();
         }
 
+        @Override
         public void removeUpdate(DocumentEvent arg0) {
             filter();
         }
@@ -457,6 +478,7 @@ public class PluginPreference extends DefaultTabPreferenceSetting {
             add(new JScrollPane(list), GBC.std().fill());
             JPanel buttons = new JPanel(new GridBagLayout());
             buttons.add(new JButton(new AbstractAction(tr("Add")){
+                @Override
                 public void actionPerformed(ActionEvent e) {
                     String s = JOptionPane.showInputDialog(
                             JOptionPane.getFrameForComponent(PluginConfigurationSitesPanel.this),
@@ -470,6 +492,7 @@ public class PluginPreference extends DefaultTabPreferenceSetting {
                 }
             }), GBC.eol().fill(GBC.HORIZONTAL));
             buttons.add(new JButton(new AbstractAction(tr("Edit")){
+                @Override
                 public void actionPerformed(ActionEvent e) {
                     if (list.getSelectedValue() == null) {
                         JOptionPane.showMessageDialog(
@@ -495,6 +518,7 @@ public class PluginPreference extends DefaultTabPreferenceSetting {
                 }
             }), GBC.eol().fill(GBC.HORIZONTAL));
             buttons.add(new JButton(new AbstractAction(tr("Delete")){
+                @Override
                 public void actionPerformed(ActionEvent event) {
                     if (list.getSelectedValue() == null) {
                         JOptionPane.showMessageDialog(

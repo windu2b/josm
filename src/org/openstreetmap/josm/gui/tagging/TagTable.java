@@ -4,26 +4,26 @@ package org.openstreetmap.josm.gui.tagging;
 import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.applet.Applet;
-import java.awt.AWTException;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.KeyboardFocusManager;
-import java.awt.MouseInfo;
-import java.awt.Point;
-import java.awt.Rectangle;
-import java.awt.Robot;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
-import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.util.Collections;
 import java.util.EventObject;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.swing.AbstractAction;
+import static javax.swing.Action.SHORT_DESCRIPTION;
+import static javax.swing.Action.SMALL_ICON;
 import javax.swing.CellEditor;
 import javax.swing.DefaultListSelectionModel;
 import javax.swing.JComponent;
@@ -36,6 +36,11 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.table.DefaultTableColumnModel;
 import javax.swing.table.TableColumn;
+import javax.swing.text.JTextComponent;
+import org.openstreetmap.josm.Main;
+import org.openstreetmap.josm.actions.PasteTagsAction.TagPaster;
+import org.openstreetmap.josm.data.osm.OsmPrimitive;
+import org.openstreetmap.josm.data.osm.Relation;
 
 import org.openstreetmap.josm.gui.dialogs.relation.RunnableAction;
 import org.openstreetmap.josm.gui.tagging.ac.AutoCompletionManager;
@@ -49,6 +54,8 @@ import org.openstreetmap.josm.tools.ImageProvider;
 public class TagTable extends JTable  {
     /** the table cell editor used by this table */
     private TagCellEditor editor = null;
+    private final TagEditorModel model;
+    private Component nextFocusComponent;
 
     /** a list of components to which focus can be transferred without stopping
      * cell editing this table.
@@ -95,6 +102,7 @@ public class TagTable extends JTable  {
      *
      */
     class SelectNextColumnCellAction extends AbstractAction  {
+        @Override
         public void actionPerformed(ActionEvent e) {
             run();
         }
@@ -106,6 +114,11 @@ public class TagTable extends JTable  {
                 getCellEditor().stopCellEditing();
             }
 
+            if (row==-1 && col==-1) {
+                requestFocusInCell(0, 0);
+                return;
+            }
+
             if (col == 0) {
                 col++;
             } else if (col == 1 && row < getRowCount()-1) {
@@ -114,12 +127,18 @@ public class TagTable extends JTable  {
             } else if (col == 1 && row == getRowCount()-1){
                 // we are at the end. Append an empty row and move the focus
                 // to its second column
-                TagEditorModel model = (TagEditorModel)getModel();
-                model.appendNewTag();
-                col=0;
-                row++;
+                String key = ((TagModel)model.getValueAt(row, 0)).getName();
+                if (!key.trim().isEmpty()) {
+                    model.appendNewTag();
+                    col=0;
+                    row++;
+                } else {
+                    clearSelection();
+                    if (nextFocusComponent!=null)
+                        nextFocusComponent.requestFocusInWindow();
+                    return;
+                }
             }
-            changeSelection(row, col, false, false);
             requestFocusInCell(row,col);
         }
     }
@@ -131,6 +150,7 @@ public class TagTable extends JTable  {
      */
     class SelectPreviousColumnCellAction extends AbstractAction  {
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             int col = getSelectedColumn();
             int row = getSelectedRow();
@@ -146,7 +166,6 @@ public class TagTable extends JTable  {
                 col = 1;
                 row--;
             }
-            changeSelection(row, col, false, false);
             requestFocusInCell(row,col);
         }
     }
@@ -187,7 +206,6 @@ public class TagTable extends JTable  {
          */
         protected void deleteTagNames() {
             int[] rows = getSelectedRows();
-            TagEditorModel model = (TagEditorModel)getModel();
             model.deleteTagNames(rows);
         }
 
@@ -196,7 +214,6 @@ public class TagTable extends JTable  {
          */
         protected void deleteTagValues() {
             int[] rows = getSelectedRows();
-            TagEditorModel model = (TagEditorModel)getModel();
             model.deleteTagValues(rows);
         }
 
@@ -205,7 +222,6 @@ public class TagTable extends JTable  {
          */
         protected void deleteTags() {
             int[] rows = getSelectedRows();
-            TagEditorModel model = (TagEditorModel)getModel();
             model.deleteTags(rows);
         }
 
@@ -233,7 +249,6 @@ public class TagTable extends JTable  {
                 }
             }
 
-            TagEditorModel model = (TagEditorModel)getModel();
             if (model.getRowCount() == 0) {
                 model.ensureOneTag();
                 requestFocusInCell(0, 0);
@@ -243,6 +258,7 @@ public class TagTable extends JTable  {
         /**
          * listens to the table selection model
          */
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
@@ -279,25 +295,61 @@ public class TagTable extends JTable  {
             if (editor != null) {
                 getCellEditor().stopCellEditing();
             }
-            ((TagEditorModel)getModel()).appendNewTag();
-            final int rowIdx = getModel().getRowCount()-1;
-            requestFocusInCell(rowIdx, 0);
+            final int rowIdx = model.getRowCount()-1;
+            String key = ((TagModel)model.getValueAt(rowIdx, 0)).getName();
+            if (!key.trim().isEmpty()) {
+                model.appendNewTag();
+            }
+            requestFocusInCell(model.getRowCount()-1, 0);
         }
 
         protected void updateEnabledState() {
             setEnabled(TagTable.this.isEnabled());
         }
 
+        @Override
         public void propertyChange(PropertyChangeEvent evt) {
             updateEnabledState();
         }
     }
 
+     /**
+     * Action to be run when the user wants to paste tags from buffer
+     */
+    class PasteAction extends RunnableAction implements PropertyChangeListener{
+        public PasteAction() {
+            putValue(SMALL_ICON, ImageProvider.get("","pastetags"));
+            putValue(SHORT_DESCRIPTION, tr("Paste tags from buffer"));
+            TagTable.this.addPropertyChangeListener(this);
+            updateEnabledState();
+        }
+
+        @Override
+        public void run() {
+            Relation relation = new Relation();
+            model.applyToPrimitive(relation);
+            TagPaster tagPaster = new TagPaster(Main.pasteBuffer.getDirectlyAdded(), Collections.<OsmPrimitive>singletonList(relation));
+            model.updateTags(tagPaster.execute());
+        }
+
+        protected void updateEnabledState() {
+            setEnabled(TagTable.this.isEnabled());
+        }
+
+        @Override
+        public void propertyChange(PropertyChangeEvent evt) {
+            updateEnabledState();
+        }
+    }
+    
     /** the delete action */
     private RunnableAction deleteAction = null;
 
     /** the add action */
     private RunnableAction addAction = null;
+
+    /** the tag paste action */
+    private RunnableAction pasteAction = null;
 
     /**
      *
@@ -309,6 +361,10 @@ public class TagTable extends JTable  {
 
     public RunnableAction getAddAction() {
         return addAction;
+    }
+
+    public RunnableAction getPasteAction() {
+        return pasteAction;
     }
 
     /**
@@ -343,6 +399,8 @@ public class TagTable extends JTable  {
         .put(KeyStroke.getKeyStroke(KeyEvent.VK_ADD, KeyEvent.CTRL_MASK), "addTag");
         getActionMap().put("addTag", addAction);
 
+        pasteAction = new PasteAction();
+
         // create the table cell editor and set it to key and value columns
         //
         TagCellEditor tmpEditor = new TagCellEditor();
@@ -357,6 +415,7 @@ public class TagTable extends JTable  {
      */
     public TagTable(TagEditorModel model) {
         super(model, new TagTableColumnModel(model.getColumnSelectionModel()), model.getRowSelectionModel());
+        this.model = model;
         init();
     }
 
@@ -420,6 +479,10 @@ public class TagTable extends JTable  {
             return null;
     }
 
+    public void setNextFocusComponent(Component nextFocusComponent) {
+        this.nextFocusComponent = nextFocusComponent;
+    }
+
     public TagCellEditor getTableCellEditor() {
         return editor;
     }
@@ -446,36 +509,18 @@ public class TagTable extends JTable  {
     }
 
     public void requestFocusInCell(final int row, final int col) {
-
-        // the following code doesn't work reliably. If a table cell
-        // gains focus using editCellAt() and requestFocusInWindow()
-        // it isn't possible to tab to the next table cell using TAB or
-        // ENTER. Don't know why.
-        //
-        // tblTagEditor.editCellAt(row, col);
-        // if (tblTagEditor.getEditorComponent() != null) {
-        //  tblTagEditor.getEditorComponent().requestFocusInWindow();
-        // }
-
-        // this is a workaround. We move the focus to the respective cell
-        // using a simulated mouse click. In this case one can tab out of
-        // the cell using TAB and ENTER.
-        //
-        Rectangle r = getCellRect(row,col, false);
-        Point p = new Point(r.x + r.width/2, r.y + r.height/2);
-        SwingUtilities.convertPointToScreen(p, this);
-        Point before = MouseInfo.getPointerInfo().getLocation();
-
-        try {
-            Robot robot = new Robot();
-            robot.mouseMove(p.x,p.y);
-            robot.mousePress(InputEvent.BUTTON1_MASK);
-            robot.mouseRelease(InputEvent.BUTTON1_MASK);
-            robot.mouseMove(before.x, before.y);
-        } catch(AWTException e) {
-            System.out.println("Failed to simulate mouse click event at (" + r.x + "," + r.y + "). Exception: " + e.toString());
-            return;
+        changeSelection(row, col, false, false);
+        editCellAt(row, col);
+        Component c = getEditorComponent();
+        if (c!=null) {
+            c.requestFocusInWindow();
+            if ( c instanceof JTextComponent ) {
+                 ( (JTextComponent)c ).selectAll();
+            }
         }
+        // there was a bug here - on older 1.6 Java versions Tab was not working
+        // after such activation. In 1.7 it works OK,
+        // previous solution of usint awt.Robot was resetting mouse speed on Windows
     }
 
     public void addComponentNotStoppingCellEditing(Component component) {
@@ -552,6 +597,7 @@ public class TagTable extends JTable  {
             this.focusManager = fm;
         }
 
+        @Override
         public void propertyChange(PropertyChangeEvent ev) {
             if (!isEditing())
                 return;

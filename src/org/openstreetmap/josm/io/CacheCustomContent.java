@@ -8,9 +8,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.util.Date;
 
 import org.openstreetmap.josm.Main;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * Use this class if you want to cache and store a single file that gets updated regularly.
@@ -85,7 +85,7 @@ public abstract class CacheCustomContent<T extends Throwable> {
      * @return Returns the data
      */
     public byte[] updateIfRequired() throws T {
-        if (Main.pref.getInteger("cache." + ident, 0) + updateInterval < new Date().getTime()/1000
+        if (Main.pref.getInteger("cache." + ident, 0) + updateInterval < System.currentTimeMillis()/1000
                 || !isCacheValid())
             return updateForce();
         return getData();
@@ -96,7 +96,7 @@ public abstract class CacheCustomContent<T extends Throwable> {
      * @return Returns the data as string
      */
     public String updateIfRequiredString() throws T {
-        if (Main.pref.getInteger("cache." + ident, 0) + updateInterval < new Date().getTime()/1000
+        if (Main.pref.getInteger("cache." + ident, 0) + updateInterval < System.currentTimeMillis()/1000
                 || !isCacheValid())
             return updateForceString();
         return getDataString();
@@ -109,7 +109,7 @@ public abstract class CacheCustomContent<T extends Throwable> {
     public byte[] updateForce() throws T {
         this.data = updateData();
         saveToDisk();
-        Main.pref.putInteger("cache." + ident, (int)(new Date().getTime()/1000));
+        Main.pref.putInteger("cache." + ident, (int)(System.currentTimeMillis()/1000));
         return data;
     }
 
@@ -158,13 +158,15 @@ public abstract class CacheCustomContent<T extends Throwable> {
         if (Main.applet)
             this.data = updateForce();
         else {
+            BufferedInputStream input = null;
             try {
-                BufferedInputStream input = new BufferedInputStream(new FileInputStream(path));
+                input = new BufferedInputStream(new FileInputStream(path));
                 this.data = new byte[input.available()];
                 input.read(this.data);
-                input.close();
             } catch (IOException e) {
                 this.data = updateForce();
+            } finally {
+                Utils.close(input);
             }
         }
     }
@@ -175,13 +177,15 @@ public abstract class CacheCustomContent<T extends Throwable> {
     private void saveToDisk() {
         if (Main.applet)
             return;
+        BufferedOutputStream output = null;
         try {
-            BufferedOutputStream output = new BufferedOutputStream(new FileOutputStream(path));
+            output = new BufferedOutputStream(new FileOutputStream(path));
             output.write(this.data);
             output.flush();
-            output.close();
         } catch(Exception e) {
             e.printStackTrace();
+        } finally {
+            Utils.close(output);
         }
     }
 

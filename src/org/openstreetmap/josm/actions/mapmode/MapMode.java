@@ -48,11 +48,18 @@ abstract public class MapMode extends JosmAction implements MouseListener, Mouse
         this.cursor = cursor;
     }
 
+    /**
+     * Makes this map mode active.
+     */
     public void enterMode() {
         putValue("active", true);
         Main.map.mapView.setNewCursor(cursor, this);
         updateStatusLine();
     }
+
+    /**
+     * Makes this map mode inactive.
+     */
     public void exitMode() {
         putValue("active", false);
         Main.map.mapView.resetCursor(this);
@@ -69,6 +76,7 @@ abstract public class MapMode extends JosmAction implements MouseListener, Mouse
     /**
      * Call selectMapMode(this) on the parent mapFrame.
      */
+    @Override
     public void actionPerformed(ActionEvent e) {
         if (Main.isDisplayingMapView()) {
             Main.map.selectMapMode(this);
@@ -95,11 +103,25 @@ abstract public class MapMode extends JosmAction implements MouseListener, Mouse
         shift = (modifiers & ActionEvent.SHIFT_MASK) != 0;
     }
 
-    public void mouseReleased(MouseEvent e) {}
+    protected void requestFocusInMapView() {
+        if (isEnabled()) {
+            // request focus in order to enable the expected keyboard shortcuts (see #8710)
+            Main.map.mapView.requestFocus();
+        }
+    }
+
+    @Override
+    public void mouseReleased(MouseEvent e) {requestFocusInMapView();}
+    @Override
     public void mouseExited(MouseEvent e) {}
-    public void mousePressed(MouseEvent e) {}
+    @Override
+    public void mousePressed(MouseEvent e) {requestFocusInMapView();}
+    @Override
     public void mouseClicked(MouseEvent e) {}
+    @Override
     public void mouseEntered(MouseEvent e) {}
+    @Override
     public void mouseMoved(MouseEvent e) {}
+    @Override
     public void mouseDragged(MouseEvent e) {}
 }

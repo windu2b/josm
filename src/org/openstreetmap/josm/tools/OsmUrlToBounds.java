@@ -27,8 +27,13 @@ public class OsmUrlToBounds {
         if (b != null)
             return b;
         int i = url.indexOf('?');
-        if (i == -1)
-            return null;
+        if (i == -1) {
+            //probably it's a URL following the new scheme?
+            if (url.indexOf('#') >= 0)
+                return parseHashURLs(url);
+            else
+                return null;
+        }
         String[] args = url.substring(i+1).split("&");
         HashMap<String, String> map = new HashMap<String, String>();
         for (String arg : args) {
@@ -40,7 +45,7 @@ public class OsmUrlToBounds {
 
         try {
             if (map.containsKey("bbox")) {
-                String bbox[] = map.get("bbox").split(",");
+                String[] bbox = map.get("bbox").split(",");
                 b = new Bounds(
                         new LatLon(Double.parseDouble(bbox[1]), Double.parseDouble(bbox[0])),
                         new LatLon(Double.parseDouble(bbox[3]), Double.parseDouble(bbox[2])));
@@ -70,6 +75,33 @@ public class OsmUrlToBounds {
         return b;
     }
 
+    /**
+     * Openstreetmap.org changed it's URL scheme in August 2013, which breaks the URL parsing.
+     * The following function, called by the old parse function if necessary, provides parsing new URLs
+     * the new URLs follow the scheme http://www.openstreetmap.org/#map=18/51.71873/8.76164&layers=CN
+     * @param url
+     * @return
+     */
+    private static Bounds parseHashURLs(String url) {
+        int startIndex = url.indexOf("=");
+        if (startIndex == -1) return null;
+        int endIndex = url.indexOf("&");
+        if (endIndex == -1) endIndex = url.length();
+        try
+        {
+            String coordPart = url.substring(startIndex+1, endIndex);
+            String[] parts = coordPart.split("/");
+            Bounds b = positionToBounds(Double.parseDouble(parts[1]),
+                    Double.parseDouble(parts[2]),
+                    Integer.parseInt(parts[0]));
+            return b;
+        }
+        catch(Exception ex)
+        {
+            return null;
+        }
+    }
+
     private static double parseDouble(HashMap<String, String> map, String key) {
         if (map.containsKey(key))
             return Double.parseDouble(map.get(key));
@@ -88,13 +120,11 @@ public class OsmUrlToBounds {
     };
 
     /**
-     * p
+     * Parse OSM short link
      *
      * @param url string for parsing
-     *
      * @return Bounds if shortlink, null otherwise
-     *
-     * @see http://trac.openstreetmap.org/browser/sites/rails_port/lib/short_link.rb
+     * @see <a href="http://trac.openstreetmap.org/browser/sites/rails_port/lib/short_link.rb">short_link.rb</a>
      */
     private static Bounds parseShortLink(final String url) {
         if (!url.startsWith(SHORTLINK_PREFIX))
@@ -145,6 +175,7 @@ public class OsmUrlToBounds {
                 zoom - 8 - (zoomOffset % 3) - 2);
     }
 
+    /** radius of the earth */
     public static final double R = 6378137.0;
 
     public static Bounds positionToBounds(final double lat, final double lon, final int zoom) {
@@ -184,6 +215,12 @@ public class OsmUrlToBounds {
         return new LatLon(lat, lon);
     }
 
+    /**
+     * Return OSM Zoom level for a given area
+     *
+     * @param b bounds of the area
+     * @return matching zoom level for area
+     */
     static public int getZoom(Bounds b) {
         // convert to mercator (for calculation of zoom only)
         double latMin = Math.log(Math.tan(Math.PI/4.0+b.getMin().lat()/180.0*Math.PI/2.0))*180.0/Math.PI;
@@ -200,10 +237,23 @@ public class OsmUrlToBounds {
         return zoom;
     }
 
+    /**
+     * Return OSM URL for given area
+     *
+     * @param b bounds of the area
+     * @return link to display that area in OSM map
+     */
     static public String getURL(Bounds b) {
         return getURL(b.getCenter(), getZoom(b));
     }
 
+    /**
+     * Return OSM URL for given position and zoom
+     *
+     * @param pos center position of area
+     * @param zoom zoom depth of display
+     * @return link to display that area in OSM map
+     */
     static public String getURL(LatLon pos, int zoom) {
         // Truncate lat and lon to something more sensible
         int decimals = (int) Math.pow(10, (zoom / 3));

@@ -50,6 +50,7 @@ public class XmlStyleSource extends StyleSource implements StyleKeys {
         super(entry);
     }
 
+    @Override
     protected void init() {
         super.init();
         icons.clear();
@@ -69,7 +70,7 @@ public class XmlStyleSource extends StyleSource implements StyleKeys {
             InputStreamReader reader = new InputStreamReader(getSourceInputStream());
             XmlObjectParser parser = new XmlObjectParser(new XmlStyleSourceHandler(this));
             parser.startWithValidation(reader,
-                    "http://josm.openstreetmap.de/mappaint-style-1.0",
+                    Main.JOSM_WEBSITE+"/mappaint-style-1.0",
                     "resource://data/mappaint-style.xsd");
             while(parser.hasNext()) {
             }
@@ -89,9 +90,10 @@ public class XmlStyleSource extends StyleSource implements StyleKeys {
         }
     }
 
+    @Override
     public InputStream getSourceInputStream() throws IOException {
         MirroredInputStream in = new MirroredInputStream(url);
-        InputStream zip = in.getZipEntry("xml", "style");
+        InputStream zip = in.findZipEntryInputStream("xml", "style");
         if (zip != null) {
             zipIcons = in.getFile();
             return zip;

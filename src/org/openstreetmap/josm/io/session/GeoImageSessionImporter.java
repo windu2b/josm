@@ -7,15 +7,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-import org.openstreetmap.josm.data.Preferences;
 import org.openstreetmap.josm.data.coor.LatLon;
-import org.openstreetmap.josm.data.imagery.ImageryInfo;
 import org.openstreetmap.josm.gui.layer.GpxLayer;
-import org.openstreetmap.josm.gui.layer.ImageryLayer;
 import org.openstreetmap.josm.gui.layer.Layer;
 import org.openstreetmap.josm.gui.layer.geoimage.GeoImageLayer;
 import org.openstreetmap.josm.gui.layer.geoimage.ImageEntry;
@@ -84,16 +79,14 @@ public class GeoImageSessionImporter implements SessionLayerImporter {
 
         GpxLayer gpxLayer = null;
         List<SessionReader.LayerDependency> deps = support.getLayerDependencies();
-        if (deps.size() > 0) {
+        if (!deps.isEmpty()) {
             Layer layer = deps.iterator().next().getLayer();
             if (layer instanceof GpxLayer) {
                 gpxLayer = (GpxLayer) layer;
             }
         }
-        
+
         return new GeoImageLayer(entries, gpxLayer);
     }
-
-
 
 }

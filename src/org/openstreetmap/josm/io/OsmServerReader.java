@@ -18,6 +18,7 @@ import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.gpx.GpxData;
 import org.openstreetmap.josm.data.osm.DataSet;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * This DataReader reads directly from the REST API of the osm server.
@@ -36,9 +37,11 @@ public abstract class OsmServerReader extends OsmConnection {
     /**
      * Open a connection to the given url and return a reader on the input stream
      * from that connection. In case of user cancel, return <code>null</code>.
-     * @param urlStr The exact url to connect to.
-     * @param pleaseWaitDlg
+     * Relative URL's are directed to API base URL.
+     * @param urlStr The url to connect to.
+     * @param progressMonitor progress monitoring and abort handler
      * @return An reader reading the input stream (servers answer) or <code>null</code>.
+     * @throws OsmTransferException thrown if data transfer errors occur
      */
     protected InputStream getInputStream(String urlStr, ProgressMonitor progressMonitor) throws OsmTransferException  {
         try {
@@ -50,10 +53,22 @@ public abstract class OsmServerReader extends OsmConnection {
         }
     }
 
+    /**
+     * Retrun the base URL for relative URL requests
+     * @return base url of API
+     */
     protected String getBaseUrl() {
         return api.getBaseUrl();
     }
 
+    /**
+     * Open a connection to the given url and return a reader on the input stream
+     * from that connection. In case of user cancel, return <code>null</code>.
+     * @param urlStr The exact url to connect to.
+     * @param progressMonitor progress monitoring and abort handler
+     * @return An reader reading the input stream (servers answer) or <code>null</code>.
+     * @throws OsmTransferException thrown if data transfer errors occur
+     */
     protected InputStream getInputStreamRaw(String urlStr, ProgressMonitor progressMonitor) throws OsmTransferException {
         try {
             URL url = null;
@@ -63,9 +78,8 @@ public abstract class OsmServerReader extends OsmConnection {
                 throw new OsmTransferException(e);
             }
             try {
-                activeConnection = (HttpURLConnection)url.openConnection();
                 // fix #7640, see http://www.tikalk.com/java/forums/httpurlconnection-disable-keep-alive
-                activeConnection.setRequestProperty("Connection", "close");
+                activeConnection = Utils.openHttpConnection(url, false);
             } catch(Exception e) {
                 throw new OsmTransferException(tr("Failed to open connection to API {0}.", url.toExternalForm()), e);
             }
@@ -90,7 +104,9 @@ public abstract class OsmServerReader extends OsmConnection {
                 activeConnection.connect();
             } catch (Exception e) {
                 e.printStackTrace();
-                throw new OsmTransferException(tr("Could not connect to the OSM server. Please check your internet connection."), e);
+                OsmTransferException ote = new OsmTransferException(tr("Could not connect to the OSM server. Please check your internet connection."), e);
+                ote.setUrl(url.toString());
+                throw ote;
             }
             try {
                 if (activeConnection.getResponseCode() == HttpURLConnection.HTTP_UNAUTHORIZED)
@@ -119,7 +135,7 @@ public abstract class OsmServerReader extends OsmConnection {
                         errorBody.append(tr("Reading error text failed."));
                     }
 
-                    throw new OsmApiException(activeConnection.getResponseCode(), errorHeader, errorBody.toString());
+                    throw new OsmApiException(activeConnection.getResponseCode(), errorHeader, errorBody.toString(), url.toString());
                 }
 
                 return FixEncoding(new ProgressInputStream(activeConnection, progressMonitor), encoding);
@@ -128,7 +144,6 @@ public abstract class OsmServerReader extends OsmConnection {
                     throw (OsmTransferException)e;
                 else
                     throw new OsmTransferException(e);
-
             }
         } finally {
             progressMonitor.invalidate();
@@ -137,10 +152,10 @@ public abstract class OsmServerReader extends OsmConnection {
 
     private InputStream FixEncoding(InputStream stream, String encoding) throws IOException
     {
-        if (encoding != null && encoding.equalsIgnoreCase("gzip")) {
+        if ("gzip".equalsIgnoreCase(encoding)) {
             stream = new GZIPInputStream(stream);
         }
-        else if (encoding != null && encoding.equalsIgnoreCase("deflate")) {
+        else if ("deflate".equalsIgnoreCase(encoding)) {
             stream = new InflaterInputStream(stream, new Inflater(true));
         }
         return stream;
@@ -193,7 +208,7 @@ public abstract class OsmServerReader extends OsmConnection {
     public void setDoAuthenticate(boolean doAuthenticate) {
         this.doAuthenticate = doAuthenticate;
     }
-    
+
     /**
      * Determines if the GPX data has been parsed properly.
      * @return true if the GPX data has been parsed properly, false otherwise

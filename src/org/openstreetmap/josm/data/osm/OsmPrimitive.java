@@ -26,9 +26,11 @@ import org.openstreetmap.josm.tools.CheckParameterUtil;
 import org.openstreetmap.josm.tools.Predicate;
 import org.openstreetmap.josm.tools.template_engine.TemplateEngineDataProvider;
 
+
 /**
- * An OSM primitive can be associated with a key/value pair. It can be created, deleted
- * and updated within the OSM-Server.
+ * The base class for OSM objects ({@link Node}, {@link Way}, {@link Relation}).
+ *
+ * It can be created, deleted and uploaded to the OSM-Server.
  *
  * Although OsmPrimitive is designed as a base class, it is not to be meant to subclass
  * it by any other than from the package {@link org.openstreetmap.josm.data.osm}. The available primitives are a fixed set that are given
@@ -99,6 +101,12 @@ abstract public class OsmPrimitive extends AbstractPrimitive implements Comparab
     protected static final int FLAG_HIGHLIGHTED = 1 << 11;
 
     /**
+     * If the primitive is annotated with a tag such as note, fixme, etc.
+     * Match the "work in progress" tags in default elemstyles.xml.
+     */
+    protected static final int FLAG_ANNOTATED = 1 << 12;
+
+    /**
      * Replies the sub-collection of {@link OsmPrimitive}s of type <code>type</code> present in
      * another collection of {@link OsmPrimitive}s. The result collection is a list.
      *
@@ -126,8 +134,8 @@ abstract public class OsmPrimitive extends AbstractPrimitive implements Comparab
      *
      * If <code>list</code> is null, replies an empty set.
      *
-     * @param <T>
-     * @param list  the original collection
+     * @param <T> type of data (must be one of the {@link OsmPrimitive} types
+     * @param set  the original collection
      * @param type the type to filter for
      * @return the sub-set of OSM primitives of type <code>type</code>
      */
@@ -374,19 +382,20 @@ abstract public class OsmPrimitive extends AbstractPrimitive implements Comparab
     }
 
     /**
-     * Clears the id and version known to the OSM API. The id and the version is set to 0.
-     * incomplete is set to false. It's preferred to use copy constructor with clearId set to true instead
-     * of calling this method.
+     * Clears the metadata, including id and version known to the OSM API.
+     * The id is a new unique id. The version, changeset and timestamp are set to 0.
+     * incomplete and deleted are set to false. It's preferred to use copy constructor with clearMetadata set to true instead
      *
      * <strong>Caution</strong>: Do not use this method on primitives which are already added to a {@link DataSet}.
      *
      * @throws DataIntegrityProblemException If primitive was already added to the dataset
+     * @since 6140
      */
     @Override
-    public void clearOsmId() {
+    public void clearOsmMetadata() {
         if (dataSet != null)
             throw new DataIntegrityProblemException("Method cannot be called after primitive was added to the dataset");
-        super.clearOsmId();
+        super.clearOsmMetadata();
     }
 
     @Override
@@ -604,25 +613,30 @@ abstract public class OsmPrimitive extends AbstractPrimitive implements Comparab
         return (flags & FLAG_HIGHLIGHTED) != 0;
     }
 
-    /*----------------------------------
-     * UNINTERESTING AND DIRECTION KEYS
-     *----------------------------------*/
+    /*---------------------------------------------------
+     * WORK IN PROGRESS, UNINTERESTING AND DIRECTION KEYS
+     *--------------------------------------------------*/
 
+    private static volatile Collection<String> workinprogress = null;
     private static volatile Collection<String> uninteresting = null;
     private static volatile Collection<String> discardable = null;
-    
+
     /**
-     * Contains a list of "uninteresting" keys that do not make an object
+     * Returns a list of "uninteresting" keys that do not make an object
      * "tagged".  Entries that end with ':' are causing a whole namespace to be considered
      * "uninteresting".  Only the first level namespace is considered.
      * Initialized by isUninterestingKey()
+     * @return The list of uninteresting keys.
      */
     public static Collection<String> getUninterestingKeys() {
         if (uninteresting == null) {
-            uninteresting = Main.pref.getCollection("tags.uninteresting",
-                    Arrays.asList("source", "source_ref", "source:", "note", "comment",
-                            "converted_by", "created_by", "watch", "watch:", "fixme", "FIXME",
-                            "description", "attribution"));
+            LinkedList<String> l = new LinkedList<String>(Arrays.asList(
+                "source", "source_ref", "source:", "comment",
+                "converted_by", "watch", "watch:",
+                "description", "attribution"));
+            l.addAll(getDiscardableKeys());
+            l.addAll(getWorkInProgressKeys());
+            uninteresting = Main.pref.getCollection("tags.uninteresting", l);
         }
         return uninteresting;
     }
@@ -630,14 +644,15 @@ abstract public class OsmPrimitive extends AbstractPrimitive implements Comparab
     /**
      * Returns a list of keys which have been deemed uninteresting to the point
      * that they can be silently removed from data which is being edited.
+     * @return The list of discardable keys.
      */
     public static Collection<String> getDiscardableKeys() {
-        if(discardable == null) {
+        if (discardable == null) {
             discardable = Main.pref.getCollection("tags.discardable",
                     Arrays.asList("created_by",
                             "tiger:upload_uuid", "tiger:tlid", "tiger:source", "tiger:separated",
                             "geobase:datasetName", "geobase:uuid", "sub_sea:type",
-                            "odbl", "odbl:note",
+                            "odbl", "odbl:note", "SK53_bulk:load",
                             "yh:LINE_NAME", "yh:LINE_NUM", "yh:STRUCTURE", "yh:TOTYUMONO",
                             "yh:TYPE", "yh:WIDTH_RANK"));
         }
@@ -645,7 +660,23 @@ abstract public class OsmPrimitive extends AbstractPrimitive implements Comparab
     }
 
     /**
-     * Returns true if key is considered "uninteresting".
+     * Returns a list of "work in progress" keys that do not make an object
+     * "tagged" but "annotated".
+     * @return The list of work in progress keys.
+     * @since 5754
+     */
+    public static Collection<String> getWorkInProgressKeys() {
+        if (workinprogress == null) {
+            workinprogress = Main.pref.getCollection("tags.workinprogress",
+                    Arrays.asList("note", "fixme", "FIXME"));
+        }
+        return workinprogress;
+    }
+
+    /**
+     * Determines if key is considered "uninteresting".
+     * @param key The key to check
+     * @return true if key is considered "uninteresting".
      */
     public static boolean isUninterestingKey(String key) {
         getUninterestingKeys();
@@ -671,7 +702,7 @@ abstract public class OsmPrimitive extends AbstractPrimitive implements Comparab
         String directionDefault = "oneway? | aerialway=* | "+
                 "waterway=stream | waterway=river | waterway=canal | waterway=drain | waterway=rapids | "+
                 "\"piste:type\"=downhill | \"piste:type\"=sled | man_made=\"piste:halfpipe\" | "+
-                "junction=roundabout";
+                "junction=roundabout | (highway=motorway_link & -oneway=no)";
 
         try {
             reversedDirectionKeys = SearchCompiler.compile(Main.pref.get("tags.reversed_direction", reversedDirectionDefault), false, false);
@@ -709,14 +740,37 @@ abstract public class OsmPrimitive extends AbstractPrimitive implements Comparab
         updateFlagsNoLock(FLAG_TAGGED, false);
     }
 
+    private void updateAnnotated() {
+        if (keys != null) {
+            for (String key: keySet()) {
+                if (getWorkInProgressKeys().contains(key)) {
+                    updateFlagsNoLock(FLAG_ANNOTATED, true);
+                    return;
+                }
+            }
+        }
+        updateFlagsNoLock(FLAG_ANNOTATED, false);
+    }
+
     /**
-     * true if this object is considered "tagged". To be "tagged", an object
+     * Determines if this object is considered "tagged". To be "tagged", an object
      * must have one or more "interesting" tags. "created_by" and "source"
      * are typically considered "uninteresting" and do not make an object
      * "tagged".
+     * @return true if this object is considered "tagged"
      */
     public boolean isTagged() {
         return (flags & FLAG_TAGGED) != 0;
+    }
+
+    /**
+     * Determines if this object is considered "annotated". To be "annotated", an object
+     * must have one or more "work in progress" tags, such as "note" or "fixme".
+     * @return true if this object is considered "annotated"
+     * @since 5754
+     */
+    public boolean isAnnotated() {
+        return (flags & FLAG_ANNOTATED) != 0;
     }
 
     private void updateDirectionFlags() {
@@ -790,7 +844,7 @@ abstract public class OsmPrimitive extends AbstractPrimitive implements Comparab
     }
 
     @Override
-    protected final void keysChangedImpl(Map<String, String> originalKeys) {
+    protected void keysChangedImpl(Map<String, String> originalKeys) {
         clearCachedStyle();
         if (dataSet != null) {
             for (OsmPrimitive ref : getReferrers()) {
@@ -799,6 +853,7 @@ abstract public class OsmPrimitive extends AbstractPrimitive implements Comparab
         }
         updateDirectionFlags();
         updateTagged();
+        updateAnnotated();
         if (dataSet != null) {
             dataSet.fireTagsChanged(this, originalKeys);
         }
@@ -926,13 +981,13 @@ abstract public class OsmPrimitive extends AbstractPrimitive implements Comparab
         else if (this.referrers instanceof OsmPrimitive) {
             OsmPrimitive ref = (OsmPrimitive) this.referrers;
             if (ref.dataSet == dataSet) {
-                ref.visit(visitor);
+                ref.accept(visitor);
             }
         } else if (this.referrers instanceof OsmPrimitive[]) {
             OsmPrimitive[] refs = (OsmPrimitive[]) this.referrers;
             for (OsmPrimitive ref: refs) {
                 if (ref.dataSet == dataSet) {
-                    ref.visit(visitor);
+                    ref.accept(visitor);
                 }
             }
         }
@@ -965,14 +1020,14 @@ abstract public class OsmPrimitive extends AbstractPrimitive implements Comparab
 
     /*-----------------
      * OTHER METHODS
-     *----------------/
+     *----------------*/
 
     /**
      * Implementation of the visitor scheme. Subclasses have to call the correct
      * visitor function.
      * @param visitor The visitor from which the visit() function must be called.
      */
-    abstract public void visit(Visitor visitor);
+    abstract public void accept(Visitor visitor);
 
     /**
      * Get and write all attributes from the parameter. Does not fire any listener, so
@@ -1073,7 +1128,7 @@ abstract public class OsmPrimitive extends AbstractPrimitive implements Comparab
 
     /**
      * Loads (clone) this primitive from provided PrimitiveData
-     * @param data
+     * @param data The object which should be cloned
      */
     public void load(PrimitiveData data) {
         // Write lock is provided by subclasses
@@ -1089,10 +1144,14 @@ abstract public class OsmPrimitive extends AbstractPrimitive implements Comparab
 
     /**
      * Save parameters of this primitive to the transport object
-     * @return
+     * @return The saved object data
      */
     public abstract PrimitiveData save();
 
+    /**
+     * Save common parameters of primitives to the transport object
+     * @param data The object to save the data into
+     */
     protected void saveCommonAttributes(PrimitiveData data) {
         data.setId(id);
         data.setKeys(getKeys());
@@ -1106,6 +1165,10 @@ abstract public class OsmPrimitive extends AbstractPrimitive implements Comparab
         data.setVersion(version);
     }
 
+    /**
+     * Fetch the bounding box of the primitive
+     * @return Bounding box of the object
+     */
     public abstract BBox getBBox();
 
     /**

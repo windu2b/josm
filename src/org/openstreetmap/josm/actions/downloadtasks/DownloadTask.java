@@ -1,6 +1,7 @@
 // License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.actions.downloadtasks;
 
+import java.net.URL;
 import java.util.List;
 import java.util.concurrent.Future;
 
@@ -12,7 +13,7 @@ import org.openstreetmap.josm.gui.progress.ProgressMonitor;
  * Interface defining a general download task used to download geographic data (OSM data, GPX tracks, etc.) for a given URL or geographic area.
  */
 public interface DownloadTask {
-    
+
     /**
      * Asynchronously launches the download task for a given bounding box.
      *
@@ -69,13 +70,34 @@ public interface DownloadTask {
      * @see #download(boolean, Bounds, ProgressMonitor)
      */
     Future<?> loadUrl(boolean newLayer, String url, ProgressMonitor progressMonitor);
-    
+
     /**
      * Returns true if the task is able to open the given URL, false otherwise.
      * @param url the url to download from
      * @return True if the task is able to open the given URL, false otherwise.
      */
     boolean acceptsUrl(String url);
+
+    /**
+     * Returns a short HTML documentation string, describing acceptable URLs.
+     * @return The HTML documentation
+     * @since 6031
+     */
+    String acceptsDocumentationSummary();
+
+    /**
+     * Returns human-readable description of the task
+     * @return The task description
+     * @since 6031
+     */
+    String getTitle();
+
+    /**
+     * Returns regular expressions that match the URLs
+     * @return The array of accepted URL patterns
+     * @since 6031
+     */
+    String[] getPatterns();
 
     /**
      * Replies the error objects of the task. Empty list, if no error messages are available.
@@ -91,4 +113,12 @@ public interface DownloadTask {
      *
      */
     public void cancel();
+
+    /**
+     * Replies the HTML-formatted confirmation message to be shown to user when the given URL needs to be confirmed before loading.
+     * @param url The URL to be confirmed
+     * @return The HTML-formatted confirmation message to be shown to user
+     * @since
+     */
+    public String getConfirmationMessage(URL url);
 }

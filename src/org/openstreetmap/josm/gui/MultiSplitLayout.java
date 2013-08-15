@@ -44,6 +44,8 @@ import java.util.Map;
 
 import javax.swing.UIManager;
 
+import org.openstreetmap.josm.tools.Utils;
+
 /**
  * The MultiSplitLayout layout manager recursively arranges its
  * components in row and column groups called "Splits".  Elements of
@@ -209,6 +211,7 @@ public class MultiSplitLayout implements LayoutManager {
      * @param child the component to be added
      * @see #removeLayoutComponent
      */
+    @Override
     public void addLayoutComponent(String name, Component child) {
         if (name == null)
             throw new IllegalArgumentException("name not specified");
@@ -221,6 +224,7 @@ public class MultiSplitLayout implements LayoutManager {
      * @param child the component to be removed
      * @see #addLayoutComponent
      */
+    @Override
     public void removeLayoutComponent(Component child) {
         String name = child.getName();
         if (name != null) {
@@ -318,11 +322,13 @@ public class MultiSplitLayout implements LayoutManager {
         return new Dimension(width, height);
     }
 
+    @Override
     public Dimension preferredLayoutSize(Container parent) {
         Dimension size = preferredNodeSize(getModel());
         return sizeWithInsets(parent, size);
     }
 
+    @Override
     public Dimension minimumLayoutSize(Container parent) {
         Dimension size = minimumNodeSize(getModel());
         return sizeWithInsets(parent, size);
@@ -757,6 +763,7 @@ public class MultiSplitLayout implements LayoutManager {
      * the layout model, and then set the bounds of each child component
      * with a matching Leaf Node.
      */
+    @Override
     public void layoutContainer(Container parent) {
         checkLayout(getModel());
         Insets insets = parent.getInsets();
@@ -845,19 +852,25 @@ public class MultiSplitLayout implements LayoutManager {
         /**
          * Returns the Split parent of this Node, or null.
          *
+         * This method isn't called getParent(), in order to avoid problems
+         * with recursive object creation when using XmlDecoder.
+         *
          * @return the value of the parent property.
-         * @see #setParent
+         * @see #parent_set
          */
-        public Split getParent() { return parent; }
+        public Split parent_get() { return parent; }
 
         /**
          * Set the value of this Node's parent property.  The default
          * value of this property is null.
          *
+         * This method isn't called setParent(), in order to avoid problems
+         * with recursive object creation when using XmlEncoder.
+         *
          * @param parent a Split or null
-         * @see #getParent
+         * @see #parent_get
          */
-        public void setParent(Split parent) {
+        public void parent_set(Split parent) {
             this.parent = parent;
         }
 
@@ -917,7 +930,7 @@ public class MultiSplitLayout implements LayoutManager {
         }
 
         private Node siblingAtOffset(int offset) {
-            Split parent = getParent();
+            Split parent = parent_get();
             if (parent == null)
                 return null;
             List<Node> siblings = parent.getChildren();
@@ -935,7 +948,7 @@ public class MultiSplitLayout implements LayoutManager {
          *
          * @return the Node that comes after this one in the parent's list of children.
          * @see #previousSibling
-         * @see #getParent
+         * @see #parent_get
          */
         public Node nextSibling() {
             return siblingAtOffset(+1);
@@ -948,7 +961,7 @@ public class MultiSplitLayout implements LayoutManager {
          *
          * @return the Node that comes before this one in the parent's list of children.
          * @see #nextSibling
-         * @see #getParent
+         * @see #parent_get
          */
         public Node previousSibling() {
             return siblingAtOffset(-1);
@@ -1014,11 +1027,11 @@ public class MultiSplitLayout implements LayoutManager {
             if (children == null)
                 throw new IllegalArgumentException("children must be a non-null List");
             for(Node child : this.children) {
-                child.setParent(null);
+                child.parent_set(null);
             }
             this.children = new ArrayList<Node>(children);
             for(Node child : this.children) {
-                child.setParent(this);
+                child.parent_set(this);
             }
         }
 
@@ -1124,7 +1137,7 @@ public class MultiSplitLayout implements LayoutManager {
          * @return true if this Divider is part of a Split row.
          */
         public final boolean isVertical() {
-            Split parent = getParent();
+            Split parent = parent_get();
             return (parent != null) ? parent.isRowLayout() : false;
         }
 
@@ -1179,7 +1192,7 @@ public class MultiSplitLayout implements LayoutManager {
 
     private static void addSplitChild(Split parent, Node child) {
         List<Node> children = new ArrayList<Node>(parent.getChildren());
-        if (children.size() == 0) {
+        if (children.isEmpty()) {
             children.add(child);
         }
         else {
@@ -1252,7 +1265,7 @@ public class MultiSplitLayout implements LayoutManager {
             System.err.println(e);
         }
         finally {
-            try { r.close(); } catch (IOException ignore) {}
+            Utils.close(r);
         }
         return null;
     }

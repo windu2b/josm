@@ -6,7 +6,6 @@ import static org.openstreetmap.josm.tools.I18n.tr;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -16,7 +15,6 @@ import java.util.Map;
 import javax.swing.AbstractAction;
 import javax.swing.AbstractButton;
 import javax.swing.JMenu;
-import javax.swing.JOptionPane;
 import javax.swing.KeyStroke;
 
 import org.openstreetmap.josm.Main;
@@ -247,7 +245,7 @@ public class Shortcut {
     private static Map<Integer, Integer> groups= new HashMap<Integer, Integer>();
 
     // check if something collides with an existing shortcut
-    private static Shortcut findShortcut(int requestedKey, int modifier) {
+    public static Shortcut findShortcut(int requestedKey, int modifier) {
         if (modifier == getGroupModifier(NONE))
             return null;
         for (Shortcut sc : shortcuts.values()) {

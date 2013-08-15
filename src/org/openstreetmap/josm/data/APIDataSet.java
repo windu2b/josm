@@ -54,11 +54,15 @@ public class APIDataSet {
      */
     public void init(DataSet ds) {
         if (ds == null) return;
+        init(ds.allPrimitives());
+    }
+
+    public void init(Collection<OsmPrimitive> primitives) {
         toAdd.clear();
         toUpdate.clear();
         toDelete.clear();
 
-        for (OsmPrimitive osm :ds.allPrimitives()) {
+        for (OsmPrimitive osm :primitives) {
             if (osm.get("josm/ignore") != null) {
                 continue;
             }
@@ -139,23 +143,7 @@ public class APIDataSet {
      */
     public APIDataSet(Collection<OsmPrimitive> primitives) {
         this();
-        toAdd.clear();
-        toUpdate.clear();
-        toDelete.clear();
-        for (OsmPrimitive osm: primitives) {
-            if (osm.isNewOrUndeleted() && !osm.isDeleted()) {
-                toAdd.addLast(osm);
-            } else if (osm.isModified() && !osm.isDeleted()) {
-                toUpdate.addLast(osm);
-            } else if (osm.isDeleted() && !osm.isNew() && osm.isModified() && osm.isVisible()) {
-                toDelete.addFirst(osm);
-            }
-        }
-        OsmPrimitiveComparator c = new OsmPrimitiveComparator();
-        c.relationsFirst = true;
-        Collections.sort(toDelete, c);
-        Collections.sort(toAdd, c);
-        Collections.sort(toUpdate, c);
+        init(primitives);
     }
 
     /**
@@ -348,6 +336,7 @@ public class APIDataSet {
             Collections.sort(
                     ret,
                     new Comparator<Relation>() {
+                        @Override
                         public int compare(Relation o1, Relation o2) {
                             return Integer.valueOf(uploadOrder.indexOf(o1)).compareTo(uploadOrder.indexOf(o2));
                         }

@@ -125,20 +125,23 @@ public class MergeSourceBuildingVisitor extends AbstractVisitor {
         mappedPrimitives.put(primitive, clone);
     }
 
+    @Override
     public void visit(Node n) {
         rememberNode(n);
     }
 
+    @Override
     public void visit(Way w) {
         // remember all nodes this way refers to ...
         //
         for (Node n: w.getNodes()) {
-            n.visit(this);
+            n.accept(this);
         }
         // ... and the way itself
         rememberWay(w);
     }
 
+    @Override
     public void visit(Relation r) {
         // first, remember all primitives members refer to (only if necessary, see
         // below)
@@ -151,7 +154,7 @@ public class MergeSourceBuildingVisitor extends AbstractVisitor {
                 continue;
             }
             if (isInSelectionBase(member.getMember()) || member.getMember().isNew()) {
-                member.getMember().visit(this);
+                member.getMember().accept(this);
             } else {
                 rememberIncomplete(member.getMember());
             }
@@ -184,7 +187,7 @@ public class MergeSourceBuildingVisitor extends AbstractVisitor {
 
     public DataSet build() {
         for (OsmPrimitive primitive: selectionBase.getAllSelected()) {
-            primitive.visit(this);
+            primitive.accept(this);
         }
         buildHull();
         return hull;

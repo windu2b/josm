@@ -113,7 +113,7 @@ public class RelationMember implements PrimitiveId {
      *
      * @param role Can be null, in this case it's save as ""
      * @param member Cannot be null
-     * @throw IllegalArgumentException thrown if member is null
+     * @throws IllegalArgumentException thrown if member is <code>null</code>
      */
     public RelationMember(String role, OsmPrimitive member) throws IllegalArgumentException{
         if (role == null) {
@@ -170,6 +170,7 @@ public class RelationMember implements PrimitiveId {
     /**
      * PrimitiveId implementation. Returns the same value as getMember().getType()
      */
+    @Override
     public OsmPrimitiveType getType() {
         return member.getType();
     }
@@ -177,10 +178,12 @@ public class RelationMember implements PrimitiveId {
     /**
      * PrimitiveId implementation. Returns the same value as getMemberType().getUniqueId()
      */
+    @Override
     public long getUniqueId() {
         return member.getUniqueId();
     }
 
+    @Override
     public boolean isNew() {
         return member.isNew();
     }

@@ -86,6 +86,21 @@ import java.util.Set;
  * @author nenik
  */
 public class Storage<T> extends AbstractSet<T> {
+
+    public static class PrimitiveIdHash implements Hash<PrimitiveId, PrimitiveId> {
+
+        @Override
+        public int getHashCode(PrimitiveId k) {
+            return (int)k.getUniqueId() ^ k.getType().hashCode();
+        }
+
+        @Override
+        public boolean equals(PrimitiveId key, PrimitiveId value) {
+            if (key == null || value == null) return false;
+            return key.getUniqueId() == value.getUniqueId() && key.getType() == value.getType();
+        }
+    }
+
     private final Hash<? super T,? super T> hash;
     private T[] data;
     private int mask;
@@ -96,10 +111,16 @@ public class Storage<T> extends AbstractSet<T> {
     private final boolean safeIterator;
     private boolean arrayCopyNecessary;
 
+    /**
+     * Constructs a new {@code Storage} with default capacity (16).
+     */
     public Storage() {
         this(Storage.<T>defaultHash(), DEFAULT_CAPACITY, false);
     }
 
+    /**
+     * Constructs a new {@code Storage} with given capacity.
+     */
     public Storage(int capacity) {
         this(Storage.<T>defaultHash(), capacity, false);
     }
@@ -347,9 +368,11 @@ public class Storage<T> extends AbstractSet<T> {
      */
     public static <O> Hash<O,O> defaultHash() {
         return new Hash<O,O>() {
+            @Override
             public int getHashCode(O t) {
                 return t.hashCode();
             }
+            @Override
             public boolean equals(O t1, O t2) {
                 return t1.equals(t2);
             }
@@ -375,35 +398,42 @@ public class Storage<T> extends AbstractSet<T> {
             fHash = h;
         }
 
+        @Override
         public int size() {
             return Storage.this.size();
         }
 
+        @Override
         public boolean isEmpty() {
             return Storage.this.isEmpty();
         }
 
+        @Override
         public boolean containsKey(Object o) {
             @SuppressWarnings("unchecked") K key = (K) o;
             int bucket = getBucket(fHash, key);
             return bucket >= 0;
         }
 
+        @Override
         public boolean containsValue(Object value) {
             return Storage.this.contains(value);
         }
 
+        @Override
         public T get(Object o) {
             @SuppressWarnings("unchecked") K key = (K) o;
             int bucket = getBucket(fHash, key);
             return bucket < 0 ? null : data[bucket];
         }
 
+        @Override
         public T put(K key, T value) {
             if (!fHash.equals(key, value)) throw new IllegalArgumentException("inconsistent key");
             return Storage.this.put(value);
         }
 
+        @Override
         public T remove(Object o) {
             modCount++;
             @SuppressWarnings("unchecked") K key = (K) o;
@@ -412,9 +442,10 @@ public class Storage<T> extends AbstractSet<T> {
             return bucket < 0 ? null : doRemove(bucket);
         }
 
+        @Override
         public void putAll(Map<? extends K, ? extends T> m) {
             if (m instanceof Storage.FMap) {
-                Storage.this.addAll(((Storage.FMap)m).values());
+                Storage.this.addAll(m.values());
             } else {
                 for (Map.Entry<? extends K, ? extends T> e : m.entrySet()) {
                     put(e.getKey(), e.getValue());
@@ -422,18 +453,22 @@ public class Storage<T> extends AbstractSet<T> {
             }
         }
 
+        @Override
         public void clear() {
             Storage.this.clear();
         }
 
+        @Override
         public Set<K> keySet() {
             throw new UnsupportedOperationException();
         }
 
+        @Override
         public Collection<T> values() {
             return Storage.this;
         }
 
+        @Override
         public Set<Entry<K, T>> entrySet() {
             throw new UnsupportedOperationException();
         }
@@ -447,16 +482,19 @@ public class Storage<T> extends AbstractSet<T> {
             this.data = data;
         }
 
+        @Override
         public boolean hasNext() {
             align();
             return slot < data.length;
         }
 
+        @Override
         public T next() {
             if (!hasNext()) throw new NoSuchElementException();
             return data[slot++];
         }
 
+        @Override
         public void remove() {
             throw new UnsupportedOperationException();
         }
@@ -478,17 +516,20 @@ public class Storage<T> extends AbstractSet<T> {
             mods = modCount;
         }
 
+        @Override
         public boolean hasNext() {
             align();
             return slot < data.length;
         }
 
+        @Override
         public T next() {
             if (!hasNext()) throw new NoSuchElementException();
             removeSlot = slot;
             return data[slot++];
         }
 
+        @Override
         public void remove() {
             if (removeSlot == -1) throw new IllegalStateException();
 

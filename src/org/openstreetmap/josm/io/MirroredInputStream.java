@@ -13,16 +13,15 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import org.openstreetmap.josm.Main;
+import org.openstreetmap.josm.tools.Pair;
 import org.openstreetmap.josm.tools.Utils;
 
 /**
@@ -34,7 +33,7 @@ public class MirroredInputStream extends InputStream {
     InputStream fs = null;
     File file = null;
 
-    public final static long DEFAULT_MAXTIME = -1l;
+    public final static long DEFAULT_MAXTIME = -1L;
 
     public MirroredInputStream(String name) throws IOException {
         this(name, null, DEFAULT_MAXTIME);
@@ -70,10 +69,7 @@ public class MirroredInputStream extends InputStream {
                 }
             } else {
                 if (Main.applet) {
-                    URLConnection conn = url.openConnection();
-                    conn.setConnectTimeout(Main.pref.getInteger("socket.timeout.connect",15)*1000);
-                    conn.setReadTimeout(Main.pref.getInteger("socket.timeout.read",30)*1000);
-                    fs = new BufferedInputStream(conn.getInputStream());
+                    fs = new BufferedInputStream(Utils.openURL(url));
                     file = new File(url.getFile());
                 } else {
                     file = checkLocal(url, destDir, maxTime);
@@ -95,20 +91,43 @@ public class MirroredInputStream extends InputStream {
     }
 
     /**
-     * Replies an input stream for a file in a ZIP-file. Replies a file in the top
-     * level directory of the ZIP file which has an extension <code>extension</code>. If more
-     * than one files have this extension, the last file whose name includes <code>namepart</code>
+     * Looks for a certain entry inside a zip file and returns the entry path.
+     *
+     * Replies a file in the top level directory of the ZIP file which has an
+     * extension <code>extension</code>. If more than one files have this
+     * extension, the last file whose name includes <code>namepart</code>
      * is opened.
      *
      * @param extension  the extension of the file we're looking for
      * @param namepart the name part
-     * @return an input stream. Null if this mirrored input stream doesn't represent a zip file or if
-     * there was no matching file in the ZIP file
+     * @return The zip entry path of the matching file. Null if this mirrored
+     * input stream doesn't represent a zip file or if there was no matching
+     * file in the ZIP file.
      */
+    public String findZipEntryPath(String extension, String namepart) {
+        Pair<String, InputStream> ze = findZipEntryImpl(extension, namepart);
+        if (ze == null) return null;
+        return ze.a;
+    }
+
+    /**
+     * Like {@link #findZipEntryPath}, but returns the corresponding InputStream.
+     */
+    public InputStream findZipEntryInputStream(String extension, String namepart) {
+        Pair<String, InputStream> ze = findZipEntryImpl(extension, namepart);
+        if (ze == null) return null;
+        return ze.b;
+    }
+
+    @Deprecated // use findZipEntryInputStream
     public InputStream getZipEntry(String extension, String namepart) {
+        return findZipEntryInputStream(extension, namepart);
+    }
+
+    private Pair<String, InputStream> findZipEntryImpl(String extension, String namepart) {
         if (file == null)
             return null;
-        InputStream res = null;
+        Pair<String, InputStream> res = null;
         try {
             ZipFile zipFile = new ZipFile(file);
             ZipEntry resentry = null;
@@ -124,9 +143,10 @@ public class MirroredInputStream extends InputStream {
                 }
             }
             if (resentry != null) {
-                res = zipFile.getInputStream(resentry);
+                InputStream is = zipFile.getInputStream(resentry);
+                res = Pair.create(resentry.getName(), is);
             } else {
-                zipFile.close();
+                Utils.close(zipFile);
             }
         } catch (Exception e) {
             if(file.getName().endsWith(".zip")) {
@@ -226,10 +246,10 @@ public class MirroredInputStream extends InputStream {
             while ((length = bis.read(buffer)) > -1) {
                 bos.write(buffer, 0, length);
             }
-            bos.close();
+            Utils.close(bos);
             bos = null;
             /* close fos as well to be sure! */
-            fos.close();
+            Utils.close(fos);
             fos = null;
             localFile = new File(destDir, localPath);
             if(Main.platform.rename(destDirFile, localFile)) {
@@ -263,12 +283,18 @@ public class MirroredInputStream extends InputStream {
      * is going from a http to a https URL, see <a href="http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=4620571">bug report</a>.
      * <p>
      * This can causes problems when downloading from certain GitHub URLs.
+     * 
+     * @param downloadUrl The resource URL to download
+     * @return The HTTP connection effectively linked to the resource, after all potential redirections
+     * @throws MalformedURLException If a redirected URL is wrong
+     * @throws IOException If any I/O operation goes wrong
+     * @since 6073
      */
-    protected HttpURLConnection connectFollowingRedirect(URL downloadUrl) throws MalformedURLException, IOException {
+    public static HttpURLConnection connectFollowingRedirect(URL downloadUrl) throws MalformedURLException, IOException {
         HttpURLConnection con = null;
         int numRedirects = 0;
         while(true) {
-            con = (HttpURLConnection)downloadUrl.openConnection();
+            con = Utils.openHttpConnection(downloadUrl);
             con.setInstanceFollowRedirects(false);
             con.setConnectTimeout(Main.pref.getInteger("socket.timeout.connect",15)*1000);
             con.setReadTimeout(Main.pref.getInteger("socket.timeout.read",30)*1000);
@@ -306,7 +332,7 @@ public class MirroredInputStream extends InputStream {
     { return fs.available(); }
     @Override
     public void close() throws IOException
-    { fs.close(); }
+    { Utils.close(fs); }
     @Override
     public int read() throws IOException
     { return fs.read(); }

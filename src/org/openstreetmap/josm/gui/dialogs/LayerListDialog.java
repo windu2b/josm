@@ -34,7 +34,6 @@ import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.JSlider;
 import javax.swing.JTable;
-import javax.swing.JTextField;
 import javax.swing.JViewport;
 import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
@@ -57,12 +56,12 @@ import org.openstreetmap.josm.gui.MapFrame;
 import org.openstreetmap.josm.gui.MapView;
 import org.openstreetmap.josm.gui.SideButton;
 import org.openstreetmap.josm.gui.help.HelpUtil;
-import org.openstreetmap.josm.gui.io.SaveLayersDialog;
 import org.openstreetmap.josm.gui.layer.JumpToMarkerActions;
 import org.openstreetmap.josm.gui.layer.Layer;
 import org.openstreetmap.josm.gui.layer.Layer.LayerAction;
 import org.openstreetmap.josm.gui.layer.OsmDataLayer;
 import org.openstreetmap.josm.gui.util.GuiHelper;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 import org.openstreetmap.josm.gui.widgets.PopupMenuLauncher;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
 import org.openstreetmap.josm.tools.ImageProvider;
@@ -91,7 +90,6 @@ public class LayerListDialog extends ToggleDialog {
         if (instance != null)
             throw new IllegalStateException("Dialog was already created");
         instance = new LayerListDialog(mapFrame);
-
     }
 
     /**
@@ -193,7 +191,7 @@ public class LayerListDialog extends ToggleDialog {
         layerList.getColumnModel().getColumn(1).setPreferredWidth(16);
         layerList.getColumnModel().getColumn(1).setResizable(false);
         layerList.getColumnModel().getColumn(2).setCellRenderer(new LayerNameCellRenderer());
-        layerList.getColumnModel().getColumn(2).setCellEditor(new LayerNameCellEditor(new JTextField()));
+        layerList.getColumnModel().getColumn(2).setCellEditor(new LayerNameCellEditor(new JosmTextField()));
         for (KeyStroke ks : new KeyStroke[] {
                 KeyStroke.getKeyStroke(KeyEvent.VK_C, InputEvent.CTRL_MASK),
                 KeyStroke.getKeyStroke(KeyEvent.VK_V, InputEvent.CTRL_MASK),
@@ -276,6 +274,7 @@ public class LayerListDialog extends ToggleDialog {
 
         // Activate layer on Enter key press
         InputMapUtils.addEnterAction(layerList, new AbstractAction() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 activateLayerAction.actionPerformed(null);
                 layerList.requestFocus();
@@ -344,8 +343,8 @@ public class LayerListDialog extends ToggleDialog {
      * <code>listener</code> receives a {@link IEnabledStateUpdating#updateEnabledState()}
      * on every {@link ListDataEvent}.
      *
-     * @param listener  the listener
-     * @param listSelectionModel  the source emitting {@link ListDataEvent}s
+     * @param listener the listener
+     * @param listModel the source emitting {@link ListDataEvent}s
      */
     protected void adaptTo(final IEnabledStateUpdating listener, LayerListModel listModel) {
         listModel.addTableModelListener(
@@ -1008,32 +1007,23 @@ public class LayerListDialog extends ToggleDialog {
     }
 
     private static class LayerNameCellEditor extends DefaultCellEditor {
-        public LayerNameCellEditor(JTextField tf) {
+        public LayerNameCellEditor(JosmTextField tf) {
             super(tf);
         }
 
         @Override
         public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
-            JTextField tf = (JTextField) super.getTableCellEditorComponent(table, value, isSelected, row, column);
+            JosmTextField tf = (JosmTextField) super.getTableCellEditorComponent(table, value, isSelected, row, column);
             tf.setText(value == null ? "" : ((Layer) value).getName());
             return tf;
         }
     }
 
     class PopupMenuHandler extends PopupMenuLauncher {
-        @Override
-        public void launch(MouseEvent evt) {
-            Point p = evt.getPoint();
-            int index = layerList.rowAtPoint(p);
-            if (index < 0) return;
-            if (!layerList.getCellRect(index, 2, false).contains(evt.getPoint()))
-                return;
-            if (!layerList.isRowSelected(index)) {
-                layerList.setRowSelectionInterval(index, index);
-            }
-            Layer layer = model.getLayer(index);
-            LayerListPopup menu = new LayerListPopup(getModel().getSelectedLayers(), layer);
-            menu.show(layerList, p.x, p.y-3);
+        @Override public void launch(MouseEvent evt) {
+            Layer layer = getModel().getLayer(layerList.getSelectedRow());
+            menu = new LayerListPopup(getModel().getSelectedLayers(), layer);
+            super.launch(evt);
         }
     }
 
@@ -1563,7 +1553,6 @@ public class LayerListDialog extends ToggleDialog {
      * Creates a {@link ShowHideLayerAction} for <code>layer</code> in the
      * context of this {@link LayerListDialog}.
      *
-     * @param layer the layer
      * @return the action
      */
     public ShowHideLayerAction createShowHideLayerAction() {
@@ -1576,7 +1565,6 @@ public class LayerListDialog extends ToggleDialog {
      * Creates a {@link DeleteLayerAction} for <code>layer</code> in the
      * context of this {@link LayerListDialog}.
      *
-     * @param layer the layer
      * @return the action
      */
     public DeleteLayerAction createDeleteLayerAction() {
@@ -1647,7 +1635,7 @@ public class LayerListDialog extends ToggleDialog {
         if (!Main.isDisplayingMapView())
             return false;
 
-        return Main.map.mapView.getAllLayersAsList().indexOf(l) >= 0;
+        return Main.map.mapView.getAllLayersAsList().contains(l);
     }
 
     public static MultikeyInfo getLayerInfo(Layer l) {

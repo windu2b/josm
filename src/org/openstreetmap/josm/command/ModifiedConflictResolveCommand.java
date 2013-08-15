@@ -5,9 +5,8 @@ import static org.openstreetmap.josm.tools.I18n.marktr;
 import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.util.Collection;
-import javax.swing.Icon;
 
-import javax.swing.JLabel;
+import javax.swing.Icon;
 
 import org.openstreetmap.josm.data.conflict.Conflict;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
@@ -26,8 +25,7 @@ public class ModifiedConflictResolveCommand extends ConflictResolveCommand {
 
     /**
      * constructor
-     * @param my  my primitive (i.e. the primitive from the local dataset)
-     * @param their their primitive (i.e. the primitive from the server)
+     * @param conflict the conflict data set
      */
     public ModifiedConflictResolveCommand(Conflict<? extends OsmPrimitive> conflict) {
         this.conflict = conflict;

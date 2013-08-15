@@ -135,6 +135,7 @@ public class DownloadDialog extends JDialog  {
         cbStartup = new JCheckBox(tr("Open this dialog on startup"));
         cbStartup.setToolTipText(tr("<html>Autostart ''Download from OSM'' dialog every time JOSM is started.<br>You can open it manually from File menu or toolbar.</html>"));
         cbStartup.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                  Main.pref.put("download.autorun", cbStartup.isSelected());
             }});
@@ -143,7 +144,7 @@ public class DownloadDialog extends JDialog  {
         pnl.add(cbStartup, GBC.std().anchor(GBC.WEST).insets(15,5,5,5));
 
         pnl.add(sizeCheck,  GBC.eol().anchor(GBC.EAST).insets(5,5,5,2));
-        
+
         if (!ExpertToggleAction.isExpert()) {
             JLabel infoLabel  = new JLabel(tr("Use left click&drag to select area, arrows or right mouse button to scroll map, wheel or +/- to zoom."));
             pnl.add(infoLabel,GBC.eol().anchor(GBC.SOUTH).insets(0,0,0,0));
@@ -152,6 +153,7 @@ public class DownloadDialog extends JDialog  {
     }
 
     /* This should not be necessary, but if not here, repaint is not always correct in SlippyMap! */
+    @Override
     public void paint(Graphics g) {
         tpDownloadAreaSelectors.getSelectedComponent().paint(g);
         super.paint(g);
@@ -164,7 +166,7 @@ public class DownloadDialog extends JDialog  {
         // -- download button
         pnl.add(btnDownload = new SideButton(actDownload = new DownloadAction()));
         InputMapUtils.enableEnter(btnDownload);
-        
+
         makeCheckBoxRespondToEnter(cbDownloadGpxData);
         makeCheckBoxRespondToEnter(cbDownloadOsmData);
         makeCheckBoxRespondToEnter(cbNewLayer);
@@ -197,6 +199,7 @@ public class DownloadDialog extends JDialog  {
                 KeyStroke.getKeyStroke(KeyEvent.VK_V, InputEvent.CTRL_MASK), "checkClipboardContents");
 
         getRootPane().getActionMap().put("checkClipboardContents", new AbstractAction() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 String clip = Utils.getClipboardContent();
                 if (clip == null) {
@@ -307,7 +310,7 @@ public class DownloadDialog extends JDialog  {
         cbDownloadOsmData.setSelected(Main.pref.getBoolean("download.osm", true));
         cbDownloadGpxData.setSelected(Main.pref.getBoolean("download.gps", false));
         cbNewLayer.setSelected(Main.pref.getBoolean("download.newlayer", false));
-        cbStartup.setSelected( isAutorunEnabled() ); 
+        cbStartup.setSelected( isAutorunEnabled() );
         int idx = Main.pref.getInteger("download.tab", 0);
         if (idx < 0 || idx > tpDownloadAreaSelectors.getTabCount()) {
             idx = 0;
@@ -365,7 +368,7 @@ public class DownloadDialog extends JDialog  {
                             new Dimension(1000,600)
                     )
             ).applySafe(this);
-        } else if (!visible && isShowing()){
+        } else if (isShowing()) { // Avoid IllegalComponentStateException like in #8775
             new WindowGeometry(this).remember(getClass().getName() + ".geometry");
         }
         super.setVisible(visible);
@@ -399,6 +402,7 @@ public class DownloadDialog extends JDialog  {
             setVisible(false);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             run();
         }
@@ -438,6 +442,7 @@ public class DownloadDialog extends JDialog  {
             setVisible(false);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             run();
         }

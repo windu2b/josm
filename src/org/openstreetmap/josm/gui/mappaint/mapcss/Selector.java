@@ -2,10 +2,10 @@
 package org.openstreetmap.josm.gui.mappaint.mapcss;
 
 import java.util.List;
+import java.util.regex.PatternSyntaxException;
 
 import org.openstreetmap.josm.data.osm.Node;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
-import org.openstreetmap.josm.data.osm.OsmPrimitiveType;
 import org.openstreetmap.josm.data.osm.Relation;
 import org.openstreetmap.josm.data.osm.RelationMember;
 import org.openstreetmap.josm.data.osm.Way;
@@ -33,13 +33,13 @@ public interface Selector {
 
     /**
      * <p>Represents a child selector or a parent selector.</p>
-     * 
+     *
      * <p>In addition to the standard CSS notation for child selectors, JOSM also supports
      * an "inverse" notation:</p>
      * <pre>
      *    selector_a > selector_b { ... }       // the standard notation (child selector)
      *    relation[type=route] > way { ... }    // example (all ways of a route)
-     * 
+     *
      *    selector_a < selector_b { ... }       // the inverse notation (parent selector)
      *    node[traffic_calming] < way { ... }   // example (way that has a traffic calming node)
      * </pre>
@@ -54,7 +54,7 @@ public interface Selector {
         private final boolean parentSelector;
 
         /**
-         * 
+         *
          * @param a the first selector
          * @param b the second selector
          * @param parentSelector if true, this is a parent selector; otherwise a child selector
@@ -68,11 +68,11 @@ public interface Selector {
 
         /**
          * <p>Finds the first referrer matching {@link #left}</p>
-         * 
+         *
          * <p>The visitor works on an environment and it saves the matching
          * referrer in {@code e.parent} and its relative position in the
          * list referrers "child list" in {@code e.index}.</p>
-         * 
+         *
          * <p>If after execution {@code e.parent} is null, no matching
          * referrer was found.</p>
          *
@@ -196,20 +196,51 @@ public interface Selector {
         }
     }
 
-    public static class LinkSelector implements Selector {
-        protected List<Condition> conditions;
+    /**
+     * Super class of {@link GeneralSelector} and {@link LinkSelector}
+     * @since 5841
+     */
+    public static abstract class AbstractSelector implements Selector {
+
+        protected final List<Condition> conds;
+
+        protected AbstractSelector(List<Condition> conditions) {
+            if (conditions == null || conditions.isEmpty()) {
+                this.conds = null;
+            } else {
+                this.conds = conditions;
+            }
+        }
+
+        /**
+         * Determines if all conditions match the given environment.
+         * @param env The environment to check
+         * @return {@code true} if all conditions apply, false otherwise.
+         */
+        public final boolean matchesConditions(Environment env) {
+            if (conds == null) return true;
+            for (Condition c : conds) {
+                try {
+                    if (!c.applies(env)) return false;
+                } catch (PatternSyntaxException e) {
+                    System.err.println("PatternSyntaxException while applying condition" + c +": "+e.getMessage());
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+
+    public static class LinkSelector extends AbstractSelector {
 
         public LinkSelector(List<Condition> conditions) {
-            this.conditions = conditions;
+            super(conditions);
         }
 
         @Override
         public boolean matches(Environment env) {
             Utils.ensure(env.isLinkContext(), "Requires LINK context in environment, got ''{0}''", env.getContext());
-            for (Condition c: conditions) {
-                if (!c.applies(env)) return false;
-            }
-            return true;
+            return matchesConditions(env);
         }
 
         @Override
@@ -224,17 +255,17 @@ public interface Selector {
 
         @Override
         public String toString() {
-            return "LinkSelector{" + "conditions=" + conditions + '}';
+            return "LinkSelector{" + "conditions=" + conds + '}';
         }
     }
 
-    public static class GeneralSelector implements Selector {
+    public static class GeneralSelector extends AbstractSelector {
         private String base;
         public Range range;
-        private List<Condition> conds;
         private String subpart;
 
         public GeneralSelector(String base, Pair<Integer, Integer> zoom, List<Condition> conds, String subpart) {
+            super(conds);
             this.base = base;
             if (zoom != null) {
                 int a = zoom.a == null ? 0 : zoom.a;
@@ -245,11 +276,6 @@ public interface Selector {
             }
             if (range == null) {
                 range = new Range();
-            }
-            if (conds == null || conds.isEmpty()) {
-                this.conds = null;
-            } else {
-                this.conds = conds;
             }
             this.subpart = subpart;
         }
@@ -278,15 +304,6 @@ public interface Selector {
                 }
             }
             return false;
-        }
-
-        public boolean matchesConditions(Environment e){
-            if (conds == null) return true;
-            for (Condition c : conds) {
-                if (!c.applies(e))
-                    return false;
-            }
-            return true;
         }
 
         @Override

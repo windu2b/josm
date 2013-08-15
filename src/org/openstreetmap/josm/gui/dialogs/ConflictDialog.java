@@ -4,24 +4,25 @@ package org.openstreetmap.josm.gui.dialogs;
 import static org.openstreetmap.josm.gui.help.HelpUtil.ht;
 import static org.openstreetmap.josm.tools.I18n.marktr;
 import static org.openstreetmap.josm.tools.I18n.tr;
+import static org.openstreetmap.josm.tools.I18n.trn;
 
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
-import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.swing.AbstractAction;
 import javax.swing.JList;
+import javax.swing.JOptionPane;
+import javax.swing.JPopupMenu;
 import javax.swing.ListModel;
 import javax.swing.ListSelectionModel;
 import javax.swing.event.ListDataEvent;
@@ -42,12 +43,16 @@ import org.openstreetmap.josm.data.osm.RelationMember;
 import org.openstreetmap.josm.data.osm.Way;
 import org.openstreetmap.josm.data.osm.visitor.AbstractVisitor;
 import org.openstreetmap.josm.data.osm.visitor.Visitor;
+import org.openstreetmap.josm.gui.HelpAwareOptionPane;
+import org.openstreetmap.josm.gui.HelpAwareOptionPane.ButtonSpec;
 import org.openstreetmap.josm.gui.MapView;
 import org.openstreetmap.josm.gui.NavigatableComponent;
 import org.openstreetmap.josm.gui.OsmPrimitivRenderer;
+import org.openstreetmap.josm.gui.PopupMenuHandler;
 import org.openstreetmap.josm.gui.SideButton;
 import org.openstreetmap.josm.gui.layer.OsmDataLayer;
 import org.openstreetmap.josm.gui.util.GuiHelper;
+import org.openstreetmap.josm.gui.widgets.PopupMenuLauncher;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.Shortcut;
 
@@ -60,7 +65,7 @@ public final class ConflictDialog extends ToggleDialog implements MapView.EditLa
 
     /**
      * Replies the color used to paint conflicts.
-     * 
+     *
      * @return the color used to paint conflicts
      * @since 1221
      * @see #paintConflicts
@@ -77,6 +82,9 @@ public final class ConflictDialog extends ToggleDialog implements MapView.EditLa
     /** the list widget for the list of conflicts */
     private JList lstConflicts;
 
+    private final JPopupMenu popupMenu = new JPopupMenu();
+    private final PopupMenuHandler popupMenuHandler = new PopupMenuHandler(popupMenu);
+
     private ResolveAction actResolve;
     private SelectAction actSelect;
 
@@ -89,28 +97,25 @@ public final class ConflictDialog extends ToggleDialog implements MapView.EditLa
         lstConflicts = new JList(model);
         lstConflicts.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         lstConflicts.setCellRenderer(new OsmPrimitivRenderer());
-        lstConflicts.addMouseListener(new MouseAdapter(){
-            @Override public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() >= 2) {
-                    resolve();
-                }
-            }
-        });
-        lstConflicts.getSelectionModel().addListSelectionListener(new ListSelectionListener(){
+        lstConflicts.addMouseListener(new MouseEventHandler());
+        addListSelectionListener(new ListSelectionListener(){
+            @Override
             public void valueChanged(ListSelectionEvent e) {
                 Main.map.mapView.repaint();
             }
         });
 
         SideButton btnResolve = new SideButton(actResolve = new ResolveAction());
-        lstConflicts.getSelectionModel().addListSelectionListener(actResolve);
+        addListSelectionListener(actResolve);
 
         SideButton btnSelect = new SideButton(actSelect = new SelectAction());
-        lstConflicts.getSelectionModel().addListSelectionListener(actSelect);
+        addListSelectionListener(actSelect);
 
         createLayout(lstConflicts, true, Arrays.asList(new SideButton[] {
             btnResolve, btnSelect
         }));
+
+        popupMenuHandler.addAction(Main.main.menu.autoScaleActions.get("conflict"));
     }
 
     /**
@@ -136,6 +141,33 @@ public final class ConflictDialog extends ToggleDialog implements MapView.EditLa
     public void hideNotify() {
         MapView.removeEditLayerChangeListener(this);
         DataSet.removeSelectionListener(this);
+    }
+
+    /**
+     * Add a list selection listener to the conflicts list.
+     * @param listener the ListSelectionListener
+     * @since 5958
+     */
+    public void addListSelectionListener(ListSelectionListener listener) {
+        lstConflicts.getSelectionModel().addListSelectionListener(listener);
+    }
+
+    /**
+     * Remove the given list selection listener from the conflicts list.
+     * @param listener the ListSelectionListener
+     * @since 5958
+     */
+    public void removeListSelectionListener(ListSelectionListener listener) {
+        lstConflicts.getSelectionModel().removeListSelectionListener(listener);
+    }
+
+    /**
+     * Replies the popup menu handler.
+     * @return The popup menu handler
+     * @since 5958
+     */
+    public PopupMenuHandler getPopupMenuHandler() {
+        return popupMenuHandler;
     }
 
     /**
@@ -185,7 +217,7 @@ public final class ConflictDialog extends ToggleDialog implements MapView.EditLa
 
     /**
      * Paints all conflicts that can be expressed on the main window.
-     * 
+     *
      * @param g The {@code Graphics} used to paint
      * @param nc The {@code NavigatableComponent} used to get screen coordinates of nodes
      * @since 86
@@ -198,6 +230,7 @@ public final class ConflictDialog extends ToggleDialog implements MapView.EditLa
         Visitor conflictPainter = new AbstractVisitor() {
             // Manage a stack of visited relations to avoid infinite recursion with cyclic relations (fix #7938)
             private final Set<Relation> visited = new HashSet<Relation>();
+            @Override
             public void visit(Node n) {
                 Point p = nc.getPoint(n);
                 g.drawRect(p.x-1, p.y-1, 2, 2);
@@ -207,6 +240,7 @@ public final class ConflictDialog extends ToggleDialog implements MapView.EditLa
                 Point p2 = nc.getPoint(n2);
                 g.drawLine(p1.x, p1.y, p2.x, p2.y);
             }
+            @Override
             public void visit(Way w) {
                 Node lastN = null;
                 for (Node n : w.getNodes()) {
@@ -218,12 +252,13 @@ public final class ConflictDialog extends ToggleDialog implements MapView.EditLa
                     lastN = n;
                 }
             }
+            @Override
             public void visit(Relation e) {
                 if (!visited.contains(e)) {
                     visited.add(e);
                     try {
                         for (RelationMember em : e.getMembers()) {
-                            em.getMember().visit(this);
+                            em.getMember().accept(this);
                         }
                     } finally {
                         visited.remove(e);
@@ -235,10 +270,11 @@ public final class ConflictDialog extends ToggleDialog implements MapView.EditLa
             if (conflicts == null || !conflicts.hasConflictForMy((OsmPrimitive)o)) {
                 continue;
             }
-            conflicts.getConflictForMy((OsmPrimitive)o).getTheir().visit(conflictPainter);
+            conflicts.getConflictForMy((OsmPrimitive)o).getTheir().accept(conflictPainter);
         }
     }
 
+    @Override
     public void editLayerChanged(OsmDataLayer oldLayer, OsmDataLayer newLayer) {
         if (oldLayer != null) {
             oldLayer.getConflicts().removeConflictListener(this);
@@ -261,7 +297,7 @@ public final class ConflictDialog extends ToggleDialog implements MapView.EditLa
 
     /**
      * returns the first selected item of the conflicts list
-     * 
+     *
      * @return Conflict
      */
     public Conflict<? extends OsmPrimitive> getSelectedConflict() {
@@ -273,15 +309,18 @@ public final class ConflictDialog extends ToggleDialog implements MapView.EditLa
         return conflicts.get(index);
     }
 
+    @Override
     public void onConflictsAdded(ConflictCollection conflicts) {
         refreshView();
     }
 
+    @Override
     public void onConflictsRemoved(ConflictCollection conflicts) {
         System.err.println("1 conflict has been resolved.");
         refreshView();
     }
 
+    @Override
     public void selectionChanged(Collection<? extends OsmPrimitive> newSelection) {
         lstConflicts.clearSelection();
         for (OsmPrimitive osm : newSelection) {
@@ -299,6 +338,17 @@ public final class ConflictDialog extends ToggleDialog implements MapView.EditLa
         return ht("/Dialog/ConflictList");
     }
 
+    class MouseEventHandler extends PopupMenuLauncher {
+        public MouseEventHandler() {
+            super(popupMenu);
+        }
+        @Override public void mouseClicked(MouseEvent e) {
+            if (isDoubleClick(e)) {
+                resolve();
+            }
+        }
+    }
+
     /**
      * The {@link ListModel} for conflicts
      *
@@ -311,12 +361,14 @@ public final class ConflictDialog extends ToggleDialog implements MapView.EditLa
             listeners = new CopyOnWriteArrayList<ListDataListener>();
         }
 
+        @Override
         public void addListDataListener(ListDataListener l) {
             if (l != null) {
                 listeners.addIfAbsent(l);
             }
         }
 
+        @Override
         public void removeListDataListener(ListDataListener l) {
             listeners.remove(l);
         }
@@ -328,18 +380,19 @@ public final class ConflictDialog extends ToggleDialog implements MapView.EditLa
                     0,
                     getSize()
             );
-            Iterator<ListDataListener> it = listeners.iterator();
-            while(it.hasNext()) {
-                it.next().contentsChanged(evt);
+            for (ListDataListener listener : listeners) {
+                listener.contentsChanged(evt);
             }
         }
 
+        @Override
         public Object getElementAt(int index) {
             if (index < 0) return null;
             if (index >= getSize()) return null;
             return conflicts.get(index).getMy();
         }
 
+        @Override
         public int getSize() {
             if (conflicts == null) return 0;
             return conflicts.size();
@@ -368,10 +421,12 @@ public final class ConflictDialog extends ToggleDialog implements MapView.EditLa
             putValue("help", ht("/Dialog/ConflictList#ResolveAction"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             resolve();
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             ListSelectionModel model = (ListSelectionModel)e.getSource();
             boolean enabled = model.getMinSelectionIndex() >= 0
@@ -388,17 +443,19 @@ public final class ConflictDialog extends ToggleDialog implements MapView.EditLa
             putValue("help", ht("/Dialog/ConflictList#SelectAction"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             Collection<OsmPrimitive> sel = new LinkedList<OsmPrimitive>();
             for (Object o : lstConflicts.getSelectedValues()) {
                 sel.add((OsmPrimitive)o);
             }
             DataSet ds = Main.main.getCurrentDataSet();
-            if (ds != null) { // Can't see how it is possible but it happened in #7942 
+            if (ds != null) { // Can't see how it is possible but it happened in #7942
                 ds.setSelected(sel);
             }
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             ListSelectionModel model = (ListSelectionModel)e.getSource();
             boolean enabled = model.getMinSelectionIndex() >= 0
@@ -407,4 +464,50 @@ public final class ConflictDialog extends ToggleDialog implements MapView.EditLa
         }
     }
 
+    /**
+     * Warns the user about the number of detected conflicts
+     *
+     * @param numNewConflicts the number of detected conflicts
+     * @since 5775
+     */
+    public void warnNumNewConflicts(int numNewConflicts) {
+        if (numNewConflicts == 0) return;
+
+        String msg1 = trn(
+                "There was {0} conflict detected.",
+                "There were {0} conflicts detected.",
+                numNewConflicts,
+                numNewConflicts
+        );
+
+        final StringBuffer sb = new StringBuffer();
+        sb.append("<html>").append(msg1).append("</html>");
+        if (numNewConflicts > 0) {
+            final ButtonSpec[] options = new ButtonSpec[] {
+                    new ButtonSpec(
+                            tr("OK"),
+                            ImageProvider.get("ok"),
+                            tr("Click to close this dialog and continue editing"),
+                            null /* no specific help */
+                    )
+            };
+            GuiHelper.runInEDT(new Runnable() {
+                @Override
+                public void run() {
+                    HelpAwareOptionPane.showOptionDialog(
+                            Main.parent,
+                            sb.toString(),
+                            tr("Conflicts detected"),
+                            JOptionPane.WARNING_MESSAGE,
+                            null, /* no icon */
+                            options,
+                            options[0],
+                            ht("/Concepts/Conflict#WarningAboutDetectedConflicts")
+                    );
+                    unfurlDialog();
+                    Main.map.repaint();
+                }
+            });
+        }
+    }
 }

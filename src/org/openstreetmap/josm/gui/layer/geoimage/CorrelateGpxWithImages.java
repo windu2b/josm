@@ -33,7 +33,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.Hashtable;
-import java.util.Iterator;
 import java.util.List;
 import java.util.TimeZone;
 import java.util.Vector;
@@ -52,7 +51,6 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 import javax.swing.JSlider;
-import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
 import javax.swing.event.ChangeEvent;
@@ -80,6 +78,7 @@ import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.PrimaryDateParser;
 import org.xml.sax.SAXException;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 
 /** This class displays the window to select the GPX file and the offset (timezone + delta).
  * Then it correlates the images of the layer with that GPX file.
@@ -118,8 +117,8 @@ public class CorrelateGpxWithImages extends AbstractAction {
     Vector<GpxDataWrapper> gpxLst = new Vector<GpxDataWrapper>();
     JPanel outerPanel;
     JosmComboBox cbGpx;
-    JTextField tfTimezone;
-    JTextField tfOffset;
+    JosmTextField tfTimezone;
+    JosmTextField tfOffset;
     JCheckBox cbExifImg;
     JCheckBox cbTaggedImg;
     JCheckBox cbShowThumbs;
@@ -133,6 +132,7 @@ public class CorrelateGpxWithImages extends AbstractAction {
      */
     private class LoadGpxDataActionListener implements ActionListener {
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             FileFilter filter = new FileFilter(){
                 @Override public boolean accept(File f) {
@@ -177,7 +177,7 @@ public class CorrelateGpxWithImages extends AbstractAction {
                     }
                     GpxReader reader = new GpxReader(iStream);
                     reader.parse(false);
-                    data = reader.data;
+                    data = reader.getGpxData();
                     data.storageFile = sel;
 
                 } catch (SAXException x) {
@@ -223,11 +223,12 @@ public class CorrelateGpxWithImages extends AbstractAction {
     private class SetOffsetActionListener implements ActionListener {
         JPanel panel;
         JLabel lbExifTime;
-        JTextField tfGpsTime;
+        JosmTextField tfGpsTime;
         JosmComboBox cbTimezones;
         ImageDisplay imgDisp;
         JList imgList;
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
 
@@ -268,7 +269,7 @@ public class CorrelateGpxWithImages extends AbstractAction {
             gc.anchor = GridBagConstraints.WEST;
             panelTf.add(new JLabel(tr("Gps time (read from the above photo): ")), gc);
 
-            tfGpsTime = new JTextField(12);
+            tfGpsTime = new JosmTextField(12);
             tfGpsTime.setEnabled(false);
             tfGpsTime.setMinimumSize(new Dimension(155, tfGpsTime.getMinimumSize().height));
             gc.gridx = 1;
@@ -288,8 +289,8 @@ public class CorrelateGpxWithImages extends AbstractAction {
             gc.anchor = GridBagConstraints.WEST;
             panelTf.add(new JLabel(tr("I am in the timezone of: ")), gc);
 
-            Vector<String> vtTimezones = new Vector<String>();
             String[] tmp = TimeZone.getAvailableIDs();
+            Vector<String> vtTimezones = new Vector<String>(tmp.length);
 
             for (String tzStr : tmp) {
                 TimeZone tz = TimeZone.getTimeZone(tzStr);
@@ -328,10 +329,12 @@ public class CorrelateGpxWithImages extends AbstractAction {
             panelLst.setLayout(new BorderLayout());
 
             imgList = new JList(new AbstractListModel() {
+                @Override
                 public Object getElementAt(int i) {
                     return yLayer.data.get(i).getFile().getName();
                 }
 
+                @Override
                 public int getSize() {
                     return yLayer.data.size();
                 }
@@ -339,6 +342,7 @@ public class CorrelateGpxWithImages extends AbstractAction {
             imgList.getSelectionModel().setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
             imgList.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
 
+                @Override
                 public void valueChanged(ListSelectionEvent arg0) {
                     int index = imgList.getSelectedIndex();
                     Integer orientation = null;
@@ -367,6 +371,7 @@ public class CorrelateGpxWithImages extends AbstractAction {
             JButton openButton = new JButton(tr("Open another photo"));
             openButton.addActionListener(new ActionListener() {
 
+                @Override
                 public void actionPerformed(ActionEvent arg0) {
                     JFileChooser fc = DiskAccessAction.createAndOpenFileChooser(true, false, null, JpegFileFilter.getInstance(), JFileChooser.FILES_ONLY, "geoimage.lastdirectory");
                     if (fc == null)
@@ -440,13 +445,12 @@ public class CorrelateGpxWithImages extends AbstractAction {
         }
     }
 
+    @Override
     public void actionPerformed(ActionEvent arg0) {
         // Construct the list of loaded GPX tracks
         Collection<Layer> layerLst = Main.map.mapView.getAllLayers();
         GpxDataWrapper defaultItem = null;
-        Iterator<Layer> iterLayer = layerLst.iterator();
-        while (iterLayer.hasNext()) {
-            Layer cur = iterLayer.next();
+        for (Layer cur : layerLst) {
             if (cur instanceof GpxLayer) {
                 GpxLayer curGpx = (GpxLayer) cur;
                 GpxDataWrapper gdw = new GpxDataWrapper(curGpx.getName(), curGpx.data, curGpx.data.storageFile);
@@ -462,7 +466,7 @@ public class CorrelateGpxWithImages extends AbstractAction {
                     data.storageFile));
         }
 
-        if (gpxLst.size() == 0) {
+        if (gpxLst.isEmpty()) {
             gpxLst.add(new GpxDataWrapper(tr("<No GPX track loaded yet>"), null, null));
         }
 
@@ -494,7 +498,7 @@ public class CorrelateGpxWithImages extends AbstractAction {
             timezone = 0;
         }
 
-        tfTimezone = new JTextField(10);
+        tfTimezone = new JosmTextField(10);
         tfTimezone.setText(formatTimezone(timezone));
 
         try {
@@ -504,7 +508,7 @@ public class CorrelateGpxWithImages extends AbstractAction {
         }
         delta = delta / 1000;  // milliseconds -> seconds
 
-        tfOffset = new JTextField(10);
+        tfOffset = new JosmTextField(10);
         tfOffset.setText(Long.toString(delta));
 
         JButton buttonViewGpsPhoto = new JButton(tr("<html>Use photo of an accurate clock,<br>"
@@ -770,17 +774,22 @@ public class CorrelateGpxWithImages extends AbstractAction {
             this.doRepaint = doRepaint;
         }
 
+        @Override
         public void insertUpdate(DocumentEvent ev) {
             updateStatusBar();
         }
+        @Override
         public void removeUpdate(DocumentEvent ev) {
             updateStatusBar();
         }
+        @Override
         public void changedUpdate(DocumentEvent ev) {
         }
+        @Override
         public void itemStateChanged(ItemEvent e) {
             updateStatusBar();
         }
+        @Override
         public void actionPerformed(ActionEvent e) {
             updateStatusBar();
         }
@@ -828,9 +837,11 @@ public class CorrelateGpxWithImages extends AbstractAction {
 
     RepaintTheMapListener repaintTheMap = new RepaintTheMapListener();
     private class RepaintTheMapListener implements FocusListener {
+        @Override
         public void focusGained(FocusEvent e) { // do nothing
         }
 
+        @Override
         public void focusLost(FocusEvent e) {
             yLayer.updateBufferAndRepaint();
         }
@@ -841,6 +852,7 @@ public class CorrelateGpxWithImages extends AbstractAction {
      */
     private class AdjustActionListener implements ActionListener {
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
 
             long diff = delta + Math.round(timezone*60*60);
@@ -849,7 +861,7 @@ public class CorrelateGpxWithImages extends AbstractAction {
 
             // Find day difference
             final int dayOffset = (int)Math.round(diffInH / 24); // days
-            double tmz = diff - dayOffset*24*60*60l;  // seconds
+            double tmz = diff - dayOffset*24*60*60L;  // seconds
 
             // In hours, rounded to two decimal places
             tmz = (double)Math.round(tmz*100/(60*60)) / 100;
@@ -891,6 +903,7 @@ public class CorrelateGpxWithImages extends AbstractAction {
             // This is called whenever one of the sliders is moved.
             // It updates the labels and also calls the "match photos" code
             class sliderListener implements ChangeListener {
+                @Override
                 public void stateChanged(ChangeEvent e) {
                     // parse slider position into real timezone
                     double tz = Math.abs(sldTimezone.getValue());
@@ -974,6 +987,7 @@ public class CorrelateGpxWithImages extends AbstractAction {
 
     private class AutoGuessActionListener implements ActionListener {
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             GpxDataWrapper gpxW = selectedGPX(true);
             if (gpxW == null)
@@ -1027,7 +1041,7 @@ public class CorrelateGpxWithImages extends AbstractAction {
 
             // Find day difference
             int dayOffset = (int)Math.round(diffInH / 24); // days
-            double tz = diff - dayOffset*24*60*60l;  // seconds
+            double tz = diff - dayOffset*24*60*60L;  // seconds
 
             // In hours, rounded to two decimal places
             tz = (double)Math.round(tz*100/(60*60)) / 100;
@@ -1068,12 +1082,9 @@ public class CorrelateGpxWithImages extends AbstractAction {
     /**
      * Returns a list of images that fulfill the given criteria.
      * Default setting is to return untagged images, but may be overwritten.
-     * @param boolean all -- returns all available images
-     * @param boolean noexif -- returns untagged images without EXIF-GPS coords
-     *                          this parameter is irrelevant if <code>all</code> is true
-     * @param boolean exif -- also returns images with exif-gps info
-     * @param boolean tagged -- also returns tagged images
-     * @return ArrayList<ImageEntry> matching images
+     * @param exif also returns images with exif-gps info
+     * @param tagged also returns tagged images
+     * @return matching images
      */
     private ArrayList<ImageEntry> getSortedImgList(boolean exif, boolean tagged) {
         ArrayList<ImageEntry> dateImgLst = new ArrayList<ImageEntry>(yLayer.data.size());
@@ -1098,6 +1109,7 @@ public class CorrelateGpxWithImages extends AbstractAction {
         }
 
         Collections.sort(dateImgLst, new Comparator<ImageEntry>() {
+            @Override
             public int compare(ImageEntry arg0, ImageEntry arg1) {
                 return arg0.getExifTime().compareTo(arg1.getExifTime());
             }

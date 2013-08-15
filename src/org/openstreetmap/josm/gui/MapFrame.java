@@ -36,6 +36,8 @@ import javax.swing.JToolBar;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.border.Border;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
 import javax.swing.plaf.basic.BasicSplitPaneDivider;
 import javax.swing.plaf.basic.BasicSplitPaneUI;
 
@@ -53,6 +55,7 @@ import org.openstreetmap.josm.data.Preferences;
 import org.openstreetmap.josm.data.Preferences.PreferenceChangeEvent;
 import org.openstreetmap.josm.data.Preferences.PreferenceChangedListener;
 import org.openstreetmap.josm.gui.MapView.LayerChangeListener;
+import org.openstreetmap.josm.gui.NavigatableComponent.ViewportData;
 import org.openstreetmap.josm.gui.dialogs.ChangesetDialog;
 import org.openstreetmap.josm.gui.dialogs.CommandStackDialog;
 import org.openstreetmap.josm.gui.dialogs.ConflictDialog;
@@ -68,9 +71,10 @@ import org.openstreetmap.josm.gui.dialogs.UserListDialog;
 import org.openstreetmap.josm.gui.dialogs.ValidatorDialog;
 import org.openstreetmap.josm.gui.dialogs.properties.PropertiesDialog;
 import org.openstreetmap.josm.gui.layer.Layer;
-import org.openstreetmap.josm.gui.widgets.PopupMenuLauncher;
 import org.openstreetmap.josm.tools.Destroyable;
 import org.openstreetmap.josm.tools.GBC;
+import org.openstreetmap.josm.tools.Shortcut;
+
 
 /**
  * One Map frame with one dataset behind. This is the container gui class whose
@@ -85,21 +89,33 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
      */
     public MapMode mapMode;
 
-    private final List<MapMode> mapModes = new ArrayList<MapMode>();
     /**
      * The view control displayed.
      */
-    public MapView mapView;
+    public final MapView mapView;
+
     /**
-     * The toolbar with the action icons. To add new toggle dialog actions, use addToggleDialog
-     * instead of adding directly to this list. To add a new mode use addMapMode.
+     * The toolbar with the action icons. To add new toggle dialog buttons,
+     * use addToggleDialog, to add a new map mode button use addMapMode.
      */
-    private JToolBar toolBarActions = new JToolBar(JToolBar.VERTICAL);
-    private JToolBar toolBarToggle = new JToolBar(JToolBar.VERTICAL);
-    /**
-     * The status line below the map
-     */
-    public MapStatus statusLine;
+    private JComponent sideToolBar = new JToolBar(JToolBar.VERTICAL);
+    private final ButtonGroup toolBarActionsGroup = new ButtonGroup();
+    private final JToolBar toolBarActions = new JToolBar(JToolBar.VERTICAL);
+    private final JToolBar toolBarToggle = new JToolBar(JToolBar.VERTICAL);
+
+    private final List<ToggleDialog> allDialogs = new ArrayList<ToggleDialog>();
+    private final List<MapMode> mapModes = new ArrayList<MapMode>();
+    private final List<IconToggleButton> allDialogButtons = new ArrayList<IconToggleButton>();
+    public final List<IconToggleButton> allMapModeButtons = new ArrayList<IconToggleButton>();
+
+    private final ListAllButtonsAction listAllDialogsAction = new ListAllButtonsAction(allDialogButtons);
+    private final ListAllButtonsAction listAllMapModesAction = new ListAllButtonsAction(allMapModeButtons);
+    private final JButton listAllToggleDialogsButton = new JButton(listAllDialogsAction);
+    private final JButton listAllMapModesButton = new JButton(listAllMapModesAction);
+    {
+        listAllDialogsAction.setButton(listAllToggleDialogsButton);
+        listAllMapModesAction.setButton(listAllMapModesButton);
+    }
 
     // Toggle dialogs
     public ConflictDialog conflictDialog;
@@ -111,68 +127,51 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
 
     // Map modes
     public final SelectAction mapModeSelect;
+    private final Map<Layer, MapMode> lastMapMode = new HashMap<Layer, MapMode>();
     private final MapMode mapModeDraw;
     private final MapMode mapModeZoom;
 
     /**
-     * The panel list of all toggle dialog icons. To add new toggle dialog actions, use addToggleDialog
-     * instead of adding directly to this list.
+     * The status line below the map
      */
-    private List<ToggleDialog> allDialogs = new ArrayList<ToggleDialog>();
+    public MapStatus statusLine;
+
+    /**
+     * The split pane with the mapview (leftPanel) and toggle dialogs (dialogsPanel).
+     */
+    private final JSplitPane splitPane;
     private final JPanel leftPanel;
     private final DialogsPanel dialogsPanel;
 
-    public final ButtonGroup toolGroup = new ButtonGroup();
-
-    private List<IconToggleButton> allDialogButtons = new ArrayList<IconToggleButton>();
-    private List<IconToggleButton> allMapModeButtons = new ArrayList<IconToggleButton>();
-
-    private final ListAllButtonsAction listAllDialogsAction = new ListAllButtonsAction(allDialogButtons);
-    private final ListAllButtonsAction listAllMapModesAction = new ListAllButtonsAction(allMapModeButtons);
-    private final JButton listAllToggleDialogsButton = new JButton(listAllDialogsAction);
-    private final JButton listAllMapModesButton = new JButton(listAllMapModesAction);
-    {
-        listAllDialogsAction.setButton(listAllToggleDialogsButton);
-        listAllMapModesAction.setButton(listAllMapModesButton);
-    }
+    private final boolean unregisterTab;
 
     /**
      * Default width of the toggle dialog area.
      */
     public static final int DEF_TOGGLE_DLG_WIDTH = 330;
 
-    private final Map<Layer, MapMode> lastMapMode = new HashMap<Layer, MapMode>();
-
-    public MapFrame(JPanel contentPane) {
+    /**
+     * Constructs a new {@code MapFrame}.
+     * @param contentPane The content pane used to register shortcuts in its
+     * {@link javax.swing.InputMap} and {@link javax.swing.ActionMap}
+     * @param viewportData the initial viewport of the map. Can be null, then
+     * the viewport is derived from the layer data.
+     */
+    public MapFrame(JPanel contentPane, ViewportData viewportData) {
         setSize(400,400);
         setLayout(new BorderLayout());
 
-
-        mapView = new MapView(contentPane);
-
+        mapView = new MapView(contentPane, viewportData);
         new FileDrop(mapView);
+
+        splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, true);
 
         leftPanel = new JPanel();
         leftPanel.setLayout(new GridBagLayout());
-
         leftPanel.add(mapView, GBC.std().fill());
-
-        // toolbar
-        toolBarActions.setFloatable(false);
-        addMapMode(new IconToggleButton(mapModeSelect = new SelectAction(this)));
-        addMapMode(new IconToggleButton(new LassoModeAction(), true));
-        addMapMode(new IconToggleButton(mapModeDraw = new DrawAction(this)));
-        addMapMode(new IconToggleButton(mapModeZoom = new ZoomAction(this)));
-        addMapMode(new IconToggleButton(new DeleteAction(this), true));
-        addMapMode(new IconToggleButton(new ParallelWayAction(this), true));
-        addMapMode(new IconToggleButton(new ExtrudeAction(this), true));
-        addMapMode(new IconToggleButton(new ImproveWayAccuracyAction(Main.map), true));
-
-        toolGroup.setSelected(((AbstractButton)toolBarActions.getComponent(0)).getModel(), true);
-
-        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, true);
-        dialogsPanel = new DialogsPanel(splitPane);
         splitPane.setLeftComponent(leftPanel);
+
+        dialogsPanel = new DialogsPanel(splitPane);
         splitPane.setRightComponent(dialogsPanel);
 
         /**
@@ -204,11 +203,22 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
 
         dialogsPanel.setLayout(new BoxLayout(dialogsPanel, BoxLayout.Y_AXIS));
         dialogsPanel.setPreferredSize(new Dimension(Main.pref.getInteger("toggleDialogs.width",DEF_TOGGLE_DLG_WIDTH), 0));
-
         dialogsPanel.setMinimumSize(new Dimension(24, 0));
         mapView.setMinimumSize(new Dimension(10,0));
 
-        toolBarToggle.setFloatable(false);
+        // toolBarActions, map mode buttons
+        addMapMode(new IconToggleButton(mapModeSelect = new SelectAction(this)));
+        addMapMode(new IconToggleButton(new LassoModeAction(), true));
+        addMapMode(new IconToggleButton(mapModeDraw = new DrawAction(this)));
+        addMapMode(new IconToggleButton(mapModeZoom = new ZoomAction(this)));
+        addMapMode(new IconToggleButton(new DeleteAction(this), true));
+        addMapMode(new IconToggleButton(new ParallelWayAction(this), true));
+        addMapMode(new IconToggleButton(new ExtrudeAction(this), true));
+        addMapMode(new IconToggleButton(new ImproveWayAccuracyAction(Main.map), true));
+        toolBarActionsGroup.setSelected(allMapModeButtons.get(0).getModel(), true);
+        toolBarActions.setFloatable(false);
+
+        // toolBarToggles, toggle dialog buttons
         LayerListDialog.createInstance(this);
         addToggleDialog(LayerListDialog.getInstance());
         addToggleDialog(propertiesDialog = new PropertiesDialog(this));
@@ -222,10 +232,17 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
         addToggleDialog(filterDialog = new FilterDialog());
         addToggleDialog(new ChangesetDialog(this), true);
         addToggleDialog(new MapPaintDialog());
+        toolBarToggle.setFloatable(false);
 
         // status line below the map
         statusLine = new MapStatus(this);
         MapView.addLayerChangeListener(this);
+
+        unregisterTab = Shortcut.findShortcut(KeyEvent.VK_TAB, 0)!=null;
+        if (unregisterTab) {
+            for (JComponent c: allDialogButtons) c.setFocusTraversalKeysEnabled(false);
+            for (JComponent c: allMapModeButtons) c.setFocusTraversalKeysEnabled(false);
+        }
     }
 
     public boolean selectSelectTool(boolean onlyIfModeless) {
@@ -253,6 +270,7 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
      * Called as some kind of destructor when the last layer has been removed.
      * Delegates the call to all Destroyables within this component (e.g. MapModes)
      */
+    @Override
     public void destroy() {
         MapView.removeLayerChangeListener(this);
         dialogsPanel.destroy();
@@ -268,15 +286,7 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
             }
         }
 
-        // MapFrame gets destroyed when the last layer is removed, but the status line background
-        // thread that collects the information doesn't get destroyed automatically.
-        if(statusLine.thread != null) {
-            try {
-                statusLine.thread.interrupt();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
+        statusLine.destroy();
         mapView.destroy();
     }
 
@@ -302,7 +312,7 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
     public IconToggleButton addToggleDialog(final ToggleDialog dlg, boolean isExpert) {
         final IconToggleButton button = new IconToggleButton(dlg.getToggleAction(), isExpert);
         button.setShowHideButtonListener(dlg);
-        addHideContextMenu(button);
+        button.setInheritsPopupMenu(true);
         dlg.setButton(button);
         toolBarToggle.add(button);
         allDialogs.add(dlg);
@@ -317,19 +327,20 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
 
 
     public void addMapMode(IconToggleButton b) {
-        toolBarActions.add(b);
-        toolGroup.add(b);
-        allMapModeButtons.add(b);
         if (b.getAction() instanceof MapMode) {
             mapModes.add((MapMode) b.getAction());
         } else
             throw new IllegalArgumentException("MapMode action must be subclass of MapMode");
-        addHideContextMenu(b);
+        allMapModeButtons.add(b);
+        toolBarActionsGroup.add(b);
+        toolBarActions.add(b);
         b.applyButtonHiddenPreferences();
+        b.setInheritsPopupMenu(true);
     }
 
     /**
      * Fires an property changed event "visible".
+     * @param aFlag {@code true} if display should be visible
      */
     @Override public void setVisible(boolean aFlag) {
         boolean old = isVisible();
@@ -344,8 +355,8 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
      * old MapMode and register on the new one. Now this function also verifies
      * if new map mode is correct mode for current layer and does not change mode
      * in such cases.
-     * @param mapMode   The new mode to set.
-     * @return
+     * @param newMapMode The new mode to set.
+     * @return {@code true} if mode is really selected
      */
     public boolean selectMapMode(MapMode newMapMode) {
         return selectMapMode(newMapMode, mapView.getActiveLayer());
@@ -354,9 +365,9 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
     /**
      * Another version of the selectMapMode for changing layer action.
      * Pass newly selected layer to this method.
-     * @param newMapMode
-     * @param newLayer
-     * @return True if mode is really selected
+     * @param newMapMode The new mode to set.
+     * @param newLayer newly selected layer
+     * @return {@code true} if mode is really selected
      */
     public boolean selectMapMode(MapMode newMapMode, Layer newLayer) {
         if (newMapMode == null || !newMapMode.layerIsSupported(newLayer))
@@ -383,88 +394,125 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
      */
     public void fillPanel(Container panel) {
         panel.add(this, BorderLayout.CENTER);
-        JToolBar jb = new JToolBar(JToolBar.VERTICAL);
-        jb.setFloatable(false);
-        toolBarActions.setAlignmentX(0.5f);
-        jb.add(toolBarActions);
-        listAllMapModesButton.setAlignmentX(0.5f);
-        listAllMapModesButton.setBorder(null);
-        listAllMapModesButton.setFont(listAllMapModesButton.getFont().deriveFont(Font.PLAIN));
-        jb.add(listAllMapModesButton);
 
-        if(Main.pref.getBoolean("sidetoolbar.togglevisible", true)) {
-            jb.addSeparator(new Dimension(0,18));
+        /**
+         * sideToolBar: add map modes icons
+         */
+        if(Main.pref.getBoolean("sidetoolbar.mapmodes.visible", true)) {
+        toolBarActions.setAlignmentX(0.5f);
+            toolBarActions.setInheritsPopupMenu(true);
+            sideToolBar.add(toolBarActions);
+            listAllMapModesButton.setAlignmentX(0.5f);
+            listAllMapModesButton.setBorder(null);
+            listAllMapModesButton.setFont(listAllMapModesButton.getFont().deriveFont(Font.PLAIN));
+            listAllMapModesButton.setInheritsPopupMenu(true);
+            sideToolBar.add(listAllMapModesButton);
+        }
+
+        /**
+         * sideToolBar: add toggle dialogs icons
+         */
+        if(Main.pref.getBoolean("sidetoolbar.toggledialogs.visible", true)) {
+            ((JToolBar)sideToolBar).addSeparator(new Dimension(0,18));
             toolBarToggle.setAlignmentX(0.5f);
-            jb.add(toolBarToggle);
+            toolBarToggle.setInheritsPopupMenu(true);
+            sideToolBar.add(toolBarToggle);
             listAllToggleDialogsButton.setAlignmentX(0.5f);
             listAllToggleDialogsButton.setBorder(null);
             listAllToggleDialogsButton.setFont(listAllToggleDialogsButton.getFont().deriveFont(Font.PLAIN));
-            jb.add(listAllToggleDialogsButton);
+            listAllToggleDialogsButton.setInheritsPopupMenu(true);
+            sideToolBar.add(listAllToggleDialogsButton);
         }
 
-        final Component toToggle;
-        if (Main.pref.getBoolean("sidetoolbar.scrollable", true)) {
-            final ScrollViewport svp = new ScrollViewport(jb, ScrollViewport.VERTICAL_DIRECTION);
-            toToggle = svp;
-            panel.add(svp, BorderLayout.WEST);
-            jb.addMouseWheelListener(new MouseWheelListener() {
-
-                public void mouseWheelMoved(MouseWheelEvent e) {
-                    svp.scroll(0, e.getUnitsToScroll() * 5);
+        /**
+         * sideToolBar: add dynamic popup menu
+         */
+        sideToolBar.setComponentPopupMenu(new JPopupMenu() {
+            final int staticMenuEntryCount = 2;
+            JCheckBoxMenuItem doNotHide = new JCheckBoxMenuItem(new AbstractAction(tr("Do not hide toolbar")) {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    boolean sel = ((JCheckBoxMenuItem) e.getSource()).getState();
+                    Main.pref.put("sidetoolbar.always-visible", sel);
                 }
             });
-        } else {
-            toToggle = jb;
-            panel.add(jb, BorderLayout.WEST);
-        }
-        toToggle.setVisible(Main.pref.getBoolean("sidetoolbar.visible", true));
-
-        jb.addMouseListener(new PopupMenuLauncher(new JPopupMenu() {
-
             {
-                add(new AbstractAction(tr("Hide edit toolbar")) {
+                addPopupMenuListener(new PopupMenuListener() {
+                    @Override
+                    public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
+                        final Object src = ((JPopupMenu)e.getSource()).getInvoker();
+                        if (src instanceof IconToggleButton) {
+                            insert(new Separator(), 0);
+                            insert(new AbstractAction() {
+                                {
+                                    putValue(NAME, tr("Hide this button"));
+                                    putValue(SHORT_DESCRIPTION, tr("Click the arrow at the bottom to show it again."));
+        }
+                                @Override
+                                public void actionPerformed(ActionEvent e) {
+                                    ((IconToggleButton)src).setButtonHidden(true);
+                                    validateToolBarsVisibility();
+                                }
+                            }, 0);
+                        }
+                        doNotHide.setSelected(Main.pref.getBoolean("sidetoolbar.always-visible", true));
+                    }
+                    @Override
+                    public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
+                        while (getComponentCount() > staticMenuEntryCount) {
+                            remove(0);
+                        }
+                    }
+                    @Override
+                    public void popupMenuCanceled(PopupMenuEvent e) {}
+                });
 
+                add(new AbstractAction(tr("Hide edit toolbar")) {
                     @Override
                     public void actionPerformed(ActionEvent e) {
                         Main.pref.put("sidetoolbar.visible", false);
                     }
                 });
+                add(doNotHide);
             }
-        }));
+        });
+        ((JToolBar)sideToolBar).setFloatable(false);
 
+        /**
+         * sideToolBar: decide scroll- and visibility
+         */
+        if(Main.pref.getBoolean("sidetoolbar.scrollable", true)) {
+            final ScrollViewport svp = new ScrollViewport(sideToolBar, ScrollViewport.VERTICAL_DIRECTION);
+            svp.addMouseWheelListener(new MouseWheelListener() {
+                @Override
+                public void mouseWheelMoved(MouseWheelEvent e) {
+                    svp.scroll(0, e.getUnitsToScroll() * 5);
+                }
+            });
+            sideToolBar = svp;
+        }
+        sideToolBar.setVisible(Main.pref.getBoolean("sidetoolbar.visible", true));
         sidetoolbarPreferencesChangedListener = new Preferences.PreferenceChangedListener() {
-
             @Override
             public void preferenceChanged(PreferenceChangeEvent e) {
                 if ("sidetoolbar.visible".equals(e.getKey())) {
-                    toToggle.setVisible(Main.pref.getBoolean("sidetoolbar.visible"));
+                    sideToolBar.setVisible(Main.pref.getBoolean("sidetoolbar.visible"));
                 }
             }
         };
         Main.pref.addPreferenceChangeListener(sidetoolbarPreferencesChangedListener);
 
+        /**
+         * sideToolBar: add it to the panel
+         */
+        panel.add(sideToolBar, BorderLayout.WEST);
+
+        /**
+         * statusLine: add to panel
+         */
         if (statusLine != null && Main.pref.getBoolean("statusline.visible", true)) {
             panel.add(statusLine, BorderLayout.SOUTH);
         }
-    }
-
-    private void addHideContextMenu(final IconToggleButton b) {
-        //context menu
-        b.addMouseListener(new PopupMenuLauncher(new JPopupMenu() {
-            {
-                add(new AbstractAction() {
-                    {
-                        putValue(NAME, tr("Hide this button"));
-                        putValue(SHORT_DESCRIPTION, tr("Click the arrow at the bottom to show it again."));
-                    }
-                    @Override
-                    public void actionPerformed(ActionEvent e) {
-                        b.setButtonHidden(true);
-                        validateToolBarsVisibility();
-                    }
-                });
-            }
-        }));
     }
 
     class ListAllButtonsAction extends AbstractAction {
@@ -535,16 +583,24 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
         return dialogsPanel.getToggleDialog(type);
     }
 
+    public void setDialogsPanelVisible(boolean visible) {
+        rememberToggleDialogWidth();
+        dialogsPanel.setVisible(visible);
+        splitPane.setDividerLocation(visible?splitPane.getWidth()-Main.pref.getInteger("toggleDialogs.width",DEF_TOGGLE_DLG_WIDTH):0);
+        splitPane.setDividerSize(visible?5:0);
+    }
+
     /**
      * Remember the current width of the (possibly resized) toggle dialog area
      */
     public void rememberToggleDialogWidth() {
-        Main.pref.putInteger("toggleDialogs.width", dialogsPanel.getWidth());
+        if (dialogsPanel.isVisible()) {
+            Main.pref.putInteger("toggleDialogs.width", splitPane.getWidth()-splitPane.getDividerLocation());
+    }
     }
 
     /*
-     * Remove panel from top of MapView by class
-     */
+     * Remove panel from top of MapView by class     */
     public void removeTopPanel(Class<?> type) {
         int n = leftPanel.getComponentCount();
         for (int i=0; i<n; i++) {
@@ -644,7 +700,7 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
         // After all listeners notice new layer, some buttons will be disabled/enabled
         // and possibly need to be hidden/shown.
         SwingUtilities.invokeLater(new Runnable() {
-            public void run() {
+            @Override public void run() {
                 validateToolBarsVisibility();
             }
         });

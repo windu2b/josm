@@ -20,6 +20,7 @@ import org.openstreetmap.josm.command.ChangePropertyCommand;
 import org.openstreetmap.josm.command.Command;
 import org.openstreetmap.josm.command.SequenceCommand;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
+import org.openstreetmap.josm.data.osm.Tag;
 import org.openstreetmap.josm.data.osm.TagCollection;
 import org.openstreetmap.josm.data.osm.Tagged;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
@@ -46,7 +47,7 @@ public class TagEditorModel extends AbstractTableModel {
      * Creates a new tag editor model. Internally allocates two selection models
      * for row selection and column selection.
      *
-     * To create a {@link JTable} with this model:
+     * To create a {@link javax.swing.JTable} with this model:
      * <pre>
      *    TagEditorModel model = new TagEditorModel();
      *    TagTable tbl  = new TagTabel(model);
@@ -112,14 +113,17 @@ public class TagEditorModel extends AbstractTableModel {
         }
     }
 
+    @Override
     public int getColumnCount() {
         return 2;
     }
 
+    @Override
     public int getRowCount() {
         return tags.size();
     }
 
+    @Override
     public Object getValueAt(int rowIndex, int columnIndex) {
         if (rowIndex >= getRowCount())
             throw new IndexOutOfBoundsException("unexpected rowIndex: rowIndex=" + rowIndex);
@@ -145,7 +149,7 @@ public class TagEditorModel extends AbstractTableModel {
             break;
         case 1:
             String v = (String)value;
-            if (tag.getValueCount() > 1 && ! v.equals("")) {
+            if (tag.getValueCount() > 1 && !v.isEmpty()) {
                 updateTagValue(tag, v);
             } else if (tag.getValueCount() <= 1) {
                 updateTagValue(tag, v);
@@ -334,7 +338,7 @@ public class TagEditorModel extends AbstractTableModel {
      * makes sure the model includes at least one (empty) tag
      */
     public void ensureOneTag() {
-        if (tags.size() == 0) {
+        if (tags.isEmpty()) {
             appendNewTag();
         }
     }
@@ -358,9 +362,9 @@ public class TagEditorModel extends AbstractTableModel {
     }
 
     /**
-     * initializes the model with the tags of an OSM primitive
+     * Initializes the model with the tags of an OSM primitive
      *
-     * @param primitive the OSM primitive
+     * @param tags the tags of an OSM primitive
      */
     public void initFromTags(Map<String,String> tags) {
         this.tags.clear();
@@ -426,7 +430,7 @@ public class TagEditorModel extends AbstractTableModel {
 
             // tag name holds an empty key. Don't apply it to the selection.
             //
-            if (tag.getName().trim().equals("") || tag.getValue().trim().equals("")) {
+            if (tag.getName().trim().isEmpty() || tag.getValue().trim().isEmpty()) {
                 continue;
             }
             tags.put(tag.getName().trim(), tag.getValue().trim());
@@ -472,7 +476,7 @@ public class TagEditorModel extends AbstractTableModel {
 
         // tag name holds an empty key. Don't apply it to the selection.
         //
-        if (tag.getName().trim().equals(""))
+        if (tag.getName().trim().isEmpty())
             return null;
 
         String newkey = tag.getName();
@@ -513,7 +517,7 @@ public class TagEditorModel extends AbstractTableModel {
     public List<String> getKeys() {
         ArrayList<String> keys = new ArrayList<String>();
         for (TagModel tag: tags) {
-            if (!tag.getName().trim().equals("")) {
+            if (!tag.getName().trim().isEmpty()) {
                 keys.add(tag.getName());
             }
         }
@@ -527,6 +531,7 @@ public class TagEditorModel extends AbstractTableModel {
         java.util.Collections.sort(
                 tags,
                 new Comparator<TagModel>() {
+                    @Override
                     public int compare(TagModel self, TagModel other) {
                         return self.getName().compareTo(other.getName());
                     }
@@ -568,6 +573,36 @@ public class TagEditorModel extends AbstractTableModel {
         SelectionStateMemento memento = new SelectionStateMemento();
         fireTableDataChanged();
         memento.apply();
+    }
+
+    /**
+     * Load tags from given list
+     * @param tags - the list
+     */
+    public void updateTags(List<Tag> tags) {
+         if (tags.isEmpty())
+            return;
+
+        Map<String, TagModel> modelTags = new HashMap<String, TagModel>();
+        for (int i=0; i<getRowCount(); i++) {
+            TagModel tagModel = get(i);
+            modelTags.put(tagModel.getName(), tagModel);
+        }
+        for (Tag tag: tags) {
+            TagModel existing = modelTags.get(tag.getKey());
+
+            if (tag.getValue().isEmpty()) {
+                if (existing != null) {
+                    delete(tag.getKey());
+                }
+            } else {
+                if (existing != null) {
+                    updateTagValue(existing, tag.getValue());
+                } else {
+                    add(tag.getKey(), tag.getValue());
+                }
+            }
+        }
     }
 
     /**

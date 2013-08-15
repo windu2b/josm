@@ -1,8 +1,5 @@
-package org.openstreetmap.josm.gui.io;
-
-
-
 // License: GPL. For details, see LICENSE file.
+package org.openstreetmap.josm.gui.io;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
 
@@ -16,22 +13,18 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-
-import java.net.URLConnection;
 import java.util.Enumeration;
-
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-import org.openstreetmap.josm.data.Version;
+
 import org.openstreetmap.josm.gui.PleaseWaitDialog;
 import org.openstreetmap.josm.gui.PleaseWaitRunnable;
 import org.openstreetmap.josm.tools.Utils;
 import org.xml.sax.SAXException;
 
-
 /**
- * Asynchronous task for downloading andnd unpacking arbitrary file lists
- * Shows progress bar when donloading
+ * Asynchronous task for downloading and unpacking arbitrary file lists
+ * Shows progress bar when downloading
  */
 public class DownloadFileTask extends PleaseWaitRunnable{
     private final String address;
@@ -43,8 +36,11 @@ public class DownloadFileTask extends PleaseWaitRunnable{
      * Creates the download task
      *
      * @param parent the parent component relative to which the {@link PleaseWaitDialog} is displayed
-     * @param title the title to display in the {@link PleaseWaitDialog}
-     * @throws IllegalArgumentException thrown if toUpdate is null
+     * @param address the URL to download
+     * @param file The destination file
+     * @param mkdir {@code true} if the destination directory must be created, {@code false} otherwise
+     * @param unpack {@code true} if zip archives must be unpacked recursively, {@code false} otherwise
+     * @throws IllegalArgumentException if {@code parent} is null
      */
     public DownloadFileTask(Component parent, String address, File file, boolean mkdir, boolean unpack) {
         super(parent, tr("Downloading file"), false);
@@ -52,9 +48,8 @@ public class DownloadFileTask extends PleaseWaitRunnable{
         this.file = file;
         this.mkdir = mkdir;
         this.unpack = unpack;
-                
-    }    
-    
+    }
+
     private static class DownloadException extends Exception {
         public DownloadException(String msg) {
             super(msg);
@@ -62,26 +57,29 @@ public class DownloadFileTask extends PleaseWaitRunnable{
     }
 
     private boolean canceled;
-    private URLConnection downloadConnection;
+    private HttpURLConnection downloadConnection;
 
     private synchronized void closeConnectionIfNeeded() {
-        if (downloadConnection != null && downloadConnection instanceof HttpURLConnection) {
-            HttpURLConnection conn = ((HttpURLConnection) downloadConnection);
-            conn.disconnect();
+        if (downloadConnection != null) {
+            downloadConnection.disconnect();
         }
         downloadConnection = null;
     }
 
 
-    @Override 
+    @Override
     protected void cancel() {
         this.canceled = true;
         closeConnectionIfNeeded();
     }
 
-    @Override 
+    @Override
     protected void finish() {}
 
+    /**
+     * Performs download.
+     * @throws DownloadException if the URL is invalid or if any I/O error occurs.
+     */
     public void download() throws DownloadException {
         OutputStream out = null;
         InputStream in = null;
@@ -92,21 +90,19 @@ public class DownloadFileTask extends PleaseWaitRunnable{
                     newDir.mkdirs();
                 }
             }
-            
+
             URL url = new URL(address);
             int size;
             synchronized(this) {
-                downloadConnection = url.openConnection();
+                downloadConnection = Utils.openHttpConnection(url);
                 downloadConnection.setRequestProperty("Cache-Control", "no-cache");
-                downloadConnection.setRequestProperty("User-Agent",Version.getInstance().getAgentString());
-                downloadConnection.setRequestProperty("Host", url.getHost());
                 downloadConnection.connect();
                 size = downloadConnection.getContentLength();
             }
-            
+
             progressMonitor.setTicksCount(100);
             progressMonitor.subTask(tr("Downloading File {0}: {1} bytes...", file.getName(),size));
-            
+
             in = downloadConnection.getInputStream();
             out = new FileOutputStream(file);
             byte[] buffer = new byte[32768];
@@ -115,19 +111,21 @@ public class DownloadFileTask extends PleaseWaitRunnable{
             for (int read = in.read(buffer); read != -1; read = in.read(buffer)) {
                 out.write(buffer, 0, read);
                 count+=read;
-                if (canceled) return;                            
+                if (canceled) break;
                 p2 = 100 * count / size;
                 if (p2!=p1) {
                     progressMonitor.setTicks(p2);
                     p1=p2;
                 }
             }
-            out.close();
-            System.out.println(tr("Download finished"));
-            if (unpack) {
-                System.out.println(tr("Unpacking {0} into {1}", file.getAbsolutePath(), file.getParent()));
-                unzipFileRecursively(file, file.getParent());
-                file.delete();
+            Utils.close(out);
+            if (!canceled) {
+                System.out.println(tr("Download finished"));
+                if (unpack) {
+                    System.out.println(tr("Unpacking {0} into {1}", file.getAbsolutePath(), file.getParent()));
+                    unzipFileRecursively(file, file.getParent());
+                    file.delete();
+                }
             }
         } catch(MalformedURLException e) {
             String msg = tr("Warning: Cannot download file ''{0}''. Its download link ''{1}'' is not a valid URL. Skipping download.", file.getName(), address);
@@ -143,7 +141,7 @@ public class DownloadFileTask extends PleaseWaitRunnable{
         }
     }
 
-    @Override 
+    @Override
     protected void realRun() throws SAXException, IOException {
         if (canceled) return;
         try {
@@ -156,18 +154,18 @@ public class DownloadFileTask extends PleaseWaitRunnable{
     /**
      * Replies true if the task was canceled by the user
      *
-     * @return
+     * @return {@code true} if the task was canceled by the user, {@code false} otherwise
      */
     public boolean isCanceled() {
         return canceled;
     }
-    
+
     /**
      * Recursive unzipping function
      * TODO: May be placed somewhere else - Tools.Utils?
      * @param file
      * @param dir
-     * @throws IOException 
+     * @throws IOException
      */
     public static void unzipFileRecursively(File file, String dir) throws IOException {
         OutputStream os = null;
@@ -175,7 +173,7 @@ public class DownloadFileTask extends PleaseWaitRunnable{
         ZipFile zf = null;
         try {
             zf = new ZipFile(file);
-            Enumeration es = zf.entries();
+            Enumeration<?> es = zf.entries();
             ZipEntry ze;
             while (es.hasMoreElements()) {
                 ze = (ZipEntry) es.nextElement();
@@ -190,13 +188,12 @@ public class DownloadFileTask extends PleaseWaitRunnable{
                     while ((read = is.read(buffer)) != -1) {
                         os.write(buffer, 0, read);
                     }
-                    os.close();
-                    is.close();
+                    Utils.close(os);
+                    Utils.close(is);
                 }
             }
-            zf.close();
         } finally {
-            if (zf!=null) zf.close();
+            Utils.close(zf);
         }
     }
 }

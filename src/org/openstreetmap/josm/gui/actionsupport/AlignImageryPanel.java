@@ -1,5 +1,5 @@
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui.actionsupport;
-
 
 import static org.openstreetmap.josm.tools.I18n.tr;
 
@@ -22,10 +22,9 @@ import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.UrlLabel;
 
-
 /**
  * The panel to nag a user ONCE that he/she has to align imagery.
- * 
+ *
  * @author zverik
  */
 public class AlignImageryPanel extends JPanel {
@@ -33,13 +32,13 @@ public class AlignImageryPanel extends JPanel {
 
     public AlignImageryPanel(boolean oneLine) {
         super();
-        
+
         Font font = getFont().deriveFont(Font.PLAIN, 14.0f);
         JLabel nagLabel = new JLabel(tr("Aerial imagery might be misaligned. Please check its offset using GPS tracks!"));
         UrlLabel detailsList = new UrlLabel(tr("http://wiki.openstreetmap.org/wiki/Using_Imagery"), tr("Details..."));
         nagLabel.setFont(font);
         detailsList.setFont(font);
-        
+
         JButton closeButton = new JButton(ImageProvider.get("misc", "black_x"));
         closeButton.setContentAreaFilled(false);
         closeButton.setRolloverEnabled(true);
@@ -54,7 +53,7 @@ public class AlignImageryPanel extends JPanel {
                 }
             }
         });
-        
+
         setLayout(new GridBagLayout());
         if (!oneLine) { // tune for small screens
             add(nagLabel, GBC.std(1, 1).fill());
@@ -79,5 +78,5 @@ public class AlignImageryPanel extends JPanel {
             }
         }
     }
-    
+
 }

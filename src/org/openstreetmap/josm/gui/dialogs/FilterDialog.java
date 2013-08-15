@@ -1,7 +1,6 @@
 // License: GPL. Copyright 2007 by Immanuel Scholz and others
 package org.openstreetmap.josm.gui.dialogs;
 
-import static org.openstreetmap.josm.tools.I18n.marktr;
 import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.awt.Component;
@@ -215,6 +214,7 @@ public class FilterDialog extends ToggleDialog implements DataSetListener {
 
         // Toggle filter "enabled" on Enter
         InputMapUtils.addEnterAction(userTable, new AbstractAction() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 int index = userTable.getSelectedRow();
                 if (index<0) return;
@@ -225,6 +225,7 @@ public class FilterDialog extends ToggleDialog implements DataSetListener {
 
         // Toggle filter "hiding" on Spacebar
         InputMapUtils.addSpacebarAction(userTable, new AbstractAction() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 int index = userTable.getSelectedRow();
                 if (index<0) return;
@@ -256,6 +257,7 @@ public class FilterDialog extends ToggleDialog implements DataSetListener {
     }
 
     static class BooleanRenderer extends JCheckBox implements TableCellRenderer {
+        @Override
         public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,int row,int column) {
             FilterTableModel model = (FilterTableModel)table.getModel();
             setSelected(value != null && (Boolean)value);
@@ -267,6 +269,7 @@ public class FilterDialog extends ToggleDialog implements DataSetListener {
 
     public void updateDialogHeader() {
         SwingUtilities.invokeLater(new Runnable() {
+            @Override
             public void run() {
                 setTitle(tr("Filter Hidden:{0} Disabled:{1}", filterModel.disabledAndHiddenCount, filterModel.disabledCount));
             }
@@ -278,9 +281,9 @@ public class FilterDialog extends ToggleDialog implements DataSetListener {
     }
 
     /**
-     *
-     * @param primitive
-     * @return List of primitives whose filtering can be affected by change in primitive
+     * Returns the list of primitives whose filtering can be affected by change in primitive
+     * @param primitives list of primitives to check
+     * @return List of primitives whose filtering can be affected by change in source primitives
      */
     private Collection<OsmPrimitive> getAffectedPrimitives(Collection<? extends OsmPrimitive> primitives) {
         // Filters can use nested parent/child expression so complete tree is necessary
@@ -315,34 +318,42 @@ public class FilterDialog extends ToggleDialog implements DataSetListener {
         return result;
     }
 
+    @Override
     public void dataChanged(DataChangedEvent event) {
         filterModel.executeFilters();
     }
 
+    @Override
     public void nodeMoved(NodeMovedEvent event) {
         // Do nothing
     }
 
+    @Override
     public void otherDatasetChange(AbstractDatasetChangedEvent event) {
         filterModel.executeFilters();
     }
 
+    @Override
     public void primitivesAdded(PrimitivesAddedEvent event) {
         filterModel.executeFilters(event.getPrimitives());
     }
 
+    @Override
     public void primitivesRemoved(PrimitivesRemovedEvent event) {
         filterModel.executeFilters();
     }
 
+    @Override
     public void relationMembersChanged(RelationMembersChangedEvent event) {
         filterModel.executeFilters(getAffectedPrimitives(event.getPrimitives()));
     }
 
+    @Override
     public void tagsChanged(TagsChangedEvent event) {
         filterModel.executeFilters(getAffectedPrimitives(event.getPrimitives()));
     }
 
+    @Override
     public void wayNodesChanged(WayNodesChangedEvent event) {
         filterModel.executeFilters(getAffectedPrimitives(event.getPrimitives()));
     }

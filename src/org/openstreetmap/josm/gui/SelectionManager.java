@@ -122,6 +122,7 @@ public class SelectionManager implements MouseListener, MouseMotionListener, Pro
         eventSource.addMouseMotionListener(this);
         selectionEndedListener.addPropertyChangeListener(this);
         eventSource.addPropertyChangeListener("scale", new PropertyChangeListener(){
+            @Override
             public void propertyChange(PropertyChangeEvent evt) {
                 if (mousePosStart != null) {
                     paintRect();
@@ -145,6 +146,7 @@ public class SelectionManager implements MouseListener, MouseMotionListener, Pro
     /**
      * If the correct button, from the "drawing rectangle" mode
      */
+    @Override
     public void mousePressed(MouseEvent e) {
         if (e.getButton() == MouseEvent.BUTTON1) {
             mousePosStart = mousePos = e.getPoint();
@@ -157,6 +159,7 @@ public class SelectionManager implements MouseListener, MouseMotionListener, Pro
     /**
      * If the correct button is hold, draw the rectangle.
      */
+    @Override
     public void mouseDragged(MouseEvent e) {
         int buttonPressed = e.getModifiersEx() & (MouseEvent.BUTTON1_DOWN_MASK | MouseEvent.BUTTON3_DOWN_MASK);
 
@@ -187,6 +190,7 @@ public class SelectionManager implements MouseListener, MouseMotionListener, Pro
     /**
      * Check the state of the keys and buttons and set the selection accordingly.
      */
+    @Override
     public void mouseReleased(MouseEvent e) {
         if (e.getButton() != MouseEvent.BUTTON1)
             return;
@@ -220,7 +224,7 @@ public class SelectionManager implements MouseListener, MouseMotionListener, Pro
             return;
         nc.requestPaintRect(getSelectionRectangle());
     }
-    
+
     private void paintLasso() {
         if (mousePos == null || mousePosStart == null || mousePos == mousePosStart) {
             return;
@@ -272,6 +276,7 @@ public class SelectionManager implements MouseListener, MouseMotionListener, Pro
     /**
      * If the action goes inactive, remove the selection rectangle from screen
      */
+    @Override
     public void propertyChange(PropertyChangeEvent evt) {
         if (evt.getPropertyName().equals("active") && !(Boolean)evt.getNewValue() && mousePosStart != null) {
             paintRect();
@@ -308,7 +313,7 @@ public class SelectionManager implements MouseListener, MouseMotionListener, Pro
         } else {
             // nodes
             for (Node n : nc.getCurrentDataSet().getNodes()) {
-                if (n.isSelectable() && lasso.contains(nc.getPoint(n))) {
+                if (n.isSelectable() && lasso.contains(nc.getPoint2D(n))) {
                     selection.add(n);
                 }
             }
@@ -320,7 +325,7 @@ public class SelectionManager implements MouseListener, MouseMotionListener, Pro
                 }
                 if (alt) {
                     for (Node n : w.getNodes()) {
-                        if (!n.isIncomplete() && lasso.contains(nc.getPoint(n))) {
+                        if (!n.isIncomplete() && lasso.contains(nc.getPoint2D(n))) {
                             selection.add(w);
                             break;
                         }
@@ -361,8 +366,12 @@ public class SelectionManager implements MouseListener, MouseMotionListener, Pro
         this.lassoMode = lassoMode;
     }
 
+    @Override
     public void mouseClicked(MouseEvent e) {}
+    @Override
     public void mouseEntered(MouseEvent e) {}
+    @Override
     public void mouseExited(MouseEvent e) {}
+    @Override
     public void mouseMoved(MouseEvent e) {}
 }

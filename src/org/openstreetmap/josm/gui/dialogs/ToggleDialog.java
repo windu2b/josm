@@ -20,7 +20,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
-import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -46,6 +45,7 @@ import javax.swing.JPopupMenu;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollPane;
 import javax.swing.JToggleButton;
+import javax.swing.SwingUtilities;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.actions.JosmAction;
@@ -56,6 +56,11 @@ import org.openstreetmap.josm.gui.SideButton;
 import org.openstreetmap.josm.gui.dialogs.DialogsPanel.Action;
 import org.openstreetmap.josm.gui.help.HelpUtil;
 import org.openstreetmap.josm.gui.help.Helpful;
+import org.openstreetmap.josm.gui.preferences.PreferenceDialog;
+import org.openstreetmap.josm.gui.preferences.PreferenceSetting;
+import org.openstreetmap.josm.gui.preferences.SubPreferenceSetting;
+import org.openstreetmap.josm.gui.preferences.TabPreferenceSetting;
+import org.openstreetmap.josm.gui.widgets.PopupMenuLauncher;
 import org.openstreetmap.josm.tools.Destroyable;
 import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.ImageProvider;
@@ -84,13 +89,13 @@ public class ToggleDialog extends JPanel implements ShowHideButtonListener, Help
                 return super.parse(s);
             } catch (IllegalArgumentException e) {
                 // Legacy settings
-                return Boolean.parseBoolean(s)?ButtonHiddingType.DYNAMIC:ButtonHiddingType.ALWAYS_HIDDEN;
+                return Boolean.parseBoolean(s)?ButtonHiddingType.DYNAMIC:ButtonHiddingType.ALWAYS_SHOWN;
             }
         }
     };
 
     /** The action to toggle this dialog */
-    protected ToggleDialogAction toggleAction;
+    protected final ToggleDialogAction toggleAction;
     protected String preferencePrefix;
     final protected String name;
 
@@ -140,11 +145,34 @@ public class ToggleDialog extends JPanel implements ShowHideButtonListener, Help
     protected JCheckBoxMenuItem windowMenuItem;
 
     /**
+     * The linked preferences class (optional). If set, accessible from the title bar with a dedicated button
+     */
+    protected Class<? extends PreferenceSetting> preferenceClass;
+
+    /**
      * Constructor
-     * (see below)
+     *
+     * @param name  the name of the dialog
+     * @param iconName the name of the icon to be displayed
+     * @param tooltip  the tool tip
+     * @param shortcut  the shortcut
+     * @param preferredHeight the preferred height for the dialog
      */
     public ToggleDialog(String name, String iconName, String tooltip, Shortcut shortcut, int preferredHeight) {
         this(name, iconName, tooltip, shortcut, preferredHeight, false);
+    }
+    /**
+     * Constructor
+
+     * @param name  the name of the dialog
+     * @param iconName the name of the icon to be displayed
+     * @param tooltip  the tool tip
+     * @param shortcut  the shortcut
+     * @param preferredHeight the preferred height for the dialog
+     * @param defShow if the dialog should be shown by default, if there is no preference
+     */
+    public ToggleDialog(String name, String iconName, String tooltip, Shortcut shortcut, int preferredHeight, boolean defShow) {
+        this(name, iconName, tooltip, shortcut, preferredHeight, defShow, null);
     }
     /**
      * Constructor
@@ -155,11 +183,13 @@ public class ToggleDialog extends JPanel implements ShowHideButtonListener, Help
      * @param shortcut  the shortcut
      * @param preferredHeight the preferred height for the dialog
      * @param defShow if the dialog should be shown by default, if there is no preference
+     * @param prefClass the preferences settings class, or null if not applicable
      */
-    public ToggleDialog(String name, String iconName, String tooltip, Shortcut shortcut, int preferredHeight, boolean defShow) {
+    public ToggleDialog(String name, String iconName, String tooltip, Shortcut shortcut, int preferredHeight, boolean defShow, Class<? extends PreferenceSetting> prefClass) {
         super(new BorderLayout());
         this.preferencePrefix = iconName;
         this.name = name;
+        this.preferenceClass = prefClass;
 
         /** Use the full width of the parent element */
         setPreferredSize(new Dimension(0, preferredHeight));
@@ -204,6 +234,7 @@ public class ToggleDialog extends JPanel implements ShowHideButtonListener, Help
             super(name, iconName, tooltip, shortcut, false);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             toggleButtonHook();
             if(getValue("toolbarbutton") != null && getValue("toolbarbutton") instanceof JButton) {
@@ -211,14 +242,16 @@ public class ToggleDialog extends JPanel implements ShowHideButtonListener, Help
             }
             if (isShowing) {
                 hideDialog();
-                dialogsPanel.reconstruct(Action.ELEMENT_SHRINKS, null);
+                if (dialogsPanel != null) {
+                    dialogsPanel.reconstruct(Action.ELEMENT_SHRINKS, null);
+                }
                 hideNotify();
             } else {
                 showDialog();
                 if (isDocked && isCollapsed) {
                     expand();
                 }
-                if (isDocked) {
+                if (isDocked && dialogsPanel != null) {
                     dialogsPanel.reconstruct(Action.INVISIBLE_TO_DEFAULT, ToggleDialog.this);
                 }
                 showNotify();
@@ -278,6 +311,7 @@ public class ToggleDialog extends JPanel implements ShowHideButtonListener, Help
         }
     }
 
+    @Override
     public void buttonShown() {
         unfurlDialog();
     }
@@ -355,10 +389,10 @@ public class ToggleDialog extends JPanel implements ShowHideButtonListener, Help
      * @param visible true, if the components should be visible; false otherwise
      */
     protected void setContentVisible(boolean visible) {
-        Component comps[] = getComponents();
-        for(int i=0; i<comps.length; i++) {
-            if(comps[i] != titleBar) {
-                comps[i].setVisible(visible);
+        Component[] comps = getComponents();
+        for (Component comp : comps) {
+            if (comp != titleBar && (!visible || comp != buttonsPanel || buttonHiding != ButtonHiddingType.ALWAYS_HIDDEN)) {
+                comp.setVisible(visible);
             }
         }
     }
@@ -447,73 +481,13 @@ public class ToggleDialog extends JPanel implements ShowHideButtonListener, Help
             lblTitle_weak.setMinimumSize(new Dimension(0,20));
             add(lblTitle_weak, GBC.std().fill(GBC.HORIZONTAL));
 
-            addMouseListener(
-                    new MouseAdapter() {
-                        @Override
-                        public void mouseClicked(MouseEvent e) {
-                            if (isCollapsed) {
-                                expand();
-                                dialogsPanel.reconstruct(Action.COLLAPSED_TO_DEFAULT, ToggleDialog.this);
-                            } else {
-                                collapse();
-                                dialogsPanel.reconstruct(Action.ELEMENT_SHRINKS, null);
-                            }
-                        }
-
-                        private void maybeShowPopup(MouseEvent e) {
-                            if (e.isPopupTrigger()) {
-                                JPopupMenu menu = new JPopupMenu();
-                                JMenu buttonHidingMenu = new JMenu(tr("Side buttons"));
-                                JRadioButtonMenuItem alwaysShown = new JRadioButtonMenuItem(new AbstractAction(tr("Always shown")) {
-                                    @Override
-                                    public void actionPerformed(ActionEvent e) {
-                                        setIsButtonHiding(ButtonHiddingType.ALWAYS_SHOWN);
-                                    }
-                                });
-                                JRadioButtonMenuItem dynamic = new JRadioButtonMenuItem(new AbstractAction(tr("Dynamic")) {
-                                    @Override
-                                    public void actionPerformed(ActionEvent e) {
-                                        setIsButtonHiding(ButtonHiddingType.DYNAMIC);
-                                    }
-                                });
-                                JRadioButtonMenuItem alwaysHidden = new JRadioButtonMenuItem(new AbstractAction(tr("Always hidden")) {
-                                    @Override
-                                    public void actionPerformed(ActionEvent e) {
-                                        setIsButtonHiding(ButtonHiddingType.ALWAYS_HIDDEN);
-                                    }
-                                });
-                                alwaysShown.setSelected(buttonHiding == ButtonHiddingType.ALWAYS_SHOWN);
-                                dynamic.setSelected(buttonHiding == ButtonHiddingType.DYNAMIC);
-                                alwaysHidden.setSelected(buttonHiding == ButtonHiddingType.ALWAYS_HIDDEN);
-                                buttonHidingMenu.add(alwaysShown);
-                                buttonHidingMenu.add(dynamic);
-                                buttonHidingMenu.add(alwaysHidden);
-                                menu.add(buttonHidingMenu);
-                                for (javax.swing.Action action: buttonActions) {
-                                    menu.add(action);
-                                }
-                                menu.show(TitleBar.this, e.getX(), e.getY());
-                            }
-                        }
-
-                        @Override
-                        public void mousePressed(MouseEvent e) {
-                            maybeShowPopup(e);
-                        }
-
-                        @Override
-                        public void mouseReleased(MouseEvent e) {
-                            maybeShowPopup(e);
-                        }
-                    }
-                    );
-
             if(Main.pref.getBoolean("dialog.dynamic.buttons", true)) {
                 buttonsHide = new JButton(ImageProvider.get("misc", buttonHiding != ButtonHiddingType.ALWAYS_SHOWN ? "buttonhide" : "buttonshow"));
                 buttonsHide.setToolTipText(tr("Toggle dynamic buttons"));
                 buttonsHide.setBorder(BorderFactory.createEmptyBorder());
                 buttonsHide.addActionListener(
                         new ActionListener(){
+                            @Override
                             public void actionPerformed(ActionEvent e) {
                                 setIsButtonHiding(buttonHiding == ButtonHiddingType.ALWAYS_SHOWN?ButtonHiddingType.DYNAMIC:ButtonHiddingType.ALWAYS_SHOWN);
                             }
@@ -522,12 +496,38 @@ public class ToggleDialog extends JPanel implements ShowHideButtonListener, Help
                 add(buttonsHide);
             }
 
+            // show the pref button if applicable
+            if (preferenceClass != null) {
+                inIcon = ImageProvider.get("preference");
+                smallIcon = new ImageIcon(inIcon.getImage().getScaledInstance(16 , 16, Image.SCALE_SMOOTH));
+                JButton pref = new JButton(smallIcon);
+                pref.setToolTipText(tr("Open preferences for this panel"));
+                pref.setBorder(BorderFactory.createEmptyBorder());
+                pref.addActionListener(
+                        new ActionListener(){
+                            @Override
+                            @SuppressWarnings("unchecked")
+                            public void actionPerformed(ActionEvent e) {
+                                final PreferenceDialog p = new PreferenceDialog(Main.parent);
+                                if (TabPreferenceSetting.class.isAssignableFrom(preferenceClass)) {
+                                    p.selectPreferencesTabByClass((Class<? extends TabPreferenceSetting>) preferenceClass);
+                                } else if (SubPreferenceSetting.class.isAssignableFrom(preferenceClass)) {
+                                    p.selectSubPreferencesTabByClass((Class<? extends SubPreferenceSetting>) preferenceClass);
+                                }
+                                p.setVisible(true);
+                            }
+                        }
+                        );
+                add(pref);
+            }
+
             // show the sticky button
             JButton sticky = new JButton(ImageProvider.get("misc", "sticky"));
             sticky.setToolTipText(tr("Undock the panel"));
             sticky.setBorder(BorderFactory.createEmptyBorder());
             sticky.addActionListener(
                     new ActionListener(){
+                        @Override
                         public void actionPerformed(ActionEvent e) {
                             detach();
                             dialogsPanel.reconstruct(Action.ELEMENT_SHRINKS, null);
@@ -542,6 +542,7 @@ public class ToggleDialog extends JPanel implements ShowHideButtonListener, Help
             close.setBorder(BorderFactory.createEmptyBorder());
             close.addActionListener(
                     new ActionListener(){
+                        @Override
                         public void actionPerformed(ActionEvent e) {
                             hideDialog();
                             dialogsPanel.reconstruct(Action.ELEMENT_SHRINKS, null);
@@ -561,6 +562,58 @@ public class ToggleDialog extends JPanel implements ShowHideButtonListener, Help
 
         public String getTitle() {
             return lblTitle.getText();
+        }
+
+        public class DialogPopupMenu extends JPopupMenu {
+            public final JMenu buttonHidingMenu = new JMenu(tr("Side buttons"));
+            public final JRadioButtonMenuItem alwaysShown = new JRadioButtonMenuItem(new AbstractAction(tr("Always shown")) {
+                @Override public void actionPerformed(ActionEvent e) {
+                    setIsButtonHiding(ButtonHiddingType.ALWAYS_SHOWN);
+                }
+            });
+            public final JRadioButtonMenuItem dynamic = new JRadioButtonMenuItem(new AbstractAction(tr("Dynamic")) {
+                @Override public void actionPerformed(ActionEvent e) {
+                    setIsButtonHiding(ButtonHiddingType.DYNAMIC);
+                }
+            });
+            public final JRadioButtonMenuItem alwaysHidden = new JRadioButtonMenuItem(new AbstractAction(tr("Always hidden")) {
+                @Override public void actionPerformed(ActionEvent e) {
+                    setIsButtonHiding(ButtonHiddingType.ALWAYS_HIDDEN);
+                }
+            });
+            public DialogPopupMenu() {
+                alwaysShown.setSelected(buttonHiding == ButtonHiddingType.ALWAYS_SHOWN);
+                dynamic.setSelected(buttonHiding == ButtonHiddingType.DYNAMIC);
+                alwaysHidden.setSelected(buttonHiding == ButtonHiddingType.ALWAYS_HIDDEN);
+                buttonHidingMenu.add(alwaysShown);
+                buttonHidingMenu.add(dynamic);
+                buttonHidingMenu.add(alwaysHidden);
+                add(buttonHidingMenu);
+                for (javax.swing.Action action: buttonActions) {
+                    add(action);
+                }
+            }
+        }
+
+        public void registerMouseListener() {
+            addMouseListener(new MouseEventHandler());
+        }
+
+        class MouseEventHandler extends PopupMenuLauncher {
+            public MouseEventHandler() {
+                super(new DialogPopupMenu());
+            }
+            @Override public void mouseClicked(MouseEvent e) {
+                if (SwingUtilities.isLeftMouseButton(e)) {
+                    if (isCollapsed) {
+                        expand();
+                        dialogsPanel.reconstruct(Action.COLLAPSED_TO_DEFAULT, ToggleDialog.this);
+                    } else {
+                        collapse();
+                        dialogsPanel.reconstruct(Action.ELEMENT_SHRINKS, null);
+                    }
+                }
+            }
         }
     }
 
@@ -696,6 +749,7 @@ public class ToggleDialog extends JPanel implements ShowHideButtonListener, Help
         return preferredHeight;
     }
 
+    @Override
     public String helpTopic() {
         String help = getClass().getName();
         help = help.substring(help.lastIndexOf('.')+1, help.length()-6);
@@ -786,7 +840,7 @@ public class ToggleDialog extends JPanel implements ShowHideButtonListener, Help
             buttons.addAll(Arrays.asList(nextButtons));
         }
         add(data, BorderLayout.CENTER);
-        if (buttons.size() > 0 && buttons.get(0) != null && !buttons.get(0).isEmpty()) {
+        if (!buttons.isEmpty() && buttons.get(0) != null && !buttons.get(0).isEmpty()) {
             buttonsPanel = new JPanel(new GridLayout(buttons.size(), 1));
             for (Collection<SideButton> buttonRow : buttons) {
                 if (buttonRow == null) {
@@ -810,10 +864,16 @@ public class ToggleDialog extends JPanel implements ShowHideButtonListener, Help
             if (Main.pref.getBoolean("dialog.dynamic.buttons", true)) {
                 Toolkit.getDefaultToolkit().addAWTEventListener(this, AWTEvent.MOUSE_MOTION_EVENT_MASK);
                 buttonsPanel.setVisible(buttonHiding == ButtonHiddingType.ALWAYS_SHOWN || !isDocked);
+            } else if (buttonHiding == ButtonHiddingType.ALWAYS_HIDDEN) {
+                buttonsPanel.setVisible(false);
             }
         } else if (buttonsHide != null) {
             buttonsHide.setVisible(false);
         }
+
+        // Register title bar mouse listener only after buttonActions has been initialized to have a complete popup menu
+        titleBar.registerMouseListener();
+
         return data;
     }
 

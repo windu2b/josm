@@ -7,37 +7,37 @@ import java.awt.BorderLayout;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
+import javax.swing.Icon;
 
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JTextField;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 import org.openstreetmap.josm.Main;
-import org.openstreetmap.josm.actions.JosmAction;
 import org.openstreetmap.josm.data.Bounds;
 import org.openstreetmap.josm.data.coor.LatLon;
 import org.openstreetmap.josm.gui.MapView;
+
 import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.OsmUrlToBounds;
 import org.openstreetmap.josm.tools.Shortcut;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 
-public class JumpToAction extends JosmAction implements MouseListener {
+public class JumpToAction extends JosmAction {
+    /**
+     * Constructs a new {@code JumpToAction}.
+     */
     public JumpToAction() {
-        super(tr("Jump To Position"), null, tr("Opens a dialog that allows to jump to a specific location"), Shortcut.registerShortcut("tools:jumpto", tr("Tool: {0}", tr("Jump To Position")),
-        KeyEvent.VK_J, Shortcut.CTRL), false);
-        putValue("toolbar", "action/jumpto");
-        Main.toolbar.register(this);
+        super(tr("Jump To Position"), (Icon) null, tr("Opens a dialog that allows to jump to a specific location"), Shortcut.registerShortcut("tools:jumpto", tr("Tool: {0}", tr("Jump To Position")),
+        KeyEvent.VK_J, Shortcut.CTRL), true, "action/jumpto", false);
     }
 
-    private JTextField url = new JTextField();
-    private JTextField lat = new JTextField();
-    private JTextField lon = new JTextField();
-    private JTextField zm = new JTextField();
+    private JosmTextField url = new JosmTextField();
+    private JosmTextField lat = new JosmTextField();
+    private JosmTextField lon = new JosmTextField();
+    private JosmTextField zm = new JosmTextField();
 
     private double zoomFactor = 0;
     public void showJumpToDialog() {
@@ -64,15 +64,15 @@ public class JumpToAction extends JosmAction implements MouseListener {
                   BorderLayout.NORTH);
 
         class osmURLListener implements DocumentListener {
-            public void changedUpdate(DocumentEvent e) { parseURL(); }
-            public void insertUpdate(DocumentEvent e) { parseURL(); }
-            public void removeUpdate(DocumentEvent e) { parseURL(); }
+            @Override public void changedUpdate(DocumentEvent e) { parseURL(); }
+            @Override public void insertUpdate(DocumentEvent e) { parseURL(); }
+            @Override public void removeUpdate(DocumentEvent e) { parseURL(); }
         }
 
         class osmLonLatListener implements DocumentListener {
-            public void changedUpdate(DocumentEvent e) { updateUrl(false); }
-            public void insertUpdate(DocumentEvent e) { updateUrl(false); }
-            public void removeUpdate(DocumentEvent e) { updateUrl(false); }
+            @Override public void changedUpdate(DocumentEvent e) { updateUrl(false); }
+            @Override public void insertUpdate(DocumentEvent e) { updateUrl(false); }
+            @Override public void removeUpdate(DocumentEvent e) { updateUrl(false); }
         }
 
         osmLonLatListener x=new osmLonLatListener();
@@ -114,7 +114,7 @@ public class JumpToAction extends JosmAction implements MouseListener {
             try {
                 zoomLvl = Double.parseDouble(zm.getText());
                 ll = new LatLon(Double.parseDouble(lat.getText()), Double.parseDouble(lon.getText()));
-            } catch (Exception ex) {
+            } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(Main.parent, tr("Could not parse Latitude, Longitude or Zoom. Please check."), tr("Unable to parse Lon/Lat"), JOptionPane.ERROR_MESSAGE);
             }
         }
@@ -166,19 +166,8 @@ public class JumpToAction extends JosmAction implements MouseListener {
         } catch (NumberFormatException x) {}
     }
 
+    @Override
     public void actionPerformed(ActionEvent e) {
-        showJumpToDialog();
-    }
-
-    public void mousePressed(MouseEvent e) {}
-
-    public void mouseReleased(MouseEvent e) {}
-
-    public void mouseEntered(MouseEvent e) {}
-
-    public void mouseExited(MouseEvent e) {}
-
-    public void mouseClicked(MouseEvent e) {
         showJumpToDialog();
     }
 }

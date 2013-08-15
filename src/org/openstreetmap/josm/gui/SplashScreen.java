@@ -5,15 +5,14 @@ import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-
 import java.util.Arrays;
 import java.util.LinkedList;
+
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -27,6 +26,7 @@ import org.openstreetmap.josm.data.Version;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
 import org.openstreetmap.josm.gui.progress.ProgressRenderer;
 import org.openstreetmap.josm.gui.progress.SwingRenderingProgressMonitor;
+import org.openstreetmap.josm.gui.util.GuiHelper;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.WindowGeometry;
 
@@ -63,7 +63,7 @@ public class SplashScreen extends JFrame {
 
         // Add the name of this application
         JLabel caption = new JLabel("JOSM - " + tr("Java OpenStreetMap Editor"));
-        caption.setFont(new Font("Helvetica", Font.BOLD, 20));
+        caption.setFont(GuiHelper.getTitleFont());
         gbc.gridheight = 1;
         gbc.gridx = 1;
         gbc.insets = new Insets(30, 0, 0, 0);
@@ -153,6 +153,7 @@ public class SplashScreen extends JFrame {
             build();
         }
 
+        @Override
         public void setCustomText(String message) {
             if(message.isEmpty())
                 message = " "; /* prevent killing of additional line */
@@ -160,11 +161,13 @@ public class SplashScreen extends JFrame {
             repaint();
         }
 
+        @Override
         public void setIndeterminate(boolean indeterminate) {
             progressBar.setIndeterminate(indeterminate);
             repaint();
         }
 
+        @Override
         public void setMaximum(int maximum) {
             progressBar.setMaximum(maximum);
             repaint();
@@ -178,6 +181,7 @@ public class SplashScreen extends JFrame {
          * Stores and displays the {@code MAX_NUMBER_OF_MESSAGES} most recent
          * task titles together with their execution time.
          */
+        @Override
         public void setTaskTitle(String taskTitle) {
 
             while (messages.size() >= MAX_NUMBER_OF_MESSAGES) {
@@ -206,6 +210,7 @@ public class SplashScreen extends JFrame {
             repaint();
         }
 
+        @Override
         public void setValue(int value) {
             progressBar.setValue(value);
             repaint();

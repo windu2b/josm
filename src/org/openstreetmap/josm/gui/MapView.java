@@ -5,12 +5,15 @@ import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.awt.AlphaComposite;
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionListener;
 import java.awt.geom.Area;
@@ -22,7 +25,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Enumeration;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -40,6 +42,7 @@ import org.openstreetmap.josm.data.Bounds;
 import org.openstreetmap.josm.data.Preferences.PreferenceChangeEvent;
 import org.openstreetmap.josm.data.Preferences.PreferenceChangedListener;
 import org.openstreetmap.josm.data.SelectionChangedListener;
+import org.openstreetmap.josm.data.coor.EastNorth;
 import org.openstreetmap.josm.data.coor.LatLon;
 import org.openstreetmap.josm.data.osm.DataSet;
 import org.openstreetmap.josm.data.osm.DataSource;
@@ -53,8 +56,10 @@ import org.openstreetmap.josm.gui.layer.MapViewPaintable;
 import org.openstreetmap.josm.gui.layer.OsmDataLayer;
 import org.openstreetmap.josm.gui.layer.markerlayer.MarkerLayer;
 import org.openstreetmap.josm.gui.layer.markerlayer.PlayHeadMarker;
+import org.openstreetmap.josm.gui.util.GuiHelper;
 import org.openstreetmap.josm.tools.AudioPlayer;
 import org.openstreetmap.josm.tools.BugReportExceptionHandler;
+import org.openstreetmap.josm.tools.Shortcut;
 
 /**
  * This is a component used in the {@link MapFrame} for browsing the map. It use is to
@@ -75,20 +80,20 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
      * @author imi
      */
     public interface LayerChangeListener {
-        
+
         /**
          * Notifies this listener that the active layer has changed.
          * @param oldLayer The previous active layer
          * @param newLayer The new activer layer
          */
         void activeLayerChange(Layer oldLayer, Layer newLayer);
-        
+
         /**
          * Notifies this listener that a layer has been added.
          * @param newLayer The new added layer
          */
         void layerAdded(Layer newLayer);
-        
+
         /**
          * Notifies this listener that a layer has been removed.
          * @param oldLayer The old removed layer
@@ -204,7 +209,7 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
      */
     public MouseEvent lastMEvent = new MouseEvent(this, 0, 0, 0, 0, 0, 0, false); // In case somebody reads it before first mouse move
 
-    private LinkedList<MapViewPaintable> temporaryLayers = new LinkedList<MapViewPaintable>();
+    private final LinkedList<MapViewPaintable> temporaryLayers = new LinkedList<MapViewPaintable>();
 
     private BufferedImage nonChangedLayersBuffer;
     private BufferedImage offscreenBuffer;
@@ -218,10 +223,14 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
 
     /**
      * Constructs a new {@code MapView}.
-     * @param contentPane The content pane used to register shortcuts in its {@link InputMap} and {@link ActionMap}
+     * @param contentPane The content pane used to register shortcuts in its
+     * {@link InputMap} and {@link ActionMap}
+     * @param viewportData the initial viewport of the map. Can be null, then
+     * the viewport is derived from the layer data.
      */
-    public MapView(final JPanel contentPane) {
+    public MapView(final JPanel contentPane, final ViewportData viewportData) {
         Main.pref.addPreferenceChangeListener(this);
+        final boolean unregisterTab = Shortcut.findShortcut(KeyEvent.VK_TAB, 0)!=null;
 
         addComponentListener(new ComponentAdapter(){
             @Override public void componentResized(ComponentEvent e) {
@@ -230,20 +239,25 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
                 MapSlider zoomSlider = new MapSlider(MapView.this);
                 add(zoomSlider);
                 zoomSlider.setBounds(3, 0, 114, 30);
+                zoomSlider.setFocusTraversalKeysEnabled(!unregisterTab);
 
                 MapScaler scaler = new MapScaler(MapView.this);
                 add(scaler);
                 scaler.setLocation(10,30);
 
                 mapMover = new MapMover(MapView.this, contentPane);
-                OsmDataLayer layer = getEditLayer();
-                if (layer != null) {
-                    if (!zoomToDataSetBoundingBox(layer.data)) {
-                        // no bounding box defined
-                        AutoScaleAction.autoScale("data");
-                    }
+                if (viewportData != null) {
+                    zoomTo(viewportData.getCenter(), viewportData.getScale());
                 } else {
-                    AutoScaleAction.autoScale("layer");
+                    OsmDataLayer layer = getEditLayer();
+                    if (layer != null) {
+                        if (!zoomToDataSetBoundingBox(layer.data)) {
+                            // no bounding box defined
+                            AutoScaleAction.autoScale("data");
+                        }
+                    } else {
+                        AutoScaleAction.autoScale("layer");
+                    }
                 }
             }
         });
@@ -253,13 +267,36 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
 
         //store the last mouse action
         this.addMouseMotionListener(new MouseMotionListener() {
-            public void mouseDragged(MouseEvent e) {
+            @Override public void mouseDragged(MouseEvent e) {
                 mouseMoved(e);
             }
-            public void mouseMoved(MouseEvent e) {
+            @Override public void mouseMoved(MouseEvent e) {
                 lastMEvent = e;
             }
         });
+        this.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent me) {
+                // focus the MapView component when mouse is pressed inside it
+                requestFocus();
+            }
+        });
+
+        if (Shortcut.findShortcut(KeyEvent.VK_TAB, 0)!=null) {
+            setFocusTraversalKeysEnabled(false);
+        }
+    }
+
+    // remebered geometry of the component
+    private Dimension oldSize = null;
+    private Point oldLoc = null;
+
+    /*
+     * Call this method to keep map position on screen during next repaint
+     */
+    public void rememberLastPositionOnScreen() {
+        oldSize = getSize();
+        oldLoc  = getLocationOnScreen();
     }
 
     /**
@@ -397,7 +434,7 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
         if (layer == activeLayer) {
             setActiveLayer(determineNextActiveLayer(layersList), false);
         }
-        
+
         if (layer instanceof OsmDataLayer) {
             ((OsmDataLayer)layer).removeLayerPropertyChangeListener(this);
         }
@@ -475,7 +512,7 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
         Collections.sort(
                 ret,
                 new Comparator<Layer>() {
-                    public int compare(Layer l1, Layer l2) {
+                    @Override public int compare(Layer l1, Layer l2) {
                         if (l1 instanceof OsmDataLayer && l2 instanceof OsmDataLayer) {
                             if (l1 == getActiveLayer()) return -1;
                             if (l2 == getActiveLayer()) return 1;
@@ -507,6 +544,17 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
         if (center == null)
             return; // no data loaded yet.
 
+        // if the position was remembered, we need to adjust center once before repainting
+        if (oldLoc != null && oldSize != null) {
+            Point l1  = getLocationOnScreen();
+            final EastNorth newCenter = new EastNorth(
+                    center.getX()+ (l1.x-oldLoc.x - (oldSize.width-getWidth())/2.0)*getScale(),
+                    center.getY()+ (oldLoc.y-l1.y + (oldSize.height-getHeight())/2.0)*getScale()
+                    );
+            oldLoc = null; oldSize = null;
+            zoomTo(newCenter);
+        }
+
         List<Layer> visibleLayers = getVisibleLayersInZOrder();
 
         int nonChangedLayersCount = 0;
@@ -519,7 +567,7 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
         }
 
         boolean canUseBuffer;
-        
+
         synchronized (this) {
             canUseBuffer = !paintPreferencesChanged;
             paintPreferencesChanged = false;
@@ -664,14 +712,14 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
      * @return An unmodifiable collection of all layers
      */
     public Collection<Layer> getAllLayers() {
-        return Collections.unmodifiableCollection(layers);
+        return Collections.unmodifiableCollection(new ArrayList<Layer>(layers));
     }
 
     /**
      * @return An unmodifiable ordered list of all layers
      */
     public List<Layer> getAllLayersAsList() {
-        return Collections.unmodifiableList(layers);
+        return Collections.unmodifiableList(new ArrayList<Layer>(layers));
     }
 
     /**
@@ -772,16 +820,22 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
          * the user to re-select the tool after i.e. moving a layer. While testing I found
          * that I switch layers and actions at the same time and it was annoying to mind the
          * order. This way it works as visual clue for new users */
-        for (Enumeration<AbstractButton> e = Main.map.toolGroup.getElements() ; e.hasMoreElements() ;) {
-            AbstractButton button = e.nextElement();
-            MapMode mode = (MapMode)button.getAction();
-            boolean isLayerSupported = mode.layerIsSupported(layer);
-            button.setEnabled(isLayerSupported);
-            // Also update associated shortcut (fix #6876)
-            if (isLayerSupported) {
-                Main.registerActionShortcut(mode, mode.getShortcut());
+        for (final AbstractButton b: Main.map.allMapModeButtons) {
+            MapMode mode = (MapMode)b.getAction();
+            if (mode.layerIsSupported(layer)) {
+                Main.registerActionShortcut(mode, mode.getShortcut()); //fix #6876
+                GuiHelper.runInEDTAndWait(new Runnable() {
+                    @Override public void run() {
+                        b.setEnabled(true);
+                    }
+                });
             } else {
                 Main.unregisterShortcut(mode.getShortcut());
+                GuiHelper.runInEDTAndWait(new Runnable() {
+                    @Override public void run() {
+                        b.setEnabled(false);
+                    }
+                });
             }
         }
         AudioPlayer.reset();
@@ -851,6 +905,7 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
         return temporaryLayers.remove(mvp);
     }
 
+    @Override
     public void propertyChange(PropertyChangeEvent evt) {
         if (evt.getPropertyName().equals(Layer.VISIBLE_PROP)) {
             repaint();
@@ -886,7 +941,7 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
     }
 
     private SelectionChangedListener repaintSelectionChangedListener = new SelectionChangedListener(){
-        public void selectionChanged(Collection<? extends OsmPrimitive> newSelection) {
+        @Override public void selectionChanged(Collection<? extends OsmPrimitive> newSelection) {
             repaint();
         }
     };
@@ -898,6 +953,12 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
         if (mapMover != null) {
             mapMover.destroy();
         }
+        activeLayer = null;
+        changedLayer = null;
+        editLayer = null;
+        layers.clear();
+        nonChangedLayers.clear();
+        temporaryLayers.clear();
     }
 
     @Override

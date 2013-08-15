@@ -1,15 +1,14 @@
 // License: GPL. See LICENSE file for details.
 package org.openstreetmap.josm.actions.upload;
 
-import java.awt.Dimension;
 import static org.openstreetmap.josm.tools.I18n.tr;
 
+import java.awt.Dimension;
 import java.awt.GridBagLayout;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 
@@ -43,6 +42,7 @@ public class ValidateUploadHook implements UploadHook
     /**
      * Validate the modified data before uploading
      */
+    @Override
     public boolean checkUpload(APIDataSet apiDataSet) {
 
         Collection<Test> tests = OsmValidator.getEnabledTests(true);
@@ -60,7 +60,7 @@ public class ValidateUploadHook implements UploadHook
             test.startTest(null);
             test.visit(selection);
             test.endTest();
-            if (Main.pref.getBoolean(ValidatorPreference.PREF_OTHER, false) && 
+            if (Main.pref.getBoolean(ValidatorPreference.PREF_OTHER, false) &&
                 Main.pref.getBoolean(ValidatorPreference.PREF_OTHER_UPLOAD, false))
             {
                 errors.addAll( test.getErrors() );

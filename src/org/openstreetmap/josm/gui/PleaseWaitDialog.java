@@ -19,11 +19,11 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
 import javax.swing.UIManager;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.gui.progress.PleaseWaitProgressMonitor.ProgressMonitorDialog;
+import org.openstreetmap.josm.gui.widgets.JosmTextArea;
 import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.ImageProvider;
 
@@ -37,7 +37,7 @@ public class PleaseWaitDialog extends JDialog implements ProgressMonitorDialog {
     private JButton btnCancel;
     private JButton btnInBackground;
     /** the text area and the scroll pane for the log */
-    private JTextArea taLog = new JTextArea(5,50);
+    private JosmTextArea taLog = new JosmTextArea(5,50);
     private  JScrollPane spLog;
 
     private void initDialog() {
@@ -66,9 +66,13 @@ public class PleaseWaitDialog extends JDialog implements ProgressMonitorDialog {
         setCustomText("");
         setLocationRelativeTo(getParent());
         addComponentListener(new ComponentListener() {
+            @Override
             public void componentHidden(ComponentEvent e) {}
+            @Override
             public void componentMoved(ComponentEvent e) {}
+            @Override
             public void componentShown(ComponentEvent e) {}
+            @Override
             public void componentResized(ComponentEvent ev) {
                 int w = getWidth();
                 if(w > 200) {
@@ -78,11 +82,16 @@ public class PleaseWaitDialog extends JDialog implements ProgressMonitorDialog {
         });
     }
 
+    /**
+     * Constructs a new {@code PleaseWaitDialog}.
+     * @param parent the {@code Component} from which the dialog is displayed. Can be {@code null}.
+     */
     public PleaseWaitDialog(Component parent) {
         super(JOptionPane.getFrameForComponent(parent), ModalityType.DOCUMENT_MODAL);
         initDialog();
     }
 
+    @Override
     public void setIndeterminate(boolean newValue) {
         UIManager.put("ProgressBar.cycleTime", UIManager.getInt("ProgressBar.repaintInterval") * 100);
         progressBar.setIndeterminate(newValue);
@@ -90,6 +99,7 @@ public class PleaseWaitDialog extends JDialog implements ProgressMonitorDialog {
 
     protected void adjustLayout() {
         invalidate();
+        setDropTarget(null); // Workaround to JDK bug 7027598/7100524/7169912 (#8613)
         pack();
         setSize(Main.pref.getInteger("progressdialog.size", 600), getSize().height);
     }
@@ -98,6 +108,7 @@ public class PleaseWaitDialog extends JDialog implements ProgressMonitorDialog {
      * Sets a custom text line below currentAction. Can be used to display additional information
      * @param text
      */
+    @Override
     public void setCustomText(String text) {
         if(text == null || text.trim().length() == 0) {
             customText.setVisible(false);
@@ -111,6 +122,7 @@ public class PleaseWaitDialog extends JDialog implements ProgressMonitorDialog {
         }
     }
 
+    @Override
     public void setCurrentAction(String text) {
         currentAction.setText(text);
     }
@@ -121,6 +133,7 @@ public class PleaseWaitDialog extends JDialog implements ProgressMonitorDialog {
      *
      * @param message the message to append to the log. Ignore if null or white space only.
      */
+    @Override
     public void appendLogMessage(String message) {
         if (message == null || message.trim().length() ==0 )
             return;

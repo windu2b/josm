@@ -7,11 +7,9 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+
 import javax.swing.Icon;
 
-import javax.swing.JLabel;
-
-import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.tools.ImageProvider;
 
@@ -98,9 +96,8 @@ public class SequenceCommand extends Command {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public Collection<PseudoCommand> getChildren() {
-        return (List) Arrays.asList(sequence);
+        return Arrays.<PseudoCommand>asList(sequence);
     }
 
     @Override

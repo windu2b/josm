@@ -14,6 +14,7 @@ import org.openstreetmap.josm.gui.layer.WMSLayer;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
 import org.openstreetmap.josm.gui.util.GuiHelper;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * Import a WMS layer from a serialized binary file previously exported via {@link WMSLayerExporter}.
@@ -26,7 +27,7 @@ public class WMSLayerImporter extends FileImporter {
      */
     public static final ExtensionFileFilter FILE_FILTER = new ExtensionFileFilter(
             "wms", "wms", tr("WMS Files (*.wms)"));
-    
+
     private final WMSLayer wmsLayer;
 
     /**
@@ -54,9 +55,9 @@ public class WMSLayerImporter extends FileImporter {
         } catch (ClassNotFoundException e) {
             throw new IllegalDataException(e);
         } finally {
-            ois.close();
+            Utils.close(ois);
         }
-        
+
         // FIXME: remove UI stuff from IO subsystem
         GuiHelper.runInEDT(new Runnable() {
             @Override

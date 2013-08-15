@@ -1,17 +1,17 @@
 // License: GPL. See LICENSE file for details.
 package org.openstreetmap.josm.gui.dialogs.validator;
 
+import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import javax.swing.JTree;
 import javax.swing.ToolTipManager;
@@ -20,13 +20,15 @@ import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
 import javax.swing.tree.TreeSelectionModel;
 
+import org.openstreetmap.josm.Main;
+import org.openstreetmap.josm.data.osm.DataSet;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.validation.Severity;
 import org.openstreetmap.josm.data.validation.TestError;
 import org.openstreetmap.josm.data.validation.util.MultipleNameVisitor;
 import org.openstreetmap.josm.gui.preferences.ValidatorPreference;
+import org.openstreetmap.josm.tools.Destroyable;
 import org.openstreetmap.josm.tools.MultiMap;
-import org.openstreetmap.josm.Main;
 
 /**
  * A panel that displays the error tree. The selection manager
@@ -35,7 +37,7 @@ import org.openstreetmap.josm.Main;
  *
  * @author frsantos
  */
-public class ValidatorTreePanel extends JTree {
+public class ValidatorTreePanel extends JTree implements Destroyable {
     /** Serializable ID */
     private static final long serialVersionUID = 2952292777351992696L;
 
@@ -53,6 +55,7 @@ public class ValidatorTreePanel extends JTree {
      */
     private Set<OsmPrimitive> filter = null;
 
+    /** a counter to check if tree has been rebuild */
     private int updateCount;
 
     /**
@@ -69,6 +72,12 @@ public class ValidatorTreePanel extends JTree {
         this.setCellRenderer(new ValidatorTreeRenderer());
         this.getSelectionModel().setSelectionMode(TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION);
         setErrorList(errors);
+        for (KeyListener keyListener : getKeyListeners()) {
+            // Fix #3596 - Remove default keyListener to avoid conflicts with JOSM commands
+            if (keyListener.getClass().getName().equals("javax.swing.plaf.basic.BasicTreeUI$Handler")) {
+                removeKeyListener(keyListener);
+            }
+        }
     }
 
     @Override
@@ -198,7 +207,7 @@ public class ValidatorTreePanel extends JTree {
                 expandedPaths.add(new TreePath(new Object[] { rootNode, severityNode }));
             }
 
-            for (Entry<String, LinkedHashSet<TestError>> msgErrors : severityErrors.entrySet()) {
+            for (Entry<String, Set<TestError>> msgErrors : severityErrors.entrySet()) {
                 // Message node
                 Set<TestError> errs = msgErrors.getValue();
                 String msg = msgErrors.getKey() + " (" + errs.size() + ")";
@@ -228,7 +237,7 @@ public class ValidatorTreePanel extends JTree {
                     }
                 }
 
-                for (Entry<String, LinkedHashSet<TestError>> msgErrors : errorlist.entrySet()) {
+                for (Entry<String, Set<TestError>> msgErrors : errorlist.entrySet()) {
                     // Message node
                     Set<TestError> errs = msgErrors.getValue();
                     String msg;
@@ -281,15 +290,19 @@ public class ValidatorTreePanel extends JTree {
 
     /**
      * Clears the current error list and adds these errors to it
-     * @param errors The validation errors
+     * @param newerrors The validation errors
      */
     public void setErrors(List<TestError> newerrors) {
         if (errors == null)
             return;
-        errors.clear();
+        clearErrors();
+        DataSet ds = Main.main.getCurrentDataSet();
         for (TestError error : newerrors) {
             if (!error.getIgnored()) {
                 errors.add(error);
+                if (ds != null) {
+                    ds.addDataSetListener(error);
+                }
             }
         }
         if (isVisible()) {
@@ -299,16 +312,24 @@ public class ValidatorTreePanel extends JTree {
 
     /**
      * Returns the errors of the tree
-     * @return  the errors of the tree
+     * @return the errors of the tree
      */
     public List<TestError> getErrors() {
         return errors != null ? errors : Collections.<TestError> emptyList();
     }
 
+    /**
+     * Returns the filter list
+     * @return the list of primitives used for filtering
+     */
     public Set<OsmPrimitive> getFilter() {
         return filter;
     }
 
+    /**
+     * Set the filter list to a set of primitives
+     * @param filter the list of primitives used for filtering
+     */
     public void setFilter(Set<OsmPrimitive> filter) {
         if (filter != null && filter.isEmpty()) {
             this.filter = null;
@@ -322,7 +343,6 @@ public class ValidatorTreePanel extends JTree {
 
     /**
      * Updates the current errors list
-     * @param errors The validation errors
      */
     public void resetErrors() {
         List<TestError> e = new ArrayList<TestError>(errors);
@@ -330,7 +350,7 @@ public class ValidatorTreePanel extends JTree {
     }
 
     /**
-     * Expands all tree
+     * Expands complete tree
      */
     @SuppressWarnings("unchecked")
     public void expandAll() {
@@ -352,7 +372,28 @@ public class ValidatorTreePanel extends JTree {
         return (DefaultMutableTreeNode) valTreeModel.getRoot();
     }
 
+    /**
+     * Returns a value to check if tree has been rebuild
+     * @return the current counter
+     */
     public int getUpdateCount() {
         return updateCount;
+    }
+
+    private void clearErrors() {
+        if (errors != null) {
+            DataSet ds = Main.main.getCurrentDataSet();
+            if (ds != null) {
+                for (TestError e : errors) {
+                    ds.removeDataSetListener(e);
+                }
+            }
+            errors.clear();
+        }
+    }
+
+    @Override
+    public void destroy() {
+        clearErrors();
     }
 }

@@ -9,10 +9,10 @@ import javax.swing.Box;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JTextField;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.tools.GBC;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 
 /*
  * marker.audiosampleminsecs
@@ -29,11 +29,12 @@ import org.openstreetmap.josm.tools.GBC;
 public class AudioPreference extends DefaultTabPreferenceSetting {
 
     public static class Factory implements PreferenceSettingFactory {
+        @Override
         public PreferenceSetting createPreferenceSetting() {
             return new AudioPreference();
         }
     }
-    
+
     private AudioPreference() {
         super("audio", tr("Audio Settings"), tr("Settings for the audio player and audio markers."));
     }
@@ -49,14 +50,15 @@ public class AudioPreference extends DefaultTabPreferenceSetting {
     private JCheckBox audioMarkersFromWavTimestamps = new JCheckBox(tr("Modified times (time stamps) of audio files."));
     private JCheckBox audioMarkersFromStart = new JCheckBox(tr("Start of track (will always do this if no other markers available)."));
 
-    private JTextField audioLeadIn = new JTextField(8);
-    private JTextField audioForwardBackAmount = new JTextField(8);
-    private JTextField audioFastForwardMultiplier = new JTextField(8);
-    private JTextField audioCalibration = new JTextField(8);
+    private JosmTextField audioLeadIn = new JosmTextField(8);
+    private JosmTextField audioForwardBackAmount = new JosmTextField(8);
+    private JosmTextField audioFastForwardMultiplier = new JosmTextField(8);
+    private JosmTextField audioCalibration = new JosmTextField(8);
 
+    @Override
     public void addGui(PreferenceTabbedPane gui) {
         JPanel audio = new JPanel(new GridBagLayout());
-        
+
         // audioMenuVisible
         audioMenuVisible.setSelected(! Main.pref.getBoolean("audio.menuinvisible"));
         audioMenuVisible.setToolTipText(tr("Show or hide the audio menu entry on the main menu bar."));
@@ -124,6 +126,7 @@ public class AudioPreference extends DefaultTabPreferenceSetting {
         createPreferenceTabWithScrollPane(gui, audio);
     }
 
+    @Override
     public boolean ok() {
         Main.pref.put("audio.menuinvisible", ! audioMenuVisible.isSelected());
         Main.pref.put("marker.traceaudio", markerAudioTraceVisible.isSelected());

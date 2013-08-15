@@ -18,7 +18,6 @@ import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
-import javax.swing.JTextField;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.JTextComponent;
@@ -31,6 +30,7 @@ import org.openstreetmap.josm.gui.widgets.AbstractTextComponentValidator;
 import org.openstreetmap.josm.gui.widgets.HtmlPanel;
 import org.openstreetmap.josm.gui.widgets.SelectAllOnFocusGainedDecorator;
 import org.openstreetmap.josm.tools.ImageProvider;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 
 /**
  * This is an UI which supports a JOSM user to get an OAuth Access Token in a fully
@@ -40,9 +40,9 @@ import org.openstreetmap.josm.tools.ImageProvider;
  */
 public class ManualAuthorizationUI extends AbstractAuthorizationUI{
 
-    private JTextField tfAccessTokenKey;
+    private JosmTextField tfAccessTokenKey;
     private AccessTokenKeyValidator valAccessTokenKey;
-    private JTextField tfAccessTokenSecret;
+    private JosmTextField tfAccessTokenSecret;
     private AccessTokenSecretValidator valAccessTokenSecret;
     private JCheckBox cbSaveToPreferences;
     private HtmlPanel pnlMessage;
@@ -75,7 +75,7 @@ public class ManualAuthorizationUI extends AbstractAuthorizationUI{
 
         gc.gridx = 1;
         gc.weightx = 1.0;
-        pnl.add(tfAccessTokenKey = new JTextField(), gc);
+        pnl.add(tfAccessTokenKey = new JosmTextField(), gc);
         SelectAllOnFocusGainedDecorator.decorate(tfAccessTokenKey);
         valAccessTokenKey = new AccessTokenKeyValidator(tfAccessTokenKey);
         valAccessTokenKey.validate();
@@ -89,7 +89,7 @@ public class ManualAuthorizationUI extends AbstractAuthorizationUI{
 
         gc.gridx = 1;
         gc.weightx = 1.0;
-        pnl.add(tfAccessTokenSecret = new JTextField(), gc);
+        pnl.add(tfAccessTokenSecret = new JosmTextField(), gc);
         SelectAllOnFocusGainedDecorator.decorate(tfAccessTokenSecret);
         valAccessTokenSecret = new AccessTokenSecretValidator(tfAccessTokenSecret);
         valAccessTokenSecret.validate();
@@ -142,7 +142,7 @@ public class ManualAuthorizationUI extends AbstractAuthorizationUI{
     @Override
     public void setApiUrl(String apiUrl) {
         super.setApiUrl(apiUrl);
-        if (pnlMessage != null) { 
+        if (pnlMessage != null) {
             pnlMessage.setText(tr("<html><body>"
                     + "Please enter an OAuth Access Token which is authorized to access the OSM server "
                     + "''{0}''."
@@ -182,7 +182,7 @@ public class ManualAuthorizationUI extends AbstractAuthorizationUI{
 
         @Override
         public boolean isValid() {
-            return ! getComponent().getText().trim().equals("");
+            return !getComponent().getText().trim().isEmpty();
         }
 
         @Override
@@ -202,7 +202,7 @@ public class ManualAuthorizationUI extends AbstractAuthorizationUI{
 
         @Override
         public boolean isValid() {
-            return ! getComponent().getText().trim().equals("");
+            return !getComponent().getText().trim().isEmpty();
         }
 
         @Override
@@ -224,14 +224,17 @@ public class ManualAuthorizationUI extends AbstractAuthorizationUI{
                 setAccessToken(new OAuthToken(tfAccessTokenKey.getText().trim(), tfAccessTokenSecret.getText().trim()));
             }
         }
+        @Override
         public void changedUpdate(DocumentEvent e) {
             build();
         }
 
+        @Override
         public void insertUpdate(DocumentEvent e) {
             build();
         }
 
+        @Override
         public void removeUpdate(DocumentEvent e) {
             build();
         }
@@ -248,6 +251,7 @@ public class ManualAuthorizationUI extends AbstractAuthorizationUI{
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent evt) {
             TestAccessTokenTask task = new TestAccessTokenTask(
                     ManualAuthorizationUI.this,
@@ -262,6 +266,7 @@ public class ManualAuthorizationUI extends AbstractAuthorizationUI{
             setEnabled(hasAccessToken());
         }
 
+        @Override
         public void propertyChange(PropertyChangeEvent evt) {
             if (! evt.getPropertyName().equals(AbstractAuthorizationUI.ACCESS_TOKEN_PROP))
                 return;

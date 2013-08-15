@@ -19,7 +19,7 @@ import org.openstreetmap.josm.Main;
 
 /**
  * This is a UI widget for resolving tag conflicts, i.e. differences of the tag values
- * of multiple {@link OsmPrimitive}s.
+ * of multiple {@link org.openstreetmap.josm.data.osm.OsmPrimitive}s.
  *
  *
  */
@@ -51,6 +51,7 @@ public class TagConflictResolver extends JPanel {
         pnl.add(cbShowTagsWithMultiValuesOnly = new JCheckBox(tr("Show tags with multiple values only")), gc);
         cbShowTagsWithConflictsOnly.addChangeListener(
                 new ChangeListener() {
+                    @Override
                     public void stateChanged(ChangeEvent e) {
                         model.setShowTagsWithConflictsOnly(cbShowTagsWithConflictsOnly.isSelected());
                         cbShowTagsWithMultiValuesOnly.setEnabled(cbShowTagsWithConflictsOnly.isSelected());
@@ -62,6 +63,7 @@ public class TagConflictResolver extends JPanel {
         );
         cbShowTagsWithMultiValuesOnly.addChangeListener(
                 new ChangeListener() {
+                    @Override
                     public void stateChanged(ChangeEvent e) {
                         model.setShowTagsWithMultiValuesOnly(cbShowTagsWithMultiValuesOnly.isSelected());
                     }

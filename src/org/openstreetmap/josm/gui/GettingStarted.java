@@ -15,7 +15,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.swing.JComponent;
-import javax.swing.JEditorPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.KeyStroke;
@@ -25,12 +24,13 @@ import javax.swing.event.HyperlinkListener;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.Version;
+import org.openstreetmap.josm.gui.widgets.JosmEditorPane;
 import org.openstreetmap.josm.io.CacheCustomContent;
 import org.openstreetmap.josm.tools.LanguageInfo;
 import org.openstreetmap.josm.tools.OpenBrowser;
 import org.openstreetmap.josm.tools.WikiReader;
 
-public class GettingStarted extends JPanel {
+public final class GettingStarted extends JPanel {
     private String content = "";
     private static final String STYLE = "<style type=\"text/css\">\n"
             + "body {font-family: sans-serif; font-weight: bold; }\n"
@@ -38,7 +38,12 @@ public class GettingStarted extends JPanel {
             + ".icon {font-size: 0; }\n"
             + "</style>\n";
 
-    public static class LinkGeneral extends JEditorPane implements HyperlinkListener {
+    public static class LinkGeneral extends JosmEditorPane implements HyperlinkListener {
+
+        /**
+         * Constructs a new {@code LinkGeneral} with the given HTML text
+         * @param text The text to display
+         */
         public LinkGeneral(String text) {
             setContentType("text/html");
             setText(text);
@@ -47,6 +52,7 @@ public class GettingStarted extends JPanel {
             addHyperlinkListener(this);
         }
 
+        @Override
         public void hyperlinkUpdate(HyperlinkEvent e) {
             if (e.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
                 OpenBrowser.displayUrl(e.getDescription());
@@ -63,6 +69,7 @@ public class GettingStarted extends JPanel {
         }
 
         final private int myVersion = Version.getInstance().getVersion();
+        final private String myJava = System.getProperty("java.version");
         final private String myLang = LanguageInfo.getWikiLanguagePrefix();
 
         /**
@@ -74,6 +81,7 @@ public class GettingStarted extends JPanel {
             String motd = new WikiReader().readLang("StartupPage");
             // Save this to prefs in case JOSM is updated so MOTD can be refreshed
             Main.pref.putInteger("cache.motd.html.version", myVersion);
+            Main.pref.put("cache.motd.html.java", myJava);
             Main.pref.put("cache.motd.html.lang", myLang);
             try {
                 return motd.getBytes("utf-8");
@@ -93,6 +101,7 @@ public class GettingStarted extends JPanel {
             // 2. Cannot be written (e.g. while developing). Obviously we don't want to update
             // everytime because of something we can't read.
             return (Main.pref.getInteger("cache.motd.html.version", -999) == myVersion)
+            && Main.pref.get("cache.motd.html.java").equals(myJava)
             && Main.pref.get("cache.motd.html.lang").equals(myLang);
         }
     }
@@ -142,7 +151,7 @@ public class GettingStarted extends JPanel {
     }
 
     private String fixImageLinks(String s) {
-        Matcher m = Pattern.compile("src=\"http://josm.openstreetmap.de/browser/trunk(/images/.*?\\.png)\\?format=raw\"").matcher(s);
+        Matcher m = Pattern.compile("src=\""+Main.JOSM_WEBSITE+"/browser/trunk(/images/.*?\\.png)\\?format=raw\"").matcher(s);
         StringBuffer sb = new StringBuffer();
         while (m.find()) {
             String im = m.group(1);

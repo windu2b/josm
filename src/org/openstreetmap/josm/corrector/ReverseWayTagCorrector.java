@@ -4,7 +4,6 @@ package org.openstreetmap.josm.corrector;
 import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -17,6 +16,8 @@ import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.osm.OsmUtils;
 import org.openstreetmap.josm.data.osm.Relation;
 import org.openstreetmap.josm.data.osm.RelationMember;
+import org.openstreetmap.josm.data.osm.Tag;
+import org.openstreetmap.josm.data.osm.TagCollection;
 import org.openstreetmap.josm.data.osm.Way;
 
 /**
@@ -27,42 +28,58 @@ import org.openstreetmap.josm.data.osm.Way;
  * The Corrector offers the automatic resolution in an dialog
  * for the user to confirm.
  */
-
 public class ReverseWayTagCorrector extends TagCorrector<Way> {
 
-    private static class PrefixSuffixSwitcher {
+    private static final String SEPARATOR = "[:_]";
 
-        private static final String SEPARATOR = "[:_]?";
+    private static final Pattern getPatternFor(String s) {
+        return getPatternFor(s, false);
+    }
+
+    private static final Pattern getPatternFor(String s, boolean exactMatch) {
+        if (exactMatch) {
+            return Pattern.compile("(^)(" + s + ")($)");
+        } else {
+            return Pattern.compile("(^|.*" + SEPARATOR + ")(" + s + ")(" + SEPARATOR + ".*|$)",
+                    Pattern.CASE_INSENSITIVE);
+        }
+    }
+
+    private static final Collection<Pattern> ignoredKeys = new ArrayList<Pattern>();
+    static {
+        for (String s : OsmPrimitive.getUninterestingKeys()) {
+            ignoredKeys.add(getPatternFor(s));
+        }
+        for (String s : new String[]{"name", "ref", "tiger:county"}) {
+            ignoredKeys.add(getPatternFor(s, false));
+        }
+        for (String s : new String[]{"tiger:county", "turn:lanes", "change:lanes", "placement"}) {
+            ignoredKeys.add(getPatternFor(s, true));
+        }
+    }
+
+    private static class StringSwitcher {
 
         private final String a;
         private final String b;
-        private final Pattern startPattern;
-        private final Pattern endPattern;
+        private final Pattern pattern;
 
-        public PrefixSuffixSwitcher(String a, String b) {
+        public StringSwitcher(String a, String b) {
             this.a = a;
             this.b = b;
-            startPattern = Pattern.compile(
-                    "^(" + a + "|" + b + ")(" + SEPARATOR + "|$)",
-                    Pattern.CASE_INSENSITIVE);
-            endPattern = Pattern.compile("^.*" +
-                    SEPARATOR + "(" + a + "|" + b + ")$",
-                    Pattern.CASE_INSENSITIVE);
+            this.pattern = getPatternFor(a + "|" + b);
         }
 
         public String apply(String text) {
-            Matcher m = startPattern.matcher(text);
-            if (!m.lookingAt()) {
-                m = endPattern.matcher(text);
-            }
+            Matcher m = pattern.matcher(text);
 
             if (m.lookingAt()) {
-                String leftRight = m.group(1).toLowerCase();
+                String leftRight = m.group(2).toLowerCase();
 
                 StringBuilder result = new StringBuilder();
-                result.append(text.substring(0, m.start(1)));
+                result.append(text.substring(0, m.start(2)));
                 result.append(leftRight.equals(a) ? b : a);
-                result.append(text.substring(m.end(1)));
+                result.append(text.substring(m.end(2)));
 
                 return result.toString();
             }
@@ -70,27 +87,86 @@ public class ReverseWayTagCorrector extends TagCorrector<Way> {
         }
     }
 
-    private static PrefixSuffixSwitcher[] prefixSuffixSwitchers =
-        new PrefixSuffixSwitcher[] {
-        new PrefixSuffixSwitcher("left", "right"),
-        new PrefixSuffixSwitcher("forward", "backward"),
-        new PrefixSuffixSwitcher("forwards", "backwards"),
-        new PrefixSuffixSwitcher("up", "down"),
-        new PrefixSuffixSwitcher("east", "west"),
-        new PrefixSuffixSwitcher("north", "south"),
-    };
+    /**
+     * Reverses a given tag.
+     * @since 5787
+     */
+    public static class TagSwitcher {
 
-    private static ArrayList<String> reversibleTags = new ArrayList<String>(
-            Arrays.asList(new String[] {"oneway", "incline", "direction"}));
-
-    public static boolean isReversible(Way way) {
-        for (String key : way.keySet()) {
-            if (reversibleTags.contains(key)) return false;
-            for (PrefixSuffixSwitcher prefixSuffixSwitcher : prefixSuffixSwitchers) {
-                if (!key.equals(prefixSuffixSwitcher.apply(key))) return false;
-            }
+        /**
+         * Reverses a given tag.
+         * @param tag The tag to reverse
+         * @return The reversed tag (is equal to <code>tag</code> if no change is needed)
+         */
+        public static final Tag apply(final Tag tag) {
+            return apply(tag.getKey(), tag.getValue());
         }
 
+        /**
+         * Reverses a given tag (key=value).
+         * @param key The tag key
+         * @param value The tag value
+         * @return The reversed tag (is equal to <code>key=value</code> if no change is needed)
+         */
+        public static final Tag apply(final String key, final String value) {
+            String newKey = key;
+            String newValue = value;
+
+            if (key.startsWith("oneway") || key.endsWith("oneway")) {
+                if (OsmUtils.isReversed(value)) {
+                    newValue = OsmUtils.trueval;
+                } else if (OsmUtils.isTrue(value)) {
+                    newValue = OsmUtils.reverseval;
+                }
+            } else if (key.startsWith("incline") || key.endsWith("incline")
+                    || key.startsWith("direction") || key.endsWith("direction")) {
+                newValue = UP_DOWN.apply(value);
+                if (newValue.equals(value)) {
+                    newValue = invertNumber(value);
+                }
+            } else if (key.endsWith(":forward") || key.endsWith(":backward")) {
+                // Change key but not left/right value (fix #8518)
+                newKey = FORWARD_BACKWARD.apply(key);
+
+            } else if (!ignoreKeyForCorrection(key)) {
+                for (StringSwitcher prefixSuffixSwitcher : stringSwitchers) {
+                    newKey = prefixSuffixSwitcher.apply(key);
+                    if (!key.equals(newKey)) {
+                        break;
+                    }
+                    newValue = prefixSuffixSwitcher.apply(value);
+                    if (!value.equals(newValue)) {
+                        break;
+                    }
+                }
+            }
+            return new Tag(newKey, newValue);
+        }
+    }
+
+    private static final StringSwitcher FORWARD_BACKWARD = new StringSwitcher("forward", "backward");
+    private static final StringSwitcher UP_DOWN = new StringSwitcher("up", "down");
+
+    private static final StringSwitcher[] stringSwitchers = new StringSwitcher[] {
+        new StringSwitcher("left", "right"),
+        new StringSwitcher("forwards", "backwards"),
+        new StringSwitcher("east", "west"),
+        new StringSwitcher("north", "south"),
+        FORWARD_BACKWARD, UP_DOWN
+    };
+
+    /**
+     * Tests whether way can be reversed without semantic change, i.e., whether tags have to be changed.
+     * Looks for keys like oneway, oneway:bicycle, cycleway:right:oneway, left/right.
+     * @param way
+     * @return false if tags should be changed to keep semantic, true otherwise.
+     */
+    public static boolean isReversible(Way way) {
+        for (Tag tag : TagCollection.from(way)) {
+            if (!tag.equals(TagSwitcher.apply(tag))) {
+                return false;
+            }
+        }
         return true;
     }
 
@@ -104,7 +180,7 @@ public class ReverseWayTagCorrector extends TagCorrector<Way> {
         return newWays;
     }
 
-    public String invertNumber(String value) {
+    public static String invertNumber(String value) {
         Pattern pattern = Pattern.compile("^([+-]?)(\\d.*)$", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(value);
         if (!matcher.matches()) return value;
@@ -121,34 +197,10 @@ public class ReverseWayTagCorrector extends TagCorrector<Way> {
 
         ArrayList<TagCorrection> tagCorrections = new ArrayList<TagCorrection>();
         for (String key : way.keySet()) {
-            String newKey = key;
             String value = way.get(key);
-            String newValue = value;
-
-            if (key.equals("oneway")) {
-                if (OsmUtils.isReversed(value)) {
-                    newValue = OsmUtils.trueval;
-                } else if (OsmUtils.isTrue(value)) {
-                    newValue = OsmUtils.reverseval;
-                }
-            } else if (key.equals("incline") || key.equals("direction")) {
-                PrefixSuffixSwitcher switcher = new PrefixSuffixSwitcher("up", "down");
-                newValue = switcher.apply(value);
-                if (newValue.equals(value)) {
-                    newValue = invertNumber(value);
-                }
-            } else if (!ignoreKeyForPrefixSuffixCorrection(key)) {
-                for (PrefixSuffixSwitcher prefixSuffixSwitcher : prefixSuffixSwitchers) {
-                    newKey = prefixSuffixSwitcher.apply(key);
-                    if (!key.equals(newKey)) {
-                        break;
-                    }
-                    newValue = prefixSuffixSwitcher.apply(value);
-                    if (!value.equals(newValue)) {
-                        break;
-                    }
-                }
-            }
+            Tag newTag = TagSwitcher.apply(key, value);
+            String newKey = newTag.getKey();
+            String newValue = newTag.getValue();
 
             boolean needsCorrection = !key.equals(newKey);
             if (way.get(newKey) != null && way.get(newKey).equals(newValue)) {
@@ -186,7 +238,7 @@ public class ReverseWayTagCorrector extends TagCorrector<Way> {
 
                 boolean found = false;
                 String newRole = null;
-                for (PrefixSuffixSwitcher prefixSuffixSwitcher : prefixSuffixSwitchers) {
+                for (StringSwitcher prefixSuffixSwitcher : stringSwitchers) {
                     newRole = prefixSuffixSwitcher.apply(member.getRole());
                     if (!newRole.equals(member.getRole())) {
                         found = true;
@@ -211,8 +263,12 @@ public class ReverseWayTagCorrector extends TagCorrector<Way> {
                         + "to maintain data consistency."));
     }
 
-    private static boolean ignoreKeyForPrefixSuffixCorrection(String key) {
-        return key.contains("name") || key.equals("tiger:county")
-                || key.equalsIgnoreCase("fixme") || key.startsWith("note");
+    private static boolean ignoreKeyForCorrection(String key) {
+        for (Pattern ignoredKey : ignoredKeys) {
+            if (ignoredKey.matcher(key).matches()) {
+                return true;
+            }
+        }
+        return false;
     }
 }

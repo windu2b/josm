@@ -25,7 +25,6 @@ import java.util.regex.Pattern;
 import javax.imageio.ImageIO;
 
 import org.openstreetmap.josm.Main;
-import org.openstreetmap.josm.data.Version;
 import org.openstreetmap.josm.data.coor.EastNorth;
 import org.openstreetmap.josm.data.coor.LatLon;
 import org.openstreetmap.josm.data.imagery.GeorefImage.State;
@@ -47,10 +46,9 @@ public class WMSGrabber extends Grabber {
         super(mv, layer, localOnly);
         this.info = layer.getInfo();
         this.baseURL = info.getUrl();
-        if(layer.getInfo().getCookies() != null && !layer.getInfo().getCookies().equals("")) {
+        if(layer.getInfo().getCookies() != null && !layer.getInfo().getCookies().isEmpty()) {
             props.put("Cookie", layer.getInfo().getCookies());
         }
-        props.put("User-Agent", Main.pref.get("imagery.wms.user_agent", Version.getInstance().getAgentString()));
         Pattern pattern = Pattern.compile("\\{header\\(([^,]+),([^}]+)\\)\\}");
         StringBuffer output = new StringBuffer();
         Matcher matcher = pattern.matcher(this.baseURL);
@@ -161,7 +159,7 @@ public class WMSGrabber extends Grabber {
     protected BufferedImage grab(WMSRequest request, URL url, int attempt) throws IOException, OsmTransferException {
         System.out.println("Grabbing WMS " + (attempt > 1? "(attempt " + attempt + ") ":"") + url);
 
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        HttpURLConnection conn = Utils.openHttpConnection(url);
         for(Entry<String, String> e : props.entrySet()) {
             conn.setRequestProperty(e.getKey(), e.getValue());
         }
@@ -178,7 +176,7 @@ public class WMSGrabber extends Grabber {
         try {
             Utils.copyStream(is, baos);
         } finally {
-            is.close();
+            Utils.close(is);
         }
 
         ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
@@ -201,7 +199,7 @@ public class WMSGrabber extends Grabber {
             }
             return exception.toString();
         } finally {
-            br.close();
+            Utils.close(br);
         }
     }
 }

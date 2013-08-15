@@ -1,16 +1,17 @@
 // License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.io.remotecontrol.handler;
 
+import java.util.Arrays;
 import static org.openstreetmap.josm.tools.I18n.tr;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLDecoder;
 import java.util.HashMap;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.imagery.ImageryInfo;
 import org.openstreetmap.josm.gui.layer.ImageryLayer;
+import org.openstreetmap.josm.gui.util.GuiHelper;
 import org.openstreetmap.josm.io.remotecontrol.PermissionPrefWithDefault;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * Adds an imagery (WMS/TMS) layer. For instance, {@code /imagery?title=...&type=...&url=...}.
@@ -33,6 +34,11 @@ public class ImageryHandler extends RequestHandler {
     public String[] getMandatoryParams() {
         return new String[]{"url"};
     }
+    
+    @Override
+    public String[] getOptionalParams() {
+        return new String[] { "title", "type", "cookies", "min_zoom", "max_zoom"};
+    }
 
     @Override
     public PermissionPrefWithDefault getPermissionPref() {
@@ -41,10 +47,6 @@ public class ImageryHandler extends RequestHandler {
 
     @Override
     protected void handleRequest() throws RequestHandlerErrorException {
-        if (Main.map == null) //Avoid exception when creating ImageryLayer with null MapFrame
-        {
-            throw new RequestHandlerErrorException();
-        }
         String url = args.get("url");
         String title = args.get("title");
         String type = args.get("type");
@@ -52,13 +54,13 @@ public class ImageryHandler extends RequestHandler {
             title = tr("Remote imagery");
         }
         String cookies = args.get("cookies");
-        ImageryInfo imgInfo = new ImageryInfo(title, url, type, null, cookies);
+        final ImageryInfo imgInfo = new ImageryInfo(title, url, type, null, cookies);
         String min_zoom = args.get("min_zoom");
         if (min_zoom != null && !min_zoom.isEmpty()) {
             try {
                 imgInfo.setDefaultMinZoom(Integer.parseInt(min_zoom));
             } catch (NumberFormatException e) {
-                System.err.println(e.getMessage());
+                System.err.println("NumberFormatException ("+e.getMessage()+")");
             }
         }
         String max_zoom = args.get("max_zoom");
@@ -66,10 +68,14 @@ public class ImageryHandler extends RequestHandler {
             try {
                 imgInfo.setDefaultMaxZoom(Integer.parseInt(max_zoom));
             } catch (NumberFormatException e) {
-                System.err.println(e.getMessage());
+                System.err.println("NumberFormatException ("+e.getMessage()+")");
             }
         }
-        Main.main.addLayer(ImageryLayer.create(imgInfo));
+        GuiHelper.runInEDT(new Runnable() {
+            @Override public void run() {
+                Main.main.addLayer(ImageryLayer.create(imgInfo));
+            }
+        });
     }
 
     @Override
@@ -100,12 +106,22 @@ public class ImageryHandler extends RequestHandler {
         }
         this.args = args;
     }
+    
+    @Override
+    protected void validateRequest() throws RequestHandlerBadRequestException {
+        // Nothing to do
+    }
 
-    private String decodeParam(String param) {
-        try {
-            return URLDecoder.decode(param, "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException();
-        }
+    @Override
+    public String[] getUsageExamples() {
+        final String types = Utils.join("|", Utils.transform(Arrays.asList(ImageryInfo.ImageryType.values()), new Utils.Function<ImageryInfo.ImageryType, String>() {
+            @Override
+            public String apply(ImageryInfo.ImageryType x) {
+                return x.getUrlString();
+            }
+        }));
+        return new String[] { "/imagery?title=osm&type=tms&url=http://tile.openstreetmap.org/%7Bzoom%7D/%7Bx%7D/%7By%7D.png",
+            "/imagery?title=landsat&type=wms&url=http://irs.gis-lab.info/?layers=landsat&SRS=%7Bproj%7D&WIDTH=%7Bwidth%7D&HEIGHT=%7Bheight%7D&BBOX=%7Bbbox%7D",
+            "/imagery?title=...&type={"+types+"}&url=....[&cookies=...][&min_zoom=...][&max_zoom=...]"};
     }
 }

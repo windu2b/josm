@@ -117,7 +117,7 @@ public abstract class SaveActionBase extends DiskAccessAction {
     /**
      * Creates a new "Save" dialog for a single {@link ExtensionFileFilter} and makes it visible.<br/>
      * When the user has chosen a file, checks the file extension, and confirms overwrite if needed.
-     * 
+     *
      * @param title The dialog title
      * @param filter The dialog file filter
      * @return The output {@code File}
@@ -132,7 +132,7 @@ public abstract class SaveActionBase extends DiskAccessAction {
     /**
      * Creates a new "Save" dialog for a given file extension and makes it visible.<br/>
      * When the user has chosen a file, checks the file extension, and confirms overwrite if needed.
-     * 
+     *
      * @param title The dialog title
      * @param extension The file extension
      * @return The output {@code File}
@@ -142,14 +142,22 @@ public abstract class SaveActionBase extends DiskAccessAction {
         JFileChooser fc = createAndOpenFileChooser(false, false, title, extension);
         return checkFileAndConfirmOverWrite(fc, extension);
     }
-    
+
     private static File checkFileAndConfirmOverWrite(JFileChooser fc, String extension) {
         if (fc == null) return null;
         File file = fc.getSelectedFile();
-        String fn = file.getPath();
-        if (fn.indexOf('.') == -1)
-        {
-            FileFilter ff = fc.getFileFilter();
+
+        FileFilter ff = fc.getFileFilter();
+        if (!ff.accept(file)) {
+            // Extension of another filefilter given ?
+            for (FileFilter cff : fc.getChoosableFileFilters()) {
+                if (cff.accept(file)) {
+                    fc.setFileFilter(cff);
+                    return file;
+                }
+            }
+            // No filefilter accepts current filename, add default extension
+            String fn = file.getPath();
             if (ff instanceof ExtensionFileFilter) {
                 fn += "." + ((ExtensionFileFilter)ff).getDefaultExtension();
             } else if (extension != null) {

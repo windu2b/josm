@@ -6,11 +6,8 @@ import static org.openstreetmap.josm.tools.I18n.tr;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.GridBagLayout;
-import java.awt.event.ActionEvent;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.text.NumberFormat;
 import java.text.ParsePosition;
 import java.util.ArrayList;
@@ -19,13 +16,11 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSeparator;
 import javax.swing.JTabbedPane;
-import javax.swing.JTextField;
 import javax.swing.UIManager;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -38,15 +33,15 @@ import org.openstreetmap.josm.data.coor.EastNorth;
 import org.openstreetmap.josm.data.coor.LatLon;
 import org.openstreetmap.josm.gui.ExtendedDialog;
 import org.openstreetmap.josm.gui.widgets.HtmlPanel;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 import org.openstreetmap.josm.tools.GBC;
-import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.WindowGeometry;
 
 public class LatLonDialog extends ExtendedDialog {
     private static final Color BG_COLOR_ERROR = new Color(255,224,224);
 
     public JTabbedPane tabs;
-    private JTextField tfLatLon, tfEastNorth;
+    private JosmTextField tfLatLon, tfEastNorth;
     private LatLon latLonCoordinates;
     private EastNorth eastNorthCoordinates;
 
@@ -76,22 +71,22 @@ public class LatLonDialog extends ExtendedDialog {
         pnl.setBorder(BorderFactory.createEmptyBorder(5,5,5,5));
 
         pnl.add(new JLabel(tr("Coordinates:")), GBC.std().insets(0,10,5,0));
-        tfLatLon = new JTextField(24);
+        tfLatLon = new JosmTextField(24);
         pnl.add(tfLatLon, GBC.eol().insets(0,10,0,0).fill(GBC.HORIZONTAL).weight(1.0, 0.0));
 
         pnl.add(new JSeparator(), GBC.eol().fill(GBC.HORIZONTAL).insets(0,5,0,5));
 
         pnl.add(new HtmlPanel(
                 tr("Enter the coordinates for the new node.<br/>You can separate longitude and latitude with space, comma or semicolon.<br/>" +
-                		"Use positive numbers or N, E characters to indicate North or East cardinal direction.<br/>" +
-                		"For South and West cardinal directions you can use either negative numbers or S, W characters.<br/>" +
-                		"Coordinate value can be in one of three formats:<ul>" +
+                        "Use positive numbers or N, E characters to indicate North or East cardinal direction.<br/>" +
+                        "For South and West cardinal directions you can use either negative numbers or S, W characters.<br/>" +
+                        "Coordinate value can be in one of three formats:<ul>" +
                         "<li><i>degrees</i><tt>&deg;</tt></li>" +
                         "<li><i>degrees</i><tt>&deg;</tt> <i>minutes</i><tt>&#39;</tt></li>" +
                         "<li><i>degrees</i><tt>&deg;</tt> <i>minutes</i><tt>&#39;</tt> <i>seconds</i><tt>&quot</tt></li>" +
-                		"</ul>" +
-                		"Symbols <tt>&deg;</tt>, <tt>&#39;</tt>, <tt>&prime;</tt>, <tt>&quot;</tt>, <tt>&Prime;</tt> are optional.<br/><br/>" +
-                		"Some examples:<ul>" +
+                        "</ul>" +
+                        "Symbols <tt>&deg;</tt>, <tt>&#39;</tt>, <tt>&prime;</tt>, <tt>&quot;</tt>, <tt>&Prime;</tt> are optional.<br/><br/>" +
+                        "Some examples:<ul>" +
                         "<li>49.29918&deg; 19.24788&deg;</li>" +
                         "<li>N 49.29918 E 19.24788</li>" +
                         "<li>W 49&deg;29.918&#39; S 19&deg;24.788&#39;</li>" +
@@ -108,7 +103,7 @@ public class LatLonDialog extends ExtendedDialog {
                         "<li>49 29.4 19 24.5</li>" +
                         "<li>-49 29.4 N -19 24.5 W</li></ul>" +
                         "<li>48 deg 42&#39; 52.13\" N, 21 deg 11&#39; 47.60\" E</li></ul>"
-                		)),
+                        )),
                 GBC.eol().fill().weight(1.0, 1.0));
 
         // parse and verify input on the fly
@@ -128,7 +123,7 @@ public class LatLonDialog extends ExtendedDialog {
         pnl.setBorder(BorderFactory.createEmptyBorder(5,5,5,5));
 
         pnl.add(new JLabel(tr("Projected coordinates:")), GBC.std().insets(0,10,5,0));
-        tfEastNorth = new JTextField(24);
+        tfEastNorth = new JosmTextField(24);
 
         pnl.add(tfEastNorth, GBC.eol().insets(0,10,0,0).fill(GBC.HORIZONTAL).weight(1.0, 0.0));
 
@@ -207,13 +202,13 @@ public class LatLonDialog extends ExtendedDialog {
         return eastNorthCoordinates;
     }
 
-    protected void setErrorFeedback(JTextField tf, String message) {
+    protected void setErrorFeedback(JosmTextField tf, String message) {
         tf.setBorder(BorderFactory.createLineBorder(Color.RED, 1));
         tf.setToolTipText(message);
         tf.setBackground(BG_COLOR_ERROR);
     }
 
-    protected void clearErrorFeedback(JTextField tf, String message) {
+    protected void clearErrorFeedback(JosmTextField tf, String message) {
         tf.setBorder(UIManager.getBorder("TextField.border"));
         tf.setToolTipText(message);
         tf.setBackground(UIManager.getColor("TextField.background"));
@@ -284,7 +279,7 @@ public class LatLonDialog extends ExtendedDialog {
     }
 
     private void setOkEnabled(boolean b) {
-        if (buttons != null && buttons.size() > 0) {
+        if (buttons != null && !buttons.isEmpty()) {
             buttons.get(0).setEnabled(b);
         }
     }
@@ -298,41 +293,49 @@ public class LatLonDialog extends ExtendedDialog {
     }
 
     class LatLonInputVerifier implements DocumentListener {
+        @Override
         public void changedUpdate(DocumentEvent e) {
             parseLatLonUserInput();
         }
 
+        @Override
         public void insertUpdate(DocumentEvent e) {
             parseLatLonUserInput();
         }
 
+        @Override
         public void removeUpdate(DocumentEvent e) {
             parseLatLonUserInput();
         }
     }
 
     class EastNorthInputVerifier implements DocumentListener {
+        @Override
         public void changedUpdate(DocumentEvent e) {
             parseEastNorthUserInput();
         }
 
+        @Override
         public void insertUpdate(DocumentEvent e) {
             parseEastNorthUserInput();
         }
 
+        @Override
         public void removeUpdate(DocumentEvent e) {
             parseEastNorthUserInput();
         }
     }
 
     static class TextFieldFocusHandler implements FocusListener {
+        @Override
         public void focusGained(FocusEvent e) {
             Component c = e.getComponent();
-            if (c instanceof JTextField) {
-                JTextField tf = (JTextField)c;
+            if (c instanceof JosmTextField) {
+                JosmTextField tf = (JosmTextField)c;
                 tf.selectAll();
             }
         }
+        @Override
         public void focusLost(FocusEvent e) {}
     }
 

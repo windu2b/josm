@@ -18,11 +18,13 @@ import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.command.ChangeCommand;
 import org.openstreetmap.josm.command.Command;
 import org.openstreetmap.josm.command.SequenceCommand;
+import org.openstreetmap.josm.corrector.ReverseWayNoTagCorrector;
 import org.openstreetmap.josm.corrector.ReverseWayTagCorrector;
 import org.openstreetmap.josm.corrector.UserCancelException;
 import org.openstreetmap.josm.data.osm.Node;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.osm.Way;
+import org.openstreetmap.josm.gui.Notification;
 import org.openstreetmap.josm.tools.Shortcut;
 import org.openstreetmap.josm.tools.Utils;
 
@@ -69,6 +71,7 @@ public final class ReverseWayAction extends JosmAction {
         putValue("help", ht("/Action/ReverseWays"));
     }
 
+    @Override
     public void actionPerformed(ActionEvent e) {
         if (! isEnabled())
             return;
@@ -77,12 +80,11 @@ public final class ReverseWayAction extends JosmAction {
 
         final Collection<Way> sel = getCurrentDataSet().getSelectedWays();
         if (sel.isEmpty()) {
-            JOptionPane.showMessageDialog(
-                    Main.parent,
-                    tr("Please select at least one way."),
-                    tr("Information"),
-                    JOptionPane.INFORMATION_MESSAGE
-            );
+            new Notification(
+                    tr("Please select at least one way."))
+                    .setIcon(JOptionPane.INFORMATION_MESSAGE)
+                    .setDuration(Notification.TIME_SHORT)
+                    .show();
             return;
         }
 
@@ -108,8 +110,10 @@ public final class ReverseWayAction extends JosmAction {
     /**
      * @param w the way
      * @return the reverse command and the tag correction commands
+     * @throws UserCancelException if user cancels a reverse warning dialog
      */
     public static ReverseWayResult reverseWay(Way w) throws UserCancelException {
+        ReverseWayNoTagCorrector.checkAndConfirmReverseWay(w);
         Way wnew = new Way(w);
         List<Node> nodesCopy = wnew.getNodes();
         Collections.reverse(nodesCopy);

@@ -1,5 +1,6 @@
 // License: GPL. Copyright 2007 by Immanuel Scholz and others
 package org.openstreetmap.josm;
+
 import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.awt.BorderLayout;
@@ -63,8 +64,11 @@ import org.openstreetmap.josm.gui.GettingStarted;
 import org.openstreetmap.josm.gui.MainApplication.Option;
 import org.openstreetmap.josm.gui.MainMenu;
 import org.openstreetmap.josm.gui.MapFrame;
+import org.openstreetmap.josm.gui.MapFrameListener;
 import org.openstreetmap.josm.gui.MapView;
+import org.openstreetmap.josm.gui.NavigatableComponent.ViewportData;
 import org.openstreetmap.josm.gui.dialogs.LayerListDialog;
+import org.openstreetmap.josm.gui.help.HelpUtil;
 import org.openstreetmap.josm.gui.io.SaveLayersDialog;
 import org.openstreetmap.josm.gui.layer.Layer;
 import org.openstreetmap.josm.gui.layer.OsmDataLayer;
@@ -78,7 +82,6 @@ import org.openstreetmap.josm.gui.progress.PleaseWaitProgressMonitor;
 import org.openstreetmap.josm.gui.progress.ProgressMonitorExecutor;
 import org.openstreetmap.josm.gui.util.RedirectInputMap;
 import org.openstreetmap.josm.io.OsmApi;
-import org.openstreetmap.josm.plugins.PluginHandler;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
 import org.openstreetmap.josm.tools.I18n;
 import org.openstreetmap.josm.tools.ImageProvider;
@@ -92,8 +95,18 @@ import org.openstreetmap.josm.tools.Shortcut;
 import org.openstreetmap.josm.tools.Utils;
 import org.openstreetmap.josm.tools.WindowGeometry;
 
+/**
+ * Abstract class holding various static global variables and methods used in large parts of JOSM application.
+ * @since 98
+ */
 abstract public class Main {
 
+    /**
+     * The JOSM website URL.
+     * @since 6143 
+     */
+    public static final String JOSM_WEBSITE = "http://josm.openstreetmap.de";
+    
     /**
      * Replies true if JOSM currently displays a map view. False, if it doesn't, i.e. if
      * it only shows the MOTD panel.
@@ -105,20 +118,29 @@ abstract public class Main {
         if (map.mapView == null) return false;
         return true;
     }
+
     /**
      * Global parent component for all dialogs and message boxes
      */
     public static Component parent;
+
     /**
      * Global application.
      */
     public static Main main;
+
+    /**
+     * Command-line arguments used to run the application.
+     */
+    public static String[] commandLineArgs;
+
     /**
      * The worker thread slave. This is for executing all long and intensive
      * calculations. The executed runnables are guaranteed to be executed separately
      * and sequential.
      */
     public final static ExecutorService worker = new ProgressMonitorExecutor();
+
     /**
      * Global application preferences
      */
@@ -128,12 +150,17 @@ abstract public class Main {
      * The global paste buffer.
      */
     public static final PrimitiveDeepCopy pasteBuffer = new PrimitiveDeepCopy();
+
+    /**
+     * The layer source from which {@link Main#pasteBuffer} data comes from.
+     */
     public static Layer pasteSource;
 
     /**
-     * The MapFrame. Use setMapFrame to set or clear it.
+     * The MapFrame. Use {@link Main#setMapFrame} to set or clear it.
      */
     public static MapFrame map;
+
     /**
      * Set to <code>true</code>, when in applet mode
      */
@@ -144,8 +171,14 @@ abstract public class Main {
      */
     public static ToolbarPreferences toolbar;
 
+    /**
+     * The commands undo/redo handler.
+     */
     public UndoRedoHandler undoRedo = new UndoRedoHandler();
 
+    /**
+     * The progress monitor being currently displayed.
+     */
     public static PleaseWaitProgressMonitor currentProgressMonitor;
 
     /**
@@ -162,6 +195,8 @@ abstract public class Main {
      */
     private GettingStarted gettingStarted = new GettingStarted();
 
+    private static final Collection<MapFrameListener> mapFrameListeners = new ArrayList<MapFrameListener>();
+
     /**
      * Logging level (3 = debug, 2 = info, 1 = warn, 0 = none).
      */
@@ -173,7 +208,7 @@ abstract public class Main {
     static public void warn(String msg) {
         if (log_level < 1)
             return;
-        System.out.println(msg);
+        System.err.println(tr("WARNING: {0}", msg));
     }
     /**
      * Print an informational message if logging is on.
@@ -182,7 +217,7 @@ abstract public class Main {
     static public void info(String msg) {
         if (log_level < 2)
             return;
-        System.out.println(msg);
+        System.err.println(tr("INFO: {0}", msg));
     }
     /**
      * Print an debug message if logging is on.
@@ -191,7 +226,7 @@ abstract public class Main {
     static public void debug(String msg) {
         if (log_level < 3)
             return;
-        System.out.println(msg);
+        System.err.println(tr("DEBUG: {0}", msg));
     }
     /**
      * Print a formated warning message if logging is on. Calls {@link MessageFormat#format}
@@ -237,6 +272,7 @@ abstract public class Main {
 
     /**
      * Set or clear (if passed <code>null</code>) the map.
+     * @param map The map to set {@link Main#map} to. Can be null.
      */
     public final void setMapFrame(final MapFrame map) {
         MapFrame old = Main.map;
@@ -253,7 +289,9 @@ abstract public class Main {
 
         Main.map = map;
 
-        PluginHandler.notifyMapFrameChanged(old, map);
+        for (MapFrameListener listener : mapFrameListeners ) {
+            listener.mapFrameInitialized(old, map);
+        }
         if (map == null && currentProgressMonitor != null) {
             currentProgressMonitor.showForegroundDialog();
         }
@@ -262,8 +300,9 @@ abstract public class Main {
     /**
      * Remove the specified layer from the map. If it is the last layer,
      * remove the map as well.
+     * @param layer The layer to remove
      */
-    public final void removeLayer(final Layer layer) {
+    public final synchronized void removeLayer(final Layer layer) {
         if (map != null) {
             map.mapView.removeLayer(layer);
             if (map != null && map.mapView.getAllLayers().isEmpty()) {
@@ -405,19 +444,30 @@ abstract public class Main {
      * Add a new layer to the map. If no map exists, create one.
      */
     public final synchronized void addLayer(final Layer layer) {
-        if (map == null) {
-            final MapFrame mapFrame = new MapFrame(contentPanePrivate);
-            setMapFrame(mapFrame);
-            mapFrame.selectMapMode((MapMode)mapFrame.getDefaultButtonAction(), layer);
-            mapFrame.setVisible(true);
-            mapFrame.initializeDialogsPane();
-            // bootstrapping problem: make sure the layer list dialog is going to
-            // listen to change events of the very first layer
-            //
-            layer.addPropertyChangeListener(LayerListDialog.getInstance().getModel());
+        boolean noMap = map == null;
+        if (noMap) {
+            createMapFrame(layer, null);
         }
         layer.hookUpMapView();
         map.mapView.addLayer(layer);
+        if (noMap) {
+            Main.map.setVisible(true);
+        }
+    }
+
+    public synchronized void createMapFrame(Layer firstLayer, ViewportData viewportData) {
+        MapFrame mapFrame = new MapFrame(contentPanePrivate, viewportData);
+        setMapFrame(mapFrame);
+        if (firstLayer != null) {
+            mapFrame.selectMapMode((MapMode)mapFrame.getDefaultButtonAction(), firstLayer);
+        }
+        mapFrame.initializeDialogsPane();
+        // bootstrapping problem: make sure the layer list dialog is going to
+        // listen to change events of the very first layer
+        //
+        if (firstLayer != null) {
+            firstLayer.addPropertyChangeListener(LayerListDialog.getInstance().getModel());
+        }
     }
 
     /**
@@ -500,16 +550,36 @@ abstract public class Main {
         contentPanePrivate.getActionMap().remove(action);
     }
 
+    /**
+     * Replies the registered action for the given shortcut
+     * @param shortcut The shortcut to look for
+     * @return the registered action for the given shortcut
+     * @since 5696
+     */
+    public static Action getRegisteredActionShortcut(Shortcut shortcut) {
+        KeyStroke keyStroke = shortcut.getKeyStroke();
+        if (keyStroke == null)
+            return null;
+        Object action = contentPanePrivate.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).get(keyStroke);
+        if (action instanceof Action)
+            return (Action) action;
+        return null;
+    }
+
     ///////////////////////////////////////////////////////////////////////////
     //  Implementation part
     ///////////////////////////////////////////////////////////////////////////
 
+    /**
+     * Global panel.
+     */
     public static final JPanel panel = new JPanel(new BorderLayout());
 
     protected static WindowGeometry geometry;
     protected static int windowState = JFrame.NORMAL;
 
     private final CommandQueueListener redoUndoListener = new CommandQueueListener(){
+        @Override
         public void commandChanged(final int queueSize, final int redoSize) {
             menu.undo.setEnabled(queueSize > 0);
             menu.redo.setEnabled(redoSize > 0);
@@ -564,7 +634,7 @@ abstract public class Main {
             !args.containsKey(Option.NO_MAXIMIZE) && Main.pref.getBoolean("gui.maximized", false));
     }
 
-    public void postConstructorProcessCmdLine(Map<Option, Collection<String>> args) {
+    protected static void postConstructorProcessCmdLine(Map<Option, Collection<String>> args) {
         if (args.containsKey(Option.DOWNLOAD)) {
             List<File> fileList = new ArrayList<File>();
             for (String s : args.get(Option.DOWNLOAD)) {
@@ -641,7 +711,7 @@ abstract public class Main {
 
     /**
      * Asks user to perform "save layer" operations (save .osm on disk and/or upload osm data to server) before osm layers deletion.
-     * 
+     *
      * @param selectedLayers The layers to check. Only instances of {@link OsmDataLayer} are considered.
      * @param exit {@code true} if JOSM is exiting, {@code false} otherwise.
      * @return {@code true} if there was nothing to save, or if the user wants to proceed to save operations. {@code false} if the user cancels.
@@ -677,10 +747,16 @@ abstract public class Main {
         return true;
     }
 
-    public static boolean exitJosm(boolean exit) {
+    /**
+     * Closes JOSM and optionally terminates the Java Virtual Machine (JVM). If there are some unsaved data layers, asks first for user confirmation.
+     * @param exit If {@code true}, the JVM is terminated by running {@link System#exit} with a return code of 0.
+     * @return {@code true} if JOSM has been closed, {@code false} if the user has cancelled the operation.
+     * @since 3378
+     */
+    public static boolean exitJosm(boolean exit, int exitCode) {
         if (Main.saveUnsavedModifications()) {
             geometry.remember("gui.geometry");
-            if (map  != null) {
+            if (map != null) {
                 map.rememberToggleDialogWidth();
             }
             pref.put("gui.maximized", (windowState & JFrame.MAXIMIZED_BOTH) != 0);
@@ -688,16 +764,15 @@ abstract public class Main {
             if (Main.isDisplayingMapView()) {
                 Collection<Layer> layers = new ArrayList<Layer>(Main.map.mapView.getAllLayers());
                 for (Layer l: layers) {
-                    Main.map.mapView.removeLayer(l);
+                    Main.main.removeLayer(l);
                 }
             }
             if (exit) {
-                System.exit(0);
-                return true;
-            } else
-                return true;
-        } else
-            return false;
+                System.exit(exitCode);
+            }
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -711,7 +786,7 @@ abstract public class Main {
      * @param s A parameter string
      * @return The guessed parameter type
      */
-    private DownloadParamType paramType(String s) {
+    private static DownloadParamType paramType(String s) {
         if(s.startsWith("http:")) return DownloadParamType.httpUrl;
         if(s.startsWith("file:")) return DownloadParamType.fileUrl;
         String coorPattern = "\\s*[+-]?[0-9]+(\\.[0-9]+)?\\s*";
@@ -770,6 +845,10 @@ abstract public class Main {
         Main.worker.execute(new PostDownloadHandler(task, future));
     }
 
+    /**
+     * Identifies the current operating system family and initializes the platform hook accordingly.
+     * @since 1849
+     */
     public static void determinePlatformHook() {
         String os = System.getProperty("os.name");
         if (os == null) {
@@ -825,16 +904,22 @@ abstract public class Main {
             }
         }
     }
-    public static void addListener() {
+
+    protected static void addListener() {
         parent.addComponentListener(new WindowPositionSizeListener());
         ((JFrame)parent).addWindowStateListener(new WindowPositionSizeListener());
     }
 
+    /**
+     * Checks that JOSM is at least running with Java 6.
+     * @since 3815
+     */
     public static void checkJava6() {
         String version = System.getProperty("java.version");
         if (version != null) {
             if (version.startsWith("1.6") || version.startsWith("6") ||
-                    version.startsWith("1.7") || version.startsWith("7"))
+                    version.startsWith("1.7") || version.startsWith("7") ||
+                    version.startsWith("1.8") || version.startsWith("8"))
                 return;
             if (version.startsWith("1.5") || version.startsWith("5")) {
                 JLabel ho = new JLabel("<html>"+
@@ -843,7 +928,7 @@ abstract public class Main {
                                 "You can <ul><li>update your Java (JRE) or</li>"+
                                 "<li>use an earlier (Java 5 compatible) version of JOSM.</li></ul>"+
                                 "More Info:", version)+"</html>");
-                JTextArea link = new JTextArea("http://josm.openstreetmap.de/wiki/Help/SystemRequirements");
+                JTextArea link = new JTextArea(HelpUtil.getWikiBaseHelpUrl()+"/Help/SystemRequirements");
                 link.setEditable(false);
                 link.setBackground(panel.getBackground());
                 JPanel panel = new JPanel(new GridBagLayout());
@@ -968,7 +1053,7 @@ abstract public class Main {
 
     /**
      * Listener for window switch events.
-     * 
+     *
      * These are events, when the user activates a window of another application
      * or comes back to JOSM. Window switches from one JOSM window to another
      * are not reported.
@@ -1134,4 +1219,23 @@ abstract public class Main {
         }
     }
 
+    /**
+     * Registers a new {@code MapFrameListener} that will be notified of MapFrame changes
+     * @param listener The MapFrameListener
+     * @return {@code true} if the listeners collection changed as a result of the call
+     * @since 5957
+     */
+    public static boolean addMapFrameListener(MapFrameListener listener) {
+        return listener != null ? mapFrameListeners.add(listener) : false;
+    }
+
+    /**
+     * Unregisters the given {@code MapFrameListener} from MapFrame changes
+     * @param listener The MapFrameListener
+     * @return {@code true} if the listeners collection changed as a result of the call
+     * @since 5957
+     */
+    public static boolean removeMapFrameListener(MapFrameListener listener) {
+        return listener != null ? mapFrameListeners.remove(listener) : false;
+    }
 }

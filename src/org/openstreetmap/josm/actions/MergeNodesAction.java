@@ -33,6 +33,7 @@ import org.openstreetmap.josm.data.osm.Way;
 import org.openstreetmap.josm.gui.DefaultNameFormatter;
 import org.openstreetmap.josm.gui.HelpAwareOptionPane;
 import org.openstreetmap.josm.gui.HelpAwareOptionPane.ButtonSpec;
+import org.openstreetmap.josm.gui.Notification;
 import org.openstreetmap.josm.gui.conflict.tags.CombinePrimitiveResolverDialog;
 import org.openstreetmap.josm.gui.layer.OsmDataLayer;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
@@ -57,6 +58,7 @@ public class MergeNodesAction extends JosmAction {
         putValue("help", ht("/Action/MergeNodes"));
     }
 
+    @Override
     public void actionPerformed(ActionEvent event) {
         if (!isEnabled())
             return;
@@ -66,13 +68,10 @@ public class MergeNodesAction extends JosmAction {
         if (selectedNodes.size() == 1) {
             List<Node> nearestNodes = Main.map.mapView.getNearestNodes(Main.map.mapView.getPoint(selectedNodes.get(0)), selectedNodes, OsmPrimitive.isUsablePredicate);
             if (nearestNodes.isEmpty()) {
-                JOptionPane.showMessageDialog(
-                        Main.parent,
-                        tr("Please select at least two nodes to merge or a node that is close to another node."),
-                        tr("Warning"),
-                        JOptionPane.WARNING_MESSAGE
-                );
-
+                new Notification(
+                        tr("Please select at least two nodes to merge or one node that is close to another node."))
+                        .setIcon(JOptionPane.WARNING_MESSAGE)
+                        .show();
                 return;
             }
             selectedNodes.addAll(nearestNodes);
@@ -152,20 +151,28 @@ public class MergeNodesAction extends JosmAction {
      * @return the selected target node
      */
     public static Node selectTargetNode(Collection<Node> candidates) {
+        Node oldestNode = null;
         Node targetNode = null;
         Node lastNode = null;
         for (Node n : candidates) {
             if (!n.isNew()) {
-                if (targetNode == null) {
-                    targetNode = n;
-                } else if (n.getId() < targetNode.getId()) {
-                    targetNode = n;
+                // Among existing nodes, try to keep the oldest used one
+                if (!n.getReferrers().isEmpty()) {
+                    if (targetNode == null) {
+                        targetNode = n;
+                    } else if (n.getId() < targetNode.getId()) {
+                        targetNode = n;
+                    }
+                } else if (oldestNode == null) {
+                    oldestNode = n;
+                } else if (n.getId() < oldestNode.getId()) {
+                    oldestNode = n;
                 }
             }
             lastNode = n;
         }
         if (targetNode == null) {
-            targetNode = lastNode;
+            targetNode = (oldestNode != null ? oldestNode : lastNode);
         }
         return targetNode;
     }
@@ -271,7 +278,7 @@ public class MergeNodesAction extends JosmAction {
      * @param nodes the collection of nodes. Ignored if null.
      * @param targetNode the target node the collection of nodes is merged to. Must not be null.
      * @param targetLocationNode this node's location will be used for the targetNode.
-     * @throw IllegalArgumentException thrown if layer is null
+     * @throws IllegalArgumentException thrown if layer is null
      */
     public static Command mergeNodes(OsmDataLayer layer, Collection<Node> nodes, Node targetNode, Node targetLocationNode) {
         CheckParameterUtil.ensureParameterNotNull(layer, "layer");

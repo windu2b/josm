@@ -18,13 +18,14 @@ import org.openstreetmap.josm.gui.mappaint.mapcss.Instruction;
 import org.openstreetmap.josm.gui.mappaint.mapcss.MapCSSRule;
 import org.openstreetmap.josm.gui.mappaint.mapcss.MapCSSStyleSource;
 import org.openstreetmap.josm.gui.mappaint.mapcss.Selector;
-import org.openstreetmap.josm.gui.mappaint.mapcss.Expression.FunctionExpression;
-import org.openstreetmap.josm.gui.mappaint.mapcss.Expression.LiteralExpression;
+import org.openstreetmap.josm.gui.mappaint.mapcss.ExpressionFactory;
+import org.openstreetmap.josm.gui.mappaint.mapcss.LiteralExpression;
 import org.openstreetmap.josm.gui.mappaint.mapcss.MapCSSException;
 import org.openstreetmap.josm.gui.mappaint.mapcss.Selector.ChildOrParentSelector;
 import org.openstreetmap.josm.gui.mappaint.mapcss.Selector.GeneralSelector;
 import org.openstreetmap.josm.gui.mappaint.mapcss.Selector.LinkSelector;
 import org.openstreetmap.josm.tools.Pair;
+import org.openstreetmap.josm.tools.Utils;
 
 public class MapCSSParser {
     MapCSSStyleSource sheet;
@@ -42,7 +43,7 @@ TOKEN:
 |   < UINT: ["1"-"9"] ( ["0"-"9"] )* >
 |   < UFLOAT: ( ["0"-"9"] )+ ( "." ( ["0"-"9"] )+ )? >
 |   < STRING: "\"" ( [" ","!","#"-"[","]"-"~","\u0080"-"\uFFFF"] | "\\\"" | "\\\\" )*  "\"" >
-|   < #REGEX_CHAR_WITHOUT_STAR: [" "-")","+"-".","0"-"[","]"-"~","\u0080"-"\uFFFF"] | "\\/" | "\\\\" >
+|   < #REGEX_CHAR_WITHOUT_STAR: [" "-")","+"-".","0"-"[","]"-"~","\u0080"-"\uFFFF"] | "\\/" | "\\\\" | "\\[" | "\\]" >
 |   < REGEX: "/" <REGEX_CHAR_WITHOUT_STAR> ( <REGEX_CHAR_WITHOUT_STAR> | "*" )*  "/" >
 |   < #H: ["0"-"9","a"-"f","A"-"F"] >
 |   < HEXCOLOR: "#" ( <H><H><H><H><H><H> | <H><H><H> ) >
@@ -500,14 +501,14 @@ Expression expression():
     {
         if (op == null)
             return args.get(0);
-        return new FunctionExpression(op, args);
+        return ExpressionFactory.createFunctionExpression(op, args);
     }
 }
 
 Expression primary() :
 {
     Expression nested;
-    FunctionExpression fn;
+    Expression fn;
     Object lit;
 }
 {
@@ -519,7 +520,7 @@ Expression primary() :
         <LPAR> w() nested=expression() <RPAR> { return nested; }
 }
 
-FunctionExpression function() :
+Expression function() :
 {
     Token tmp;
     Expression arg;
@@ -534,7 +535,7 @@ FunctionExpression function() :
         ( <COMMA> w() arg=expression() { args.add(arg); } )*
     )?
     <RPAR>
-    { return new FunctionExpression(name, args); }
+    { return ExpressionFactory.createFunctionExpression(name, args); }
 }
 
 Object literal() :
@@ -552,16 +553,7 @@ Object literal() :
     |
         f=ufloat() { return f; }
     |
-        t=<HEXCOLOR>
-            {
-                String clr = t.image.substring(1);
-                if (clr.length() == 3) {
-                    clr = new String(new char[] {clr.charAt(0),clr.charAt(0),clr.charAt(1),clr.charAt(1),clr.charAt(2),clr.charAt(2)});
-                }
-                if (clr.length() != 6)
-                    throw new AssertionError();
-                return new Color(Integer.parseInt(clr, 16));
-            }
+        t=<HEXCOLOR> { return Utils.hexToColor(t.image); }
 }
 
 JAVACODE

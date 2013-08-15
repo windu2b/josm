@@ -11,9 +11,10 @@ import org.openstreetmap.josm.data.osm.OsmPrimitiveType;
 import org.openstreetmap.josm.data.osm.history.HistoryDataSet;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
- * Reads the history of an {@link OsmPrimitive} from the OSM API server.
+ * Reads the history of an {@link org.openstreetmap.josm.data.osm.OsmPrimitive} from the OSM API server.
  *
  */
 public class OsmServerHistoryReader extends OsmServerReader {
@@ -77,12 +78,8 @@ public class OsmServerHistoryReader extends OsmServerReader {
             throw new OsmTransferException(e);
         } finally {
             progressMonitor.finishTask();
-            if (in != null) {
-                try {
-                    in.close();
-                } catch(Exception e) {}
-                activeConnection = null;
-            }
+            Utils.close(in);
+            activeConnection = null;
         }
     }
 }

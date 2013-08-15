@@ -13,6 +13,7 @@ import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
+import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -23,14 +24,26 @@ import java.beans.PropertyChangeListener;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.EnumSet;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
-import javax.swing.*;
+import javax.swing.AbstractAction;
+import javax.swing.BorderFactory;
+import javax.swing.InputMap;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JMenu;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JSplitPane;
+import javax.swing.JTabbedPane;
+import javax.swing.JToolBar;
+import javax.swing.KeyStroke;
+import javax.swing.SwingUtilities;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentEvent;
@@ -58,15 +71,17 @@ import org.openstreetmap.josm.data.osm.Tag;
 import org.openstreetmap.josm.gui.ConditionalOptionPaneUtil;
 import org.openstreetmap.josm.gui.DefaultNameFormatter;
 import org.openstreetmap.josm.gui.HelpAwareOptionPane;
+import org.openstreetmap.josm.gui.HelpAwareOptionPane.ButtonSpec;
 import org.openstreetmap.josm.gui.MainMenu;
 import org.openstreetmap.josm.gui.SideButton;
-import org.openstreetmap.josm.gui.HelpAwareOptionPane.ButtonSpec;
 import org.openstreetmap.josm.gui.dialogs.properties.PresetListPanel.PresetHandler;
 import org.openstreetmap.josm.gui.help.ContextSensitiveHelpAction;
 import org.openstreetmap.josm.gui.help.HelpUtil;
 import org.openstreetmap.josm.gui.layer.OsmDataLayer;
 import org.openstreetmap.josm.gui.tagging.TagEditorPanel;
 import org.openstreetmap.josm.gui.tagging.TagModel;
+import org.openstreetmap.josm.gui.tagging.TaggingPreset;
+import org.openstreetmap.josm.gui.tagging.TaggingPresetType;
 import org.openstreetmap.josm.gui.tagging.ac.AutoCompletingTextField;
 import org.openstreetmap.josm.gui.tagging.ac.AutoCompletionList;
 import org.openstreetmap.josm.tools.ImageProvider;
@@ -114,19 +129,11 @@ public class GenericRelationEditor extends RelationEditor  {
         setRememberWindowGeometry(getClass().getName() + ".geometry",
                 WindowGeometry.centerInWindow(Main.parent, new Dimension(700, 650)));
 
-        // init the various models
-        //
-        memberTableModel = new MemberTableModel(getLayer());
-        memberTableModel.register();
-        selectionTableModel = new SelectionTableModel(getLayer());
-        selectionTableModel.register();
-        referrerModel = new ReferringRelationsBrowserModel(relation);
-
-        tagEditorPanel = new TagEditorPanel(new PresetHandler() {
+        final PresetHandler presetHandler = new PresetHandler() {
 
             @Override
             public void updateTags(List<Tag> tags) {
-                GenericRelationEditor.this.updateTags(tags);
+                tagEditorPanel.getModel().updateTags(tags);
             }
 
             @Override
@@ -135,7 +142,17 @@ public class GenericRelationEditor extends RelationEditor  {
                 tagEditorPanel.getModel().applyToPrimitive(relation);
                 return Collections.<OsmPrimitive>singletonList(relation);
             }
-        });
+        };
+
+        // init the various models
+        //
+        memberTableModel = new MemberTableModel(getLayer(), presetHandler);
+        memberTableModel.register();
+        selectionTableModel = new SelectionTableModel(getLayer());
+        selectionTableModel.register();
+        referrerModel = new ReferringRelationsBrowserModel(relation);
+
+        tagEditorPanel = new TagEditorPanel(presetHandler);
 
         // populate the models
         //
@@ -169,6 +186,7 @@ public class GenericRelationEditor extends RelationEditor  {
         tabbedPane.add(tr("Child Relations"), new ChildRelationBrowser(getLayer(), relation));
         tabbedPane.addChangeListener(
                 new ChangeListener() {
+                    @Override
                     public void stateChanged(ChangeEvent e) {
                         JTabbedPane sourceTabbedPane = (JTabbedPane) e.getSource();
                         int index = sourceTabbedPane.getSelectedIndex();
@@ -194,7 +212,14 @@ public class GenericRelationEditor extends RelationEditor  {
                     }
                 }
         );
+        registerCopyPasteAction(tagEditorPanel.getPasteAction(), 
+                "PASTE_TAGS",
+                Shortcut.registerShortcut("system:pastestyle", tr("Edit: {0}", tr("Paste Tags")), KeyEvent.VK_V, Shortcut.CTRL_SHIFT).getKeyStroke());
+        registerCopyPasteAction(new PasteMembersAction(), "PASTE_MEMBERS", Shortcut.getPasteKeyStroke());
+        registerCopyPasteAction(new CopyMembersAction(), "COPY_MEMBERS", Shortcut.getCopyKeyStroke());
 
+        tagEditorPanel.setNextFocusComponent(memberTable);
+        selectionTable.setFocusable(false);
         memberTableModel.setSelectedMembers(selectedMembers);
         HelpUtil.setHelpContext(getRootPane(),ht("/Dialog/RelationEditor"));
     }
@@ -336,6 +361,7 @@ public class GenericRelationEditor extends RelationEditor  {
         tfRole.addActionListener(setRoleAction);
         memberTableModel.getSelectionModel().addListSelectionListener(
                 new ListSelectionListener() {
+                    @Override
                     public void valueChanged(ListSelectionEvent e) {
                         tfRole.setEnabled(memberTable.getSelectedRowCount() > 0);
                     }
@@ -402,17 +428,13 @@ public class GenericRelationEditor extends RelationEditor  {
         pnl3.setLayout(new BorderLayout());
         pnl3.add(splitPane, BorderLayout.CENTER);
 
-        new PasteMembersAction();
-        new CopyMembersAction();
-        new PasteTagsAction();
-
         return pnl3;
     }
 
     /**
      * builds the panel with the table displaying the currently selected primitives
      *
-     * @return
+     * @return panel with current selection
      */
     protected JPanel buildSelectionTablePanel() {
         JPanel pnl = new JPanel();
@@ -449,7 +471,7 @@ public class GenericRelationEditor extends RelationEditor  {
     /**
      * build the panel with the buttons on the left
      *
-     * @return
+     * @return left button panel
      */
     protected JToolBar buildLeftButtonPanel() {
         JToolBar tb = new JToolBar();
@@ -467,20 +489,20 @@ public class GenericRelationEditor extends RelationEditor  {
         memberTableModel.getSelectionModel().addListSelectionListener(moveDownAction);
         tb.add(moveDownAction);
         memberTable.getActionMap().put("moveDown", moveDownAction);
-        
+
         tb.addSeparator();
 
         // -- edit action
         EditAction editAction = new EditAction();
         memberTableModel.getSelectionModel().addListSelectionListener(editAction);
         tb.add(editAction);
-        
+
         // -- delete action
         RemoveAction removeSelectedAction = new RemoveAction();
         memberTable.getSelectionModel().addListSelectionListener(removeSelectedAction);
         tb.add(removeSelectedAction);
         memberTable.getActionMap().put("removeSelected", removeSelectedAction);
-        
+
         tb.addSeparator();
         // -- sort action
         SortAction sortAction = new SortAction();
@@ -511,14 +533,14 @@ public class GenericRelationEditor extends RelationEditor  {
         inputMap.put((KeyStroke) moveUpAction.getValue(AbstractAction.ACCELERATOR_KEY),"moveUp");
         inputMap.put((KeyStroke) moveDownAction.getValue(AbstractAction.ACCELERATOR_KEY),"moveDown");
         inputMap.put((KeyStroke) downloadIncompleteMembersAction.getValue(AbstractAction.ACCELERATOR_KEY),"downloadIncomplete");
-        
+
         return tb;
     }
 
     /**
      * build the panel with the buttons for adding or removing the current selection
      *
-     * @return
+     * @return control buttons panel for selection/members
      */
     protected JToolBar buildSelectionControlButtonPanel() {
         JToolBar tb = new JToolBar(JToolBar.VERTICAL);
@@ -585,9 +607,11 @@ public class GenericRelationEditor extends RelationEditor  {
             if(windowMenuItem == null) {
                 addToWindowMenu();
             }
+            tagEditorPanel.requestFocusInWindow();
         } else {
             // make sure all registered listeners are unregistered
             //
+            memberTable.stopHighlighting();
             selectionTableModel.unregister();
             memberTableModel.unregister();
             memberTable.unlinkAsListener();
@@ -650,7 +674,14 @@ public class GenericRelationEditor extends RelationEditor  {
         }
     }
 
+
     private void registerCopyPasteAction(AbstractAction action, Object actionName, KeyStroke shortcut) {
+        int mods = shortcut.getModifiers();
+        int code = shortcut.getKeyCode();
+        if (code!=KeyEvent.VK_INSERT && (mods == 0 || mods == InputEvent.SHIFT_DOWN_MASK)) {
+            Main.info(tr("Sorry, shortcut \"{0}\" can not be enabled in Relation editor dialog"), shortcut);
+            return;
+        }
         getRootPane().getActionMap().put(actionName, action);
         getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(shortcut, actionName);
         // Assign also to JTables because they have their own Copy&Paste implementation (which is disabled in this case but eats key shortcuts anyway)
@@ -662,38 +693,10 @@ public class GenericRelationEditor extends RelationEditor  {
         selectionTable.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(shortcut, actionName);
     }
 
-    protected void updateTags(List<Tag> tags) {
-
-        if (tags.isEmpty())
-            return;
-
-        Map<String, TagModel> modelTags = new HashMap<String, TagModel>();
-        for (int i=0; i<tagEditorPanel.getModel().getRowCount(); i++) {
-            TagModel tagModel = tagEditorPanel.getModel().get(i);
-            modelTags.put(tagModel.getName(), tagModel);
-        }
-        for (Tag tag: tags) {
-            TagModel existing = modelTags.get(tag.getKey());
-
-            if (tag.getValue().isEmpty()) {
-                if (existing != null) {
-                    tagEditorPanel.getModel().delete(tag.getKey());
-                }
-            } else {
-                if (existing != null) {
-                    tagEditorPanel.getModel().updateTagValue(existing, tag.getValue());
-                } else {
-                    tagEditorPanel.getModel().add(tag.getKey(), tag.getValue());
-                }
-            }
-
-        }
-    }
-
     static class AddAbortException extends Exception {
     }
 
-    static boolean confirmAddingPrimtive(OsmPrimitive primitive) throws AddAbortException {
+    static boolean confirmAddingPrimitive(OsmPrimitive primitive) throws AddAbortException {
         String msg = tr("<html>This relation already has one or more members referring to<br>"
                 + "the object ''{0}''<br>"
                 + "<br>"
@@ -736,6 +739,7 @@ public class GenericRelationEditor extends RelationEditor  {
 
     public static Command addPrimitivesToRelation(final Relation orig, Collection<? extends OsmPrimitive> primitivesToAdd) {
         try {
+            final Collection<TaggingPreset> presets = TaggingPreset.getMatchingPresets(EnumSet.of(TaggingPresetType.RELATION), orig.getKeys(), false);
             Relation relation = new Relation(orig);
             boolean modified = false;
             for (OsmPrimitive p : primitivesToAdd) {
@@ -743,10 +747,11 @@ public class GenericRelationEditor extends RelationEditor  {
                     warnOfCircularReferences(p);
                     continue;
                 } else if (MemberTableModel.hasMembersReferringTo(relation.getMembers(), Collections.singleton(p))
-                        && !confirmAddingPrimtive(p)) {
+                        && !confirmAddingPrimitive(p)) {
                     continue;
                 }
-                relation.addMember(new RelationMember("", p));
+                final String role = presets.isEmpty() ? null : presets.iterator().next().suggestRoleForOsmPrimitive(p);
+                relation.addMember(new RelationMember(role == null ? "" : role, p));
                 modified = true;
             }
             return modified ? new ChangeCommand(orig, relation) : null;
@@ -764,15 +769,13 @@ public class GenericRelationEditor extends RelationEditor  {
             if (primitives == null || primitives.isEmpty())
                 return primitives;
             ArrayList<OsmPrimitive> ret = new ArrayList<OsmPrimitive>();
-            Iterator<OsmPrimitive> it = primitives.iterator();
-            while(it.hasNext()) {
-                OsmPrimitive primitive = it.next();
+            for (OsmPrimitive primitive : primitives) {
                 if (primitive instanceof Relation && getRelation() != null && getRelation().equals(primitive)) {
                     warnOfCircularReferences(primitive);
                     continue;
                 }
-                if (isPotentialDuplicate(primitive))  {
-                    if (confirmAddingPrimtive(primitive)) {
+                if (isPotentialDuplicate(primitive)) {
+                    if (confirmAddingPrimitive(primitive)) {
                         ret.add(primitive);
                     }
                     continue;
@@ -797,6 +800,7 @@ public class GenericRelationEditor extends RelationEditor  {
             setEnabled(selectionTableModel.getRowCount() > 0);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             try {
                 List<OsmPrimitive> toAdd = filterConfirmedPrimitives(selectionTableModel.getSelection());
@@ -806,6 +810,7 @@ public class GenericRelationEditor extends RelationEditor  {
             }
         }
 
+        @Override
         public void tableChanged(TableModelEvent e) {
             refreshEnabled();
         }
@@ -823,6 +828,7 @@ public class GenericRelationEditor extends RelationEditor  {
             setEnabled(selectionTableModel.getRowCount() > 0);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             try {
                 List<OsmPrimitive> toAdd = filterConfirmedPrimitives(selectionTableModel.getSelection());
@@ -832,6 +838,7 @@ public class GenericRelationEditor extends RelationEditor  {
             }
         }
 
+        @Override
         public void tableChanged(TableModelEvent e) {
             refreshEnabled();
         }
@@ -851,6 +858,7 @@ public class GenericRelationEditor extends RelationEditor  {
                     && memberTableModel.getSelectionModel().getMinSelectionIndex() >= 0);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             try {
                 List<OsmPrimitive> toAdd = filterConfirmedPrimitives(selectionTableModel.getSelection());
@@ -862,10 +870,12 @@ public class GenericRelationEditor extends RelationEditor  {
 
         }
 
+        @Override
         public void tableChanged(TableModelEvent e) {
             refreshEnabled();
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             refreshEnabled();
         }
@@ -885,6 +895,7 @@ public class GenericRelationEditor extends RelationEditor  {
                     && memberTableModel.getSelectionModel().getMinSelectionIndex() >= 0);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             try {
                 List<OsmPrimitive> toAdd = filterConfirmedPrimitives(selectionTableModel.getSelection());
@@ -895,10 +906,12 @@ public class GenericRelationEditor extends RelationEditor  {
             }
         }
 
+        @Override
         public void tableChanged(TableModelEvent e) {
             refreshEnabled();
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             refreshEnabled();
         }
@@ -924,10 +937,12 @@ public class GenericRelationEditor extends RelationEditor  {
             setEnabled(memberTableModel.hasMembersReferringTo(ds.getSelected()));
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             memberTableModel.removeMembersReferringTo(selectionTableModel.getSelection());
         }
 
+        @Override
         public void tableChanged(TableModelEvent e) {
             updateEnabledState();
         }
@@ -957,10 +972,12 @@ public class GenericRelationEditor extends RelationEditor  {
             setEnabled(enabled);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             memberTableModel.selectMembersReferringTo(getLayer().data.getSelected());
         }
 
+        @Override
         public void tableChanged(TableModelEvent e) {
             updateEnabledState();
 
@@ -983,10 +1000,12 @@ public class GenericRelationEditor extends RelationEditor  {
             setEnabled(memberTable.getSelectedRowCount() > 0);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             getLayer().data.setSelected(memberTableModel.getSelectedChildPrimitives());
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
@@ -1004,6 +1023,7 @@ public class GenericRelationEditor extends RelationEditor  {
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             memberTableModel.sort();
         }
@@ -1012,6 +1032,7 @@ public class GenericRelationEditor extends RelationEditor  {
             setEnabled(memberTableModel.getRowCount() > 0);
         }
 
+        @Override
         public void tableChanged(TableModelEvent e) {
             updateEnabledState();
         }
@@ -1027,6 +1048,7 @@ public class GenericRelationEditor extends RelationEditor  {
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             memberTableModel.reverse();
         }
@@ -1035,6 +1057,7 @@ public class GenericRelationEditor extends RelationEditor  {
             setEnabled(memberTableModel.getRowCount() > 0);
         }
 
+        @Override
         public void tableChanged(TableModelEvent e) {
             updateEnabledState();
         }
@@ -1052,10 +1075,12 @@ public class GenericRelationEditor extends RelationEditor  {
             setEnabled(false);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             memberTableModel.moveUp(memberTable.getSelectedRows());
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             setEnabled(memberTableModel.canMoveUp(memberTable.getSelectedRows()));
         }
@@ -1073,10 +1098,12 @@ public class GenericRelationEditor extends RelationEditor  {
             setEnabled(false);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             memberTableModel.moveDown(memberTable.getSelectedRows());
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             setEnabled(memberTableModel.canMoveDown(memberTable.getSelectedRows()));
         }
@@ -1085,7 +1112,7 @@ public class GenericRelationEditor extends RelationEditor  {
     class RemoveAction extends AbstractAction implements ListSelectionListener {
         public RemoveAction() {
             String tooltip = tr("Remove the currently selected members from this relation");
-            putValue(SMALL_ICON, ImageProvider.get("dialogs", "remove"));
+            putValue(SMALL_ICON, ImageProvider.get("dialogs", "delete"));
             putValue(NAME, tr("Remove"));
             Shortcut sc = Shortcut.registerShortcut("relationeditor:remove", tr("Relation Editor: Remove"),
                 KeyEvent.VK_DELETE, Shortcut.ALT);
@@ -1094,10 +1121,12 @@ public class GenericRelationEditor extends RelationEditor  {
             setEnabled(false);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             memberTableModel.remove(memberTable.getSelectedRows());
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             setEnabled(memberTableModel.canRemove(memberTable.getSelectedRows()));
         }
@@ -1121,6 +1150,7 @@ public class GenericRelationEditor extends RelationEditor  {
             );
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             run();
         }
@@ -1129,6 +1159,7 @@ public class GenericRelationEditor extends RelationEditor  {
             setEnabled(getRelationSnapshot() != null);
         }
 
+        @Override
         public void propertyChange(PropertyChangeEvent evt) {
             if (evt.getPropertyName().equals(RELATION_SNAPSHOT_PROP)) {
                 updateEnabledState();
@@ -1284,6 +1315,7 @@ public class GenericRelationEditor extends RelationEditor  {
             }
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             run();
         }
@@ -1299,6 +1331,7 @@ public class GenericRelationEditor extends RelationEditor  {
 
         public void run() {
             Main.pref.put("relation.editor.generic.lastrole", tfRole.getText());
+            memberTable.stopHighlighting();
             if (getRelation() == null) {
                 applyNewRelation();
             } else if (!memberTableModel.hasSameMembersAs(getRelationSnapshot())
@@ -1319,6 +1352,7 @@ public class GenericRelationEditor extends RelationEditor  {
             setVisible(false);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             run();
         }
@@ -1336,7 +1370,9 @@ public class GenericRelationEditor extends RelationEditor  {
             setEnabled(true);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
+            memberTable.stopHighlighting();
             if (!memberTableModel.hasSameMembersAs(getRelationSnapshot()) || tagEditorPanel.getModel().isDirty()) {
                 //give the user a chance to save the changes
                 int ret = confirmClosingByCancel();
@@ -1414,6 +1450,7 @@ public class GenericRelationEditor extends RelationEditor  {
             setEnabled(true);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             tagEditorPanel.getModel().appendNewTag();
         }
@@ -1431,6 +1468,7 @@ public class GenericRelationEditor extends RelationEditor  {
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             if (!isEnabled())
                 return;
@@ -1446,6 +1484,7 @@ public class GenericRelationEditor extends RelationEditor  {
             setEnabled(memberTableModel.hasIncompleteMembers());
         }
 
+        @Override
         public void tableChanged(TableModelEvent e) {
             updateEnabledState();
         }
@@ -1461,6 +1500,7 @@ public class GenericRelationEditor extends RelationEditor  {
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             if (!isEnabled())
                 return;
@@ -1476,10 +1516,12 @@ public class GenericRelationEditor extends RelationEditor  {
             setEnabled(memberTableModel.hasIncompleteSelectedMembers());
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
 
+        @Override
         public void tableChanged(TableModelEvent e) {
             updateEnabledState();
         }
@@ -1498,7 +1540,7 @@ public class GenericRelationEditor extends RelationEditor  {
         }
 
         protected boolean isEmptyRole() {
-            return tfRole.getText() == null || tfRole.getText().trim().equals("");
+            return tfRole.getText() == null || tfRole.getText().trim().isEmpty();
         }
 
         protected boolean confirmSettingEmptyRole(int onNumMembers) {
@@ -1531,6 +1573,7 @@ public class GenericRelationEditor extends RelationEditor  {
             }
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             if (isEmptyRole()) {
                 if (! confirmSettingEmptyRole(memberTable.getSelectedRowCount()))
@@ -1539,18 +1582,22 @@ public class GenericRelationEditor extends RelationEditor  {
             memberTableModel.updateRole(memberTable.getSelectedRows(), tfRole.getText());
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             refreshEnabled();
         }
 
+        @Override
         public void changedUpdate(DocumentEvent e) {
             refreshEnabled();
         }
 
+        @Override
         public void insertUpdate(DocumentEvent e) {
             refreshEnabled();
         }
 
+        @Override
         public void removeUpdate(DocumentEvent e) {
             refreshEnabled();
         }
@@ -1569,6 +1616,7 @@ public class GenericRelationEditor extends RelationEditor  {
             setEnabled(true);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             Relation copy = new Relation();
             tagEditorPanel.getModel().applyToPrimitive(copy);
@@ -1622,22 +1670,20 @@ public class GenericRelationEditor extends RelationEditor  {
             editor.setVisible(true);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             if (!isEnabled())
                 return;
             run();
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             refreshEnabled();
         }
     }
 
     class PasteMembersAction extends AddFromSelectionAction {
-
-        public PasteMembersAction() {
-            registerCopyPasteAction(this, "PASTE_MEMBERS", Shortcut.getPasteKeyStroke());
-        }
 
         @Override
         public void actionPerformed(ActionEvent e) {
@@ -1682,11 +1728,6 @@ public class GenericRelationEditor extends RelationEditor  {
     }
 
     class CopyMembersAction extends AbstractAction {
-
-        public CopyMembersAction() {
-            registerCopyPasteAction(this, "COPY_MEMBERS", Shortcut.getCopyKeyStroke());
-        }
-
         @Override
         public void actionPerformed(ActionEvent e) {
             Set<OsmPrimitive> primitives = new HashSet<OsmPrimitive>();
@@ -1696,22 +1737,6 @@ public class GenericRelationEditor extends RelationEditor  {
             if (!primitives.isEmpty()) {
                 CopyAction.copy(getLayer(), primitives);
             }
-        }
-
-    }
-
-    class PasteTagsAction extends AbstractAction {
-
-        public PasteTagsAction() {
-            registerCopyPasteAction(this, "PASTE_TAGS", Shortcut.registerShortcut("system:pastestyle", tr("Edit: {0}", tr("Paste Tags")), KeyEvent.VK_V, Shortcut.CTRL_SHIFT).getKeyStroke());
-        }
-
-        @Override
-        public void actionPerformed(ActionEvent e) {
-            Relation relation = new Relation();
-            tagEditorPanel.getModel().applyToPrimitive(relation);
-            TagPaster tagPaster = new TagPaster(Main.pasteBuffer.getDirectlyAdded(), Collections.<OsmPrimitive>singletonList(relation));
-            updateTags(tagPaster.execute());
         }
 
     }

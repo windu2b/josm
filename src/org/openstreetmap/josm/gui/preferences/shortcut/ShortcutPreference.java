@@ -17,12 +17,15 @@ import org.openstreetmap.josm.tools.Shortcut;
 
 public class ShortcutPreference extends DefaultTabPreferenceSetting {
 
+    private String defaultFilter;
+
     public static class Factory implements PreferenceSettingFactory {
+        @Override
         public PreferenceSetting createPreferenceSetting() {
             return new ShortcutPreference();
         }
     }
-    
+
     private ShortcutPreference() {
         // icon source: http://www.iconfinder.net/index.php?q=key&page=icondetails&iconid=8553&size=128&q=key&s12=on&s16=on&s22=on&s32=on&s48=on&s64=on&s128=on
         // icon licence: GPL
@@ -33,16 +36,22 @@ public class ShortcutPreference extends DefaultTabPreferenceSetting {
         super("shortcuts", tr("Keyboard Shortcuts"), tr("Changing keyboard shortcuts manually."));
     }
 
+    @Override
     public void addGui(PreferenceTabbedPane gui) {
         JPanel p = gui.createPreferenceTab(this);
 
         PrefJPanel prefpanel = new PrefJPanel(new scListModel());
         p.add(prefpanel, GBC.eol().fill(GBC.BOTH));
-
+        if (defaultFilter!=null) prefpanel.filter(defaultFilter);
     }
 
+    @Override
     public boolean ok() {
         return Shortcut.savePrefs();
+    }
+
+    public void setDefaultFilter(String substring) {
+        defaultFilter = substring;
     }
 
     // Maybe move this to prefPanel? There's no need for it to be here.
@@ -53,9 +62,11 @@ public class ShortcutPreference extends DefaultTabPreferenceSetting {
         public scListModel() {
             data = Shortcut.listAll();
         }
+        @Override
         public int getColumnCount() {
             return columnNames.length;
         }
+        @Override
         public int getRowCount() {
             return data.size();
         }
@@ -63,6 +74,7 @@ public class ShortcutPreference extends DefaultTabPreferenceSetting {
         public String getColumnName(int col) {
             return columnNames[col];
         }
+        @Override
         public Object getValueAt(int row, int col) {
             return (col==0)?  data.get(row).getLongText() : data.get(row);
         }

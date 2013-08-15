@@ -55,7 +55,7 @@ public class SlippyMapControler extends MouseAdapter implements MouseMotionListe
 
     private SizeButton iSizeButton = null;
     private SourceButton iSourceButton = null;
-    
+
     private boolean isSelecting;
 
     /**
@@ -78,7 +78,7 @@ public class SlippyMapControler extends MouseAdapter implements MouseMotionListe
         }
         iSizeButton = sizeButton;
         iSourceButton = sourceButton;
-        
+
         isSelecting = false;
 
         InputMap inputMap = navComp.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
@@ -150,15 +150,15 @@ public class SlippyMapControler extends MouseAdapter implements MouseMotionListe
     public void mouseReleased(MouseEvent e) {
         if (e.getButton() == MouseEvent.BUTTON1) {
 
-        	if (isSelecting && e.getClickCount() == 1) {
+            if (isSelecting && e.getClickCount() == 1) {
                 iSlippyMapChooser.setSelection(iStartSelectionPoint, e.getPoint());
 
                 // reset the selections start and end
                 iEndSelectionPoint = null;
                 iStartSelectionPoint = null;
                 isSelecting = false;
-                
-        	} else {
+
+            } else {
                 int sourceButton = iSourceButton.hit(e.getPoint());
 
                 if (iSizeButton.hit(e.getPoint())) {
@@ -172,7 +172,7 @@ public class SlippyMapControler extends MouseAdapter implements MouseMotionListe
                 } else if (sourceButton != 0) {
                     iSlippyMapChooser.toggleMapSource(iSourceButton.hitToTileSource(sourceButton));
                 }
-        	}
+            }
         }
     }
 
@@ -189,6 +189,7 @@ public class SlippyMapControler extends MouseAdapter implements MouseMotionListe
             this.direction = direction;
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             moveTask.setDirectionX(direction);
         }
@@ -202,6 +203,7 @@ public class SlippyMapControler extends MouseAdapter implements MouseMotionListe
             this.direction = direction;
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             moveTask.setDirectionY(direction);
         }
@@ -312,6 +314,7 @@ public class SlippyMapControler extends MouseAdapter implements MouseMotionListe
 
     private class ZoomInAction extends AbstractAction {
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             iSlippyMapChooser.zoomIn();
         }
@@ -319,6 +322,7 @@ public class SlippyMapControler extends MouseAdapter implements MouseMotionListe
 
     private class ZoomOutAction extends AbstractAction {
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             iSlippyMapChooser.zoomOut();
         }

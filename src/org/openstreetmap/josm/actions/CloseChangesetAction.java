@@ -42,6 +42,7 @@ public class CloseChangesetAction extends JosmAction{
         putValue("help", ht("/Action/CloseChangeset"));
 
     }
+    @Override
     public void actionPerformed(ActionEvent e) {
         Main.worker.submit(new DownloadOpenChangesetsTask());
     }
@@ -77,11 +78,6 @@ public class CloseChangesetAction extends JosmAction{
         private Exception lastException;
         private UserInfo userInfo;
 
-        /**
-         *
-         * @param model provides the user id of the current user and accepts the changesets
-         * after download
-         */
         public DownloadOpenChangesetsTask() {
             super(tr("Downloading open changesets ...", false /* don't ignore exceptions */));
         }
@@ -96,6 +92,7 @@ public class CloseChangesetAction extends JosmAction{
         protected void finish() {
             SwingUtilities.invokeLater(
                     new Runnable() {
+                        @Override
                         public void run() {
                             if (lastException != null) {
                                 ExceptionDialogUtil.explainException(lastException);

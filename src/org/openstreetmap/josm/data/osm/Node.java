@@ -62,18 +62,18 @@ public final class Node extends OsmPrimitive implements INode {
 
     /**
      * <p>Replies the projected east/north coordinates.</p>
-     * 
+     *
      * <p>Uses the {@link Main#getProjection() global projection} to project the lan/lon-coordinates.
      * Internally caches the projected coordinates.</p>
      *
      * <p><strong>Caveat:</strong> doesn't listen to projection changes. Clients must
      * {@link #invalidateEastNorthCache() invalidate the internal cache}.</p>
-     * 
+     *
      * <p>Replies {@code null} if this node doesn't know lat/lon-coordinates, i.e. because it is an incomplete node.
-     * 
+     *
      * @return the east north coordinates or {@code null}
      * @see #invalidateEastNorthCache()
-     * 
+     *
      */
     @Override
     public final EastNorth getEastNorth() {
@@ -112,6 +112,9 @@ public final class Node extends OsmPrimitive implements INode {
             this.lat = Double.NaN;
             this.lon = Double.NaN;
             invalidateEastNorthCache();
+            if (isVisible()) {
+                setIncomplete(true);
+            }
         }
     }
 
@@ -148,13 +151,13 @@ public final class Node extends OsmPrimitive implements INode {
     /**
      * Constructs an identical clone of the argument.
      * @param clone The node to clone
-     * @param clearId If true, set version to 0 and id to new unique value
+     * @param clearMetadata If {@code true}, clears the OSM id and other metadata as defined by {@link #clearOsmMetadata}. If {@code false}, does nothing
      */
-    public Node(Node clone, boolean clearId) {
+    public Node(Node clone, boolean clearMetadata) {
         super(clone.getUniqueId(), true /* allow negative IDs */);
         cloneFrom(clone);
-        if (clearId) {
-            clearOsmId();
+        if (clearMetadata) {
+            clearOsmMetadata();
         }
     }
 
@@ -188,16 +191,16 @@ public final class Node extends OsmPrimitive implements INode {
     void setDataset(DataSet dataSet) {
         super.setDataset(dataSet);
         if (!isIncomplete() && isVisible() && (getCoor() == null || getEastNorth() == null))
-            throw new DataIntegrityProblemException("Complete node with null coordinates: " + toString() + get3892DebugInfo());
+            throw new DataIntegrityProblemException("Complete node with null coordinates: " + toString());
     }
 
     @Override
-    public void visit(Visitor visitor) {
+    public void accept(Visitor visitor) {
         visitor.visit(this);
     }
 
     @Override
-    public void visit(PrimitiveVisitor visitor) {
+    public void accept(PrimitiveVisitor visitor) {
         visitor.visit(this);
     }
 
@@ -263,7 +266,7 @@ public final class Node extends OsmPrimitive implements INode {
 
     @Override
     public boolean hasEqualSemanticAttributes(OsmPrimitive other) {
-        if (other == null || ! (other instanceof Node) )
+        if (!(other instanceof Node))
             return false;
         if (! super.hasEqualSemanticAttributes(other))
             return false;
@@ -301,7 +304,7 @@ public final class Node extends OsmPrimitive implements INode {
     @Override
     public void updatePosition() {
     }
-    
+
     @Override
     public boolean isDrawable() {
         // Not possible to draw a node without coordinates.
@@ -310,33 +313,12 @@ public final class Node extends OsmPrimitive implements INode {
 
     /**
      * Check whether this node connects 2 ways.
-     * 
+     *
      * @return true if isReferredByWays(2) returns true
-     * @see #isReferredByWays(int) 
+     * @see #isReferredByWays(int)
      */
     public boolean isConnectionNode() {
         return isReferredByWays(2);
-    }
-
-    /**
-     * Get debug info for bug #3892.
-     * @return debug info for bug #3892.
-     * @deprecated This method will be remove by the end of 2012 if no report appears.
-     */
-    public String get3892DebugInfo() {
-        StringBuilder builder = new StringBuilder();
-        builder.append("Unexpected error. Please report it to http://josm.openstreetmap.de/ticket/3892\n");
-        builder.append(toString());
-        builder.append("\n");
-        if (isLatLonKnown()) {
-            builder.append("Coor is null\n");
-        } else {
-            builder.append(String.format("EastNorth: %s\n", getEastNorth()));
-            builder.append(Main.getProjection());
-            builder.append("\n");
-        }
-
-        return builder.toString();
     }
 
     /**

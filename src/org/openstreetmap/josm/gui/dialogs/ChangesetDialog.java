@@ -84,7 +84,7 @@ public class ChangesetDialog extends ToggleDialog{
     private ShowChangesetInfoAction showChangesetInfoAction;
     private CloseOpenChangesetsAction closeChangesetAction;
     private LaunchChangesetManagerAction launchChangesetManagerAction;
-    
+
     private ChangesetDialogPopup popupMenu;
 
     protected void buildChangesetsLists() {
@@ -106,10 +106,6 @@ public class ChangesetDialog extends ToggleDialog{
         DblClickHandler dblClickHandler = new DblClickHandler();
         lstInSelection.addMouseListener(dblClickHandler);
         lstInActiveDataLayer.addMouseListener(dblClickHandler);
-
-        ChangesetPopupMenuLauncher popupMenuLauncher = new ChangesetPopupMenuLauncher();
-        lstInSelection.addMouseListener(popupMenuLauncher);
-        lstInActiveDataLayer.addMouseListener(popupMenuLauncher);
     }
 
     protected void registerAsListener() {
@@ -207,8 +203,12 @@ public class ChangesetDialog extends ToggleDialog{
         // -- launch changeset manager action
         launchChangesetManagerAction = new LaunchChangesetManagerAction();
         cbInSelectionOnly.addItemListener(launchChangesetManagerAction);
-        
+
         popupMenu = new ChangesetDialogPopup(lstInActiveDataLayer, lstInSelection);
+
+        PopupMenuLauncher popupMenuLauncher = new PopupMenuLauncher(popupMenu);
+        lstInSelection.addMouseListener(popupMenuLauncher);
+        lstInActiveDataLayer.addMouseListener(popupMenuLauncher);
 
         createLayout(pnl, false, Arrays.asList(new SideButton[] {
             new SideButton(selectObjectsAction, false),
@@ -267,6 +267,7 @@ public class ChangesetDialog extends ToggleDialog{
     }
 
     class FilterChangeHandler implements ItemListener {
+        @Override
         public void itemStateChanged(ItemEvent e) {
             Main.pref.put("changeset-dialog.for-selected-objects-only", cbInSelectionOnly.isSelected());
             pnlList.removeAll();
@@ -304,6 +305,7 @@ public class ChangesetDialog extends ToggleDialog{
             ds.setSelected(sel);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             if (Main.main.getEditLayer() == null)
                 return;
@@ -320,11 +322,13 @@ public class ChangesetDialog extends ToggleDialog{
             setEnabled(getCurrentChangesetList().getSelectedIndices().length > 0);
         }
 
+        @Override
         public void itemStateChanged(ItemEvent arg0) {
             updateEnabledState();
 
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
@@ -342,6 +346,7 @@ public class ChangesetDialog extends ToggleDialog{
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             ChangesetListModel model = getCurrentChangesetListModel();
             Set<Integer> sel = model.getSelectedChangesetIds();
@@ -355,11 +360,13 @@ public class ChangesetDialog extends ToggleDialog{
             setEnabled(getCurrentChangesetList().getSelectedIndices().length > 0);
         }
 
+        @Override
         public void itemStateChanged(ItemEvent arg0) {
             updateEnabledState();
 
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
@@ -377,6 +384,7 @@ public class ChangesetDialog extends ToggleDialog{
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             List<Changeset> sel = getCurrentChangesetListModel().getSelectedOpenChangesets();
             if (sel.isEmpty())
@@ -388,10 +396,12 @@ public class ChangesetDialog extends ToggleDialog{
             setEnabled(getCurrentChangesetListModel().hasSelectedOpenChangesets());
         }
 
+        @Override
         public void itemStateChanged(ItemEvent arg0) {
             updateEnabledState();
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
@@ -409,6 +419,7 @@ public class ChangesetDialog extends ToggleDialog{
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             Set<Changeset> sel = getCurrentChangesetListModel().getSelectedChangesets();
             if (sel.isEmpty())
@@ -428,10 +439,12 @@ public class ChangesetDialog extends ToggleDialog{
             setEnabled(getCurrentChangesetList().getSelectedIndices().length > 0);
         }
 
+        @Override
         public void itemStateChanged(ItemEvent arg0) {
             updateEnabledState();
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
@@ -462,6 +475,7 @@ public class ChangesetDialog extends ToggleDialog{
             cm.setSelectedChangesetsById(toSelect);
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             ChangesetListModel model = getCurrentChangesetListModel();
             Set<Integer> sel = model.getSelectedChangesetIds();
@@ -484,6 +498,7 @@ public class ChangesetDialog extends ToggleDialog{
             }
 
             Runnable r = new Runnable() {
+                @Override
                 public void run() {
                     // first, wait for the download task to finish, if a download
                     // task was launched
@@ -514,24 +529,12 @@ public class ChangesetDialog extends ToggleDialog{
             Main.worker.submit(r);
         }
 
+        @Override
         public void itemStateChanged(ItemEvent arg0) {
         }
 
-        public void valueChanged(ListSelectionEvent e) {
-        }
-    }
-
-    class ChangesetPopupMenuLauncher extends PopupMenuLauncher {
         @Override
-        public void launch(MouseEvent evt) {
-            JList lst = getCurrentChangesetList();
-            if (lst.getSelectedIndices().length == 0) {
-                int idx = lst.locationToIndex(evt.getPoint());
-                if (idx >=0) {
-                    lst.getSelectionModel().addSelectionInterval(idx, idx);
-                }
-            }
-            popupMenu.show(lst, evt.getX(), evt.getY());
+        public void valueChanged(ListSelectionEvent e) {
         }
     }
 

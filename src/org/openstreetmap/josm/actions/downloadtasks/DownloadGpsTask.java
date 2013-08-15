@@ -4,6 +4,7 @@ package org.openstreetmap.josm.actions.downloadtasks;
 import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.io.IOException;
+import java.net.URL;
 import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -43,6 +44,17 @@ public class DownloadGpsTask extends AbstractDownloadTask {
 
     protected String newLayerName = null;
 
+    @Override
+    public String[] getPatterns() {
+        return new String[] {PATTERN_EXTERNAL_GPX_FILE, PATTERN_EXTERNAL_GPX_SCRIPT, PATTERN_TRACE_ID, PATTERN_TRACKPOINTS_BBOX};
+    }
+
+    @Override
+    public String getTitle() {
+        return tr("Download GPS");
+    }
+
+    @Override
     public Future<?> download(boolean newLayer, Bounds downloadArea, ProgressMonitor progressMonitor) {
         downloadTask = new DownloadTask(newLayer,
                 new BoundingBoxDownloader(downloadArea), progressMonitor);
@@ -51,6 +63,7 @@ public class DownloadGpsTask extends AbstractDownloadTask {
         return Main.worker.submit(downloadTask);
     }
 
+    @Override
     public Future<?> loadUrl(boolean newLayer, String url, ProgressMonitor progressMonitor) {
         if (url != null && (url.matches(PATTERN_TRACE_ID) || url.matches(PATTERN_EXTERNAL_GPX_SCRIPT) || url.matches(PATTERN_EXTERNAL_GPX_FILE))) {
             downloadTask = new DownloadTask(newLayer,
@@ -72,15 +85,7 @@ public class DownloadGpsTask extends AbstractDownloadTask {
         return null;
     }
 
-    /* (non-Javadoc)
-     * @see org.openstreetmap.josm.actions.downloadtasks.DownloadTask#acceptsUrl(java.lang.String)
-     */
     @Override
-    public boolean acceptsUrl(String url) {
-        return url != null && (url.matches(PATTERN_TRACE_ID) || url.matches(PATTERN_TRACKPOINTS_BBOX)
-                || url.matches(PATTERN_EXTERNAL_GPX_SCRIPT) || url.matches(PATTERN_EXTERNAL_GPX_FILE));
-    }
-
     public void cancel() {
         if (downloadTask != null) {
             downloadTask.cancel();
@@ -120,15 +125,15 @@ public class DownloadGpsTask extends AbstractDownloadTask {
             if (rawData == null)
                 return;
             String name = newLayerName != null ? newLayerName : tr("Downloaded GPX Data");
-            
+
             GpxImporterData layers = GpxImporter.loadLayers(rawData, reader.isGpxParsedProperly(), name, tr("Markers from {0}", name));
-            
+
             GpxLayer gpxLayer = addOrMergeLayer(layers.getGpxLayer(), findGpxMergeLayer());
             addOrMergeLayer(layers.getMarkerLayer(), findMarkerMergeLayer(gpxLayer));
-            
+
             layers.getPostLayerTask().run();
         }
-        
+
         private <L extends Layer> L addOrMergeLayer(L layer, L mergeLayer) {
             if (layer == null) return null;
             if (newLayer || mergeLayer == null) {
@@ -154,7 +159,7 @@ public class DownloadGpsTask extends AbstractDownloadTask {
             }
             return null;
         }
-        
+
         private MarkerLayer findMarkerMergeLayer(GpxLayer fromLayer) {
             if (!Main.isDisplayingMapView())
                 return null;
@@ -176,5 +181,22 @@ public class DownloadGpsTask extends AbstractDownloadTask {
         public ProgressTaskId canRunInBackground() {
             return ProgressTaskIds.DOWNLOAD_GPS;
         }
+    }
+
+    @Override
+    public String getConfirmationMessage(URL url) {
+        // TODO
+        return null;
+    }
+
+    /**
+     * Determines if the given URL denotes an OSM gpx-related API call.
+     * @param url The url to check
+     * @return true if the url matches "Trace ID" API call or "Trackpoints bbox" API call, false otherwise
+     * @see GpxData#fromServer
+     * @since 5745
+     */
+    public static final boolean isFromServer(String url) {
+        return url != null && (url.matches(PATTERN_TRACE_ID) || url.matches(PATTERN_TRACKPOINTS_BBOX));
     }
 }

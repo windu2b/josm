@@ -45,11 +45,12 @@ public class PlatformHookOsx extends PlatformHookUnixoid implements PlatformHook
             System.out.println("Failed to register with OSX: " + ex);
         }
     }
+    @Override
     public Object invoke (Object proxy, Method method, Object[] args) throws Throwable {
         Boolean handled = Boolean.TRUE;
         //System.out.println("Going to handle method "+method+" (short: "+method.getName()+") with event "+args[0]);
         if (method.getName().equals("handleQuit")) {
-            handled = Main.exitJosm(false);
+            handled = Main.exitJosm(false, 0);
         } else if (method.getName().equals("handleAbout")) {
             Main.main.menu.about.actionPerformed(null);
         } else if (method.getName().equals("handlePreferences")) {
@@ -248,5 +249,13 @@ public class PlatformHookOsx extends PlatformHookUnixoid implements PlatformHook
     public boolean canFullscreen()
     {
         return false;
+    }
+
+    /* (non-Javadoc)
+     * @see org.openstreetmap.josm.tools.PlatformHookUnixoid#getOSDescription()
+     */
+    @Override
+    public String getOSDescription() {
+        return System.getProperty("os.name") + " " + System.getProperty("os.version");
     }
 }

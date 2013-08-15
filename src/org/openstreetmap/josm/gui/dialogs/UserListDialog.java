@@ -41,6 +41,7 @@ import org.openstreetmap.josm.gui.MapView;
 import org.openstreetmap.josm.gui.SideButton;
 import org.openstreetmap.josm.gui.layer.Layer;
 import org.openstreetmap.josm.gui.layer.OsmDataLayer;
+import org.openstreetmap.josm.gui.util.GuiHelper;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.Shortcut;
 
@@ -104,10 +105,12 @@ public class UserListDialog extends ToggleDialog implements SelectionChangedList
      * Called when the selection in the dataset changed.
      * @param newSelection The new selection array.
      */
+    @Override
     public void selectionChanged(Collection<? extends OsmPrimitive> newSelection) {
         refresh(newSelection);
     }
 
+    @Override
     public void activeLayerChange(Layer oldLayer, Layer newLayer) {
         if (newLayer instanceof OsmDataLayer) {
             refresh(((OsmDataLayer) newLayer).data.getAllSelected());
@@ -116,21 +119,28 @@ public class UserListDialog extends ToggleDialog implements SelectionChangedList
         }
     }
 
+    @Override
     public void layerAdded(Layer newLayer) {
         // do nothing
     }
 
+    @Override
     public void layerRemoved(Layer oldLayer) {
         // do nothing
     }
 
     public void refresh(Collection<? extends OsmPrimitive> fromPrimitives) {
         model.populate(fromPrimitives);
-        if(model.getRowCount() != 0) {
-            setTitle(trn("{0} Author", "{0} Authors", model.getRowCount() , model.getRowCount()));
-        } else {
-            setTitle(tr("Authors"));
-        }
+        GuiHelper.runInEDT(new Runnable() {
+            @Override
+            public void run() {
+                if (model.getRowCount() != 0) {
+                    setTitle(trn("{0} Author", "{0} Authors", model.getRowCount() , model.getRowCount()));
+                } else {
+                    setTitle(tr("Authors"));
+                }
+            }
+        });
     }
 
     @Override
@@ -152,11 +162,12 @@ public class UserListDialog extends ToggleDialog implements SelectionChangedList
         }
 
         public void select() {
-            int indexes[] = userTable.getSelectedRows();
+            int[] indexes = userTable.getSelectedRows();
             if (indexes == null || indexes.length == 0) return;
             model.selectPrimitivesOwnedBy(userTable.getSelectedRows());
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             select();
         }
@@ -165,6 +176,7 @@ public class UserListDialog extends ToggleDialog implements SelectionChangedList
             setEnabled(userTable != null && userTable.getSelectedRowCount() > 0);
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
@@ -185,7 +197,7 @@ public class UserListDialog extends ToggleDialog implements SelectionChangedList
 
         @Override
         public void actionPerformed(ActionEvent e) {
-            int rows[] = userTable.getSelectedRows();
+            int[] rows = userTable.getSelectedRows();
             if (rows == null || rows.length == 0) return;
             List<User> users = model.getSelectedUsers(rows);
             if (users.isEmpty()) return;
@@ -227,6 +239,7 @@ public class UserListDialog extends ToggleDialog implements SelectionChangedList
             setEnabled(userTable != null && userTable.getSelectedRowCount() > 0);
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
@@ -255,6 +268,7 @@ public class UserListDialog extends ToggleDialog implements SelectionChangedList
             this.count=count;
             this.percent = percent;
         }
+        @Override
         public int compareTo(UserInfo o) {
             if (count < o.count) return 1;
             if (count > o.count) return -1;
@@ -304,7 +318,12 @@ public class UserListDialog extends ToggleDialog implements SelectionChangedList
                 }
             }
             Collections.sort(data);
-            fireTableDataChanged();
+            GuiHelper.runInEDTAndWait(new Runnable() {
+                @Override
+                public void run() {
+                    fireTableDataChanged();
+                }
+            });
         }
 
         @Override
@@ -344,7 +363,7 @@ public class UserListDialog extends ToggleDialog implements SelectionChangedList
             Main.main.getCurrentDataSet().setSelected(byUser);
         }
 
-        public List<User> getSelectedUsers(int rows[]) {
+        public List<User> getSelectedUsers(int[] rows) {
             LinkedList<User> ret = new LinkedList<User>();
             if (rows == null || rows.length == 0) return ret;
             for (int row: rows) {

@@ -19,6 +19,7 @@ import org.openstreetmap.josm.command.SequenceCommand;
 import org.openstreetmap.josm.data.osm.Node;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.osm.Way;
+import org.openstreetmap.josm.gui.Notification;
 import org.openstreetmap.josm.tools.Shortcut;
 
 /**
@@ -64,13 +65,10 @@ public final class AlignInLineAction extends JosmAction {
     }
 
     private void showWarning() {
-        JOptionPane.showMessageDialog(
-                Main.parent,
-                tr("Please select at least three nodes."),
-                tr("Information"),
-                JOptionPane.INFORMATION_MESSAGE
-        );
-        return;
+        new Notification(
+                tr("Please select at least three nodes."))
+                .setIcon(JOptionPane.INFORMATION_MESSAGE)
+                .show();
     }
 
     private static int indexWrap(int size, int i) {
@@ -99,6 +97,7 @@ public final class AlignInLineAction extends JosmAction {
     /**
      * Operation depends on the selected objects:
      */
+    @Override
     public void actionPerformed(ActionEvent e) {
         if (!isEnabled())
             return;
@@ -112,7 +111,7 @@ public final class AlignInLineAction extends JosmAction {
         //// Decide what to align based on selection:
 
         /// Only ways selected -> Align their nodes.
-        if ((selectedNodes.size() == 0) && (selectedWays.size() == 1)) { // TODO: handle multiple ways
+        if ((selectedNodes.isEmpty()) && (selectedWays.size() == 1)) { // TODO: handle multiple ways
             for (Way way : selectedWays) {
                 nodes.addAll(way.getNodes());
             }

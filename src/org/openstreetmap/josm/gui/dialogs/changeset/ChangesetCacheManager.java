@@ -9,7 +9,6 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
-import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -32,7 +31,6 @@ import javax.swing.JTable;
 import javax.swing.JToolBar;
 import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
-import javax.swing.SwingUtilities;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
@@ -208,7 +206,7 @@ public class ChangesetCacheManager extends JFrame {
      * Builds the table with actions which can be applied to the currently visible changesets
      * in the changeset table.
      *
-     * @return
+     * @return changset actions panel
      */
     protected JPanel buildChangesetTableActionPanel() {
         JPanel pnl = new JPanel(new BorderLayout());
@@ -248,8 +246,7 @@ public class ChangesetCacheManager extends JFrame {
                 new ChangesetCacheTableColumnModel(),
                 model.getSelectionModel()
         );
-        tblChangesets.addMouseListener(new ChangesetTablePopupMenuLauncher());
-        tblChangesets.addMouseListener(new DblClickHandler());
+        tblChangesets.addMouseListener(new MouseEventHandler());
         tblChangesets.getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER,0), "showDetails");
         tblChangesets.getActionMap().put("showDetails", new ShowDetailAction());
         model.getSelectionModel().addListSelectionListener(new ChangesetDetailViewSynchronizer());
@@ -303,7 +300,7 @@ public class ChangesetCacheManager extends JFrame {
             needsSplitPaneAdjustment = true;
             model.init();
 
-        } else if (!visible && isShowing()){
+        } else if (isShowing()) { // Avoid IllegalComponentStateException like in #8775
             model.tearDown();
             new WindowGeometry(this).remember(getClass().getName() + ".geometry");
         }
@@ -343,6 +340,7 @@ public class ChangesetCacheManager extends JFrame {
             destroyInstance();
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             cancelAndClose();
         }
@@ -358,6 +356,7 @@ public class ChangesetCacheManager extends JFrame {
             putValue(SHORT_DESCRIPTION, tr("Launch the dialog for querying changesets"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent evt) {
             ChangesetQueryDialog dialog = new ChangesetQueryDialog(ChangesetCacheManager.this);
             dialog.initForUserInput();
@@ -388,6 +387,7 @@ public class ChangesetCacheManager extends JFrame {
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             List<Changeset> selected = model.getSelectedChangesets();
             ChangesetCache.getInstance().remove(selected);
@@ -397,6 +397,7 @@ public class ChangesetCacheManager extends JFrame {
             setEnabled(model.hasSelectedChangesets());
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
 
@@ -415,6 +416,7 @@ public class ChangesetCacheManager extends JFrame {
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             List<Changeset> selected = model.getSelectedChangesets();
             Main.worker.submit(new CloseChangesetTask(selected));
@@ -438,6 +440,7 @@ public class ChangesetCacheManager extends JFrame {
             setEnabled(false);
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
@@ -455,6 +458,7 @@ public class ChangesetCacheManager extends JFrame {
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             List<Changeset> selected = model.getSelectedChangesets();
             ChangesetHeaderDownloadTask task =ChangesetHeaderDownloadTask.buildTaskForChangesets(ChangesetCacheManager.this,selected);
@@ -465,6 +469,7 @@ public class ChangesetCacheManager extends JFrame {
             setEnabled(model.hasSelectedChangesets());
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
@@ -482,6 +487,7 @@ public class ChangesetCacheManager extends JFrame {
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             ChangesetContentDownloadTask task = new ChangesetContentDownloadTask(ChangesetCacheManager.this,model.getSelectedChangesetIds());
             ChangesetCacheManager.getInstance().runDownloadTask(task);
@@ -491,6 +497,7 @@ public class ChangesetCacheManager extends JFrame {
             setEnabled(model.hasSelectedChangesets());
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
@@ -504,6 +511,7 @@ public class ChangesetCacheManager extends JFrame {
             model.setChangesetInDetailView(selected.get(0));
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             showDetails();
         }
@@ -529,6 +537,7 @@ public class ChangesetCacheManager extends JFrame {
             );
         }
 
+        @Override
         public void actionPerformed(ActionEvent arg0) {
             JosmUserIdentityManager im = JosmUserIdentityManager.getInstance();
             if (im.isAnonymous()) {
@@ -546,26 +555,17 @@ public class ChangesetCacheManager extends JFrame {
         }
     }
 
-    class DblClickHandler extends MouseAdapter {
+    class MouseEventHandler extends PopupMenuLauncher {
+
+        public MouseEventHandler() {
+            super(new ChangesetTablePopupMenu());
+        }
+
         @Override
         public void mouseClicked(MouseEvent evt) {
-            if (! SwingUtilities.isLeftMouseButton(evt) || evt.getClickCount()<2)
-                return;
-            new ShowDetailAction().showDetails();
-        }
-    }
-
-    class ChangesetTablePopupMenuLauncher extends PopupMenuLauncher {
-        ChangesetTablePopupMenu menu = new ChangesetTablePopupMenu();
-        @Override
-        public void launch(MouseEvent evt) {
-            if (! model.hasSelectedChangesets()) {
-                int row = tblChangesets.rowAtPoint(evt.getPoint());
-                if (row >= 0) {
-                    model.setSelectedByIdx(row);
-                }
+            if (isDoubleClick(evt)) {
+                new ShowDetailAction().showDetails();
             }
-            menu.show(tblChangesets, evt.getPoint().x, evt.getPoint().y);
         }
     }
 
@@ -579,6 +579,7 @@ public class ChangesetCacheManager extends JFrame {
     }
 
     class ChangesetDetailViewSynchronizer implements ListSelectionListener {
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             List<Changeset> selected = model.getSelectedChangesets();
             if (selected.size() == 1) {
@@ -593,7 +594,8 @@ public class ChangesetCacheManager extends JFrame {
      * Selects the changesets  in <code>changests</code>, provided the
      * respective changesets are already present in the local changeset cache.
      *
-     * @param ids the collection of changesets. If null, the selection is cleared.
+     * @param changesets the collection of changesets. If {@code null}, the
+     * selection is cleared.
      */
     public void setSelectedChangesets(Collection<Changeset> changesets) {
         model.setSelectedChangesets(changesets);
@@ -627,7 +629,7 @@ public class ChangesetCacheManager extends JFrame {
     public void runDownloadTask(final ChangesetDownloadTask task) {
         Main.worker.submit(task);
         Runnable r = new Runnable() {
-            public void run() {
+            @Override public void run() {
                 if (task.isCanceled() || task.isFailed()) return;
                 setSelectedChangesets(task.getDownloadedChangesets());
             }

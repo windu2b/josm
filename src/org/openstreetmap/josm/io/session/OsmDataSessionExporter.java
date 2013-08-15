@@ -31,19 +31,20 @@ import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
-import javax.swing.JTextField;
 import javax.swing.SwingConstants;
+
+import org.w3c.dom.Element;
 
 import org.openstreetmap.josm.actions.SaveAction;
 import org.openstreetmap.josm.gui.layer.Layer;
 import org.openstreetmap.josm.gui.layer.OsmDataLayer;
 import org.openstreetmap.josm.gui.util.GuiHelper;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 import org.openstreetmap.josm.io.OsmWriter;
 import org.openstreetmap.josm.io.OsmWriterFactory;
 import org.openstreetmap.josm.io.session.SessionWriter.ExportSupport;
 import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.ImageProvider;
-import org.w3c.dom.Element;
 
 public class OsmDataSessionExporter implements SessionLayerExporter {
 
@@ -66,12 +67,13 @@ public class OsmDataSessionExporter implements SessionLayerExporter {
     private class LayerSaveAction extends AbstractAction {
         public LayerSaveAction() {
             putValue(SMALL_ICON, new ImageProvider("save").setWidth(16).get());
-            putValue(SHORT_DESCRIPTION, layer.requiresSaveToFile() ? 
+            putValue(SHORT_DESCRIPTION, layer.requiresSaveToFile() ?
                     tr("Layer contains unsaved data - save to file.") :
                     tr("Layer does not contain unsaved data."));
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             SaveAction.getInstance().doSave(layer);
             updateEnabledState();
@@ -107,7 +109,7 @@ public class OsmDataSessionExporter implements SessionLayerExporter {
         final LayerSaveAction saveAction = new LayerSaveAction();
         final JButton save = new JButton(saveAction);
         if (file != null) {
-            JTextField tf = new JTextField();
+            JosmTextField tf = new JosmTextField();
             tf.setText(file.getPath());
             tf.setEditable(false);
             cardLink.add(tf, GBC.std());
@@ -137,11 +139,13 @@ public class OsmDataSessionExporter implements SessionLayerExporter {
         }
 
         link.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 cl.show(cards, "link");
             }
         });
         include.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 cl.show(cards, "include");
             }
@@ -157,6 +161,7 @@ public class OsmDataSessionExporter implements SessionLayerExporter {
         p.add(cards, GBC.eol().insets(15,0,3,3));
 
         export.addItemListener(new ItemListener() {
+            @Override
             public void itemStateChanged(ItemEvent e) {
                 if (e.getStateChange() == ItemEvent.DESELECTED) {
                     GuiHelper.setEnabledRec(p, false);

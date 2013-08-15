@@ -51,7 +51,7 @@ public class XmlStyleSourceHandler extends DefaultHandler
 
     Color convertColor(String colString)
     {
-        int i = colString.indexOf("#");
+        int i = colString.indexOf('#');
         Color ret;
         if (i < 0) {
             ret = Main.pref.getColor("mappaint."+style.getPrefName()+"."+colString, Color.red);
@@ -293,7 +293,7 @@ public class XmlStyleSourceHandler extends DefaultHandler
         }
     }
 
-    @Override public void characters(char ch[], int start, int length)
+    @Override public void characters(char[] ch, int start, int length)
     {
         if (inScaleMax == true) {
             rule.scaleMax = Long.parseLong(new String(ch, start, length));

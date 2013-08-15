@@ -64,6 +64,48 @@ public class NavigatableComponent extends JComponent implements Helpful {
         void zoomChanged();
     }
 
+    /**
+     * Interface to notify listeners of the change of the system of measurement.
+     * @since 6056
+     */
+    public interface SoMChangeListener {
+        /**
+         * The current SoM has changed.
+         * @param oldSoM The old system of measurement
+         * @param newSoM The new (current) system of measurement
+         */
+        void systemOfMeasurementChanged(String oldSoM, String newSoM);
+    }
+
+    /**
+     * Simple data class that keeps map center and scale in one object.
+     */
+    public static class ViewportData {
+        private EastNorth center;
+        private Double scale;
+
+        public ViewportData(EastNorth center, Double scale) {
+            this.center = center;
+            this.scale = scale;
+        }
+
+        /**
+         * Return the projected coordinates of the map center
+         * @return the center
+         */
+        public EastNorth getCenter() {
+            return center;
+        }
+
+        /**
+         * Return the scale factor in east-/north-units per pixel.
+         * @return the scale
+         */
+        public Double getScale() {
+            return scale;
+        }
+    }
+
     public static final IntegerProperty PROP_SNAP_DISTANCE = new IntegerProperty("mappaint.node.snap-distance", 10);
 
     public static final String PROPNAME_CENTER = "center";
@@ -101,6 +143,39 @@ public class NavigatableComponent extends JComponent implements Helpful {
     }
 
     /**
+     * the SoM listeners
+     */
+    private static final CopyOnWriteArrayList<SoMChangeListener> somChangeListeners = new CopyOnWriteArrayList<SoMChangeListener>();
+
+    /**
+     * Removes a SoM change listener
+     *
+     * @param listener the listener. Ignored if null or already absent
+     * @since 6056
+     */
+    public static void removeSoMChangeListener(NavigatableComponent.SoMChangeListener listener) {
+        somChangeListeners.remove(listener);
+    }
+
+    /**
+     * Adds a SoM change listener
+     *
+     * @param listener the listener. Ignored if null or already registered.
+     * @since 6056
+     */
+    public static void addSoMChangeListener(NavigatableComponent.SoMChangeListener listener) {
+        if (listener != null) {
+            somChangeListeners.addIfAbsent(listener);
+        }
+    }
+
+    protected static void fireSoMChanged(String oldSoM, String newSoM) {
+        for (SoMChangeListener l : somChangeListeners) {
+            l.systemOfMeasurementChanged(oldSoM, newSoM);
+        }
+    }
+
+    /**
      * The scale factor in x or y-units per pixel. This means, if scale = 10,
      * every physical pixel on screen are 10 x or 10 y units in the
      * northing/easting space of the projection.
@@ -114,7 +189,7 @@ public class NavigatableComponent extends JComponent implements Helpful {
     private final Object paintRequestLock = new Object();
     private Rectangle paintRect = null;
     private Polygon paintPoly = null;
-    
+
     public NavigatableComponent() {
         setLayout(null);
     }
@@ -171,6 +246,10 @@ public class NavigatableComponent extends JComponent implements Helpful {
      */
     public EastNorth getCenter() {
         return center;
+    }
+
+    public double getScale() {
+        return scale;
     }
 
     /**
@@ -313,7 +392,7 @@ public class NavigatableComponent extends JComponent implements Helpful {
     /**
      * Zoom to the given coordinate.
      * @param newCenter The center x-value (easting) to zoom to.
-     * @param scale The scale to use.
+     * @param newScale The scale to use.
      */
     public void zoomTo(EastNorth newCenter, double newScale) {
         Bounds b = getProjection().getWorldBoundsLatLon();
@@ -362,7 +441,7 @@ public class NavigatableComponent extends JComponent implements Helpful {
     /**
      * Zoom to the given coordinate without adding to the zoom undo buffer.
      * @param newCenter The center x-value (easting) to zoom to.
-     * @param scale The scale to use.
+     * @param newScale The scale to use.
      */
     private void zoomNoUndoTo(EastNorth newCenter, double newScale) {
         if (!newCenter.equals(center)) {
@@ -414,7 +493,7 @@ public class NavigatableComponent extends JComponent implements Helpful {
                     {
                         // fixme - not use zoom history here
                         zoomTo(oldCenter.interpolate(finalNewCenter, (i+1) / frames));
-                        try { Thread.sleep(1000 / fps); } catch (InterruptedException ex) { };
+                        try { Thread.sleep(1000 / fps); } catch (InterruptedException ex) { }
                     }
                 }
             }.start();
@@ -646,38 +725,80 @@ public class NavigatableComponent extends JComponent implements Helpful {
      *        give the nearest node that is tagged.
      */
     public final Node getNearestNode(Point p, Predicate<OsmPrimitive> predicate, boolean use_selected) {
-        Node n = null;
+        return getNearestNode(p, predicate, use_selected, null);
+    }
+
+    /**
+     * The *result* depends on the current map selection state IF use_selected is true
+     *
+     * If more than one node within node.snap-distance pixels is found,
+     * the nearest node selected is returned IF use_selected is true.
+     *
+     * If there are no selected nodes near that point, the node that is related to some of the preferredRefs
+     *
+     * Else the nearest new/id=0 node within about the same distance
+     * as the true nearest node is returned.
+     *
+     * If no such node is found either, the true nearest
+     * node to p is returned.
+     *
+     * Finally, if a node is not found at all, null is returned.
+     * @since 6065
+     * @return A node within snap-distance to point p,
+     *      that is chosen by the algorithm described.
+     *
+     * @param p the screen point
+     * @param predicate this parameter imposes a condition on the returned object, e.g.
+     *        give the nearest node that is tagged.
+     * @param preferredRefs primitives, whose nodes we prefer
+     */
+    public final Node getNearestNode(Point p, Predicate<OsmPrimitive> predicate,
+            boolean use_selected, Collection<OsmPrimitive> preferredRefs) {
 
         Map<Double, List<Node>> nlists = getNearestNodesImpl(p, predicate);
-        if (!nlists.isEmpty()) {
-            Node ntsel = null, ntnew = null;
-            double minDistSq = nlists.keySet().iterator().next();
+        if (nlists.isEmpty()) return null;
 
-            for (Double distSq : nlists.keySet()) {
-                for (Node nd : nlists.get(distSq)) {
-                    // find the nearest selected node
-                    if (ntsel == null && nd.isSelected()) {
-                        ntsel = nd;
-                        // if there are multiple nearest nodes, prefer the one
-                        // that is selected. This is required in order to drag
-                        // the selected node if multiple nodes have the same
-                        // coordinates (e.g. after unglue)
-                        use_selected |= (distSq == minDistSq);
-                    }
-                    // find the nearest newest node that is within about the same
-                    // distance as the true nearest node
-                    if (ntnew == null && nd.isNew() && (distSq-minDistSq < 1)) {
-                        ntnew = nd;
+        if (preferredRefs != null && preferredRefs.isEmpty()) preferredRefs = null;
+        Node ntsel = null, ntnew = null, ntref = null;
+        boolean useNtsel = use_selected;
+        double minDistSq = nlists.keySet().iterator().next();
+
+        for (Double distSq : nlists.keySet()) {
+            for (Node nd : nlists.get(distSq)) {
+                // find the nearest selected node
+                if (ntsel == null && nd.isSelected()) {
+                    ntsel = nd;
+                    // if there are multiple nearest nodes, prefer the one
+                    // that is selected. This is required in order to drag
+                    // the selected node if multiple nodes have the same
+                    // coordinates (e.g. after unglue)
+                    useNtsel |= (distSq == minDistSq);
+                }
+                if (ntref == null && preferredRefs != null && distSq == minDistSq) {
+                    List<OsmPrimitive> ndRefs = nd.getReferrers();
+                    for (OsmPrimitive ref: preferredRefs) {
+                        if (ndRefs.contains(ref)) {
+                            ntref = nd;
+                            break;
+                        }
                     }
                 }
+                // find the nearest newest node that is within about the same
+                // distance as the true nearest node
+                if (ntnew == null && nd.isNew() && (distSq-minDistSq < 1)) {
+                    ntnew = nd;
+                }
             }
-
-            // take nearest selected, nearest new or true nearest node to p, in that order
-            n = (ntsel != null && use_selected) ? ntsel
-                    : (ntnew != null) ? ntnew
-                            : nlists.values().iterator().next().get(0);
         }
-        return n;
+
+        // take nearest selected, nearest new or true nearest node to p, in that order
+        if (ntsel != null && useNtsel)
+            return ntsel;
+        if (ntref != null)
+            return ntref;
+        if (ntnew != null)
+            return ntnew;
+        return nlists.values().iterator().next().get(0);
     }
 
     /**
@@ -835,6 +956,59 @@ public class NavigatableComponent extends JComponent implements Helpful {
         return (ntsel != null && use_selected) ? ntsel : wayseg;
     }
 
+     /**
+     * The *result* depends on the current map selection state IF use_selected is true.
+     *
+     * @return The nearest way segment to point p,
+     *      and, depending on use_selected, prefers a selected way segment, if found.
+     * Also prefers segments of ways that are related to one of preferredRefs primitives
+     * @see #getNearestWaySegments(Point, Collection, Predicate)
+     * @since 6065
+     * @param p the point for which to search the nearest segment.
+     * @param predicate the returned object has to fulfill certain properties.
+     * @param use_selected whether selected way segments should be preferred.
+     * @param preferredRefs - prefer segments related to these primitives, may be null
+     */
+    public final WaySegment getNearestWaySegment(Point p, Predicate<OsmPrimitive> predicate,
+            boolean use_selected,  Collection<OsmPrimitive> preferredRefs) {
+        WaySegment wayseg = null, ntsel = null, ntref = null;
+        if (preferredRefs != null && preferredRefs.isEmpty()) preferredRefs = null;
+
+        searchLoop: for (List<WaySegment> wslist : getNearestWaySegmentsImpl(p, predicate).values()) {
+            for (WaySegment ws : wslist) {
+                if (wayseg == null) {
+                    wayseg = ws;
+                }
+                if (ntsel == null && ws.way.isSelected()) {
+                    ntsel = ws;
+                    break searchLoop;
+                }
+                if (ntref == null && preferredRefs != null) {
+                    // prefer ways containing given nodes
+                    for (Node nd: ws.way.getNodes()) {
+                        if (preferredRefs.contains(nd)) {
+                            ntref = ws;
+                            break searchLoop;
+                        }
+                    }
+                    Collection<OsmPrimitive> wayRefs = ws.way.getReferrers();
+                    // prefer member of the given relations
+                    for (OsmPrimitive ref: preferredRefs) {
+                        if (ref instanceof Relation && wayRefs.contains(ref)) {
+                            ntref = ws;
+                            break searchLoop;
+                        }
+                    }
+                }
+            }
+        }
+        if (ntsel != null && use_selected)
+            return ntsel;
+        if (ntref != null)
+            return ntref;
+        return wayseg;
+    }
+
     /**
      * Convenience method to {@link #getNearestWaySegment(Point, Predicate, boolean)}.
      *
@@ -895,7 +1069,7 @@ public class NavigatableComponent extends JComponent implements Helpful {
      *
      * @return The nearest way to point p,
      *      prefer a selected way if there are multiple nearest.
-     * @see #getNearestWaySegment(Point, Collection, Predicate)
+     * @see #getNearestWaySegment(Point, Predicate)
      *
      * @param p the point for which to search the nearest segment.
      * @param predicate the returned object has to fulfill certain properties.
@@ -951,7 +1125,7 @@ public class NavigatableComponent extends JComponent implements Helpful {
      * It solely depends on the distance to point p.
      *
      * @return Primitives nearest to the given screen point.
-     * @see #getNearests(Point, Collection, Predicate)
+     * @see #getNearestNodesOrWays(Point, Collection, Predicate)
      *
      * @param p The point on screen.
      * @param predicate the returned object has to fulfill certain properties.
@@ -971,17 +1145,12 @@ public class NavigatableComponent extends JComponent implements Helpful {
      * @param use_selected whether to prefer selected nodes
      */
     private boolean isPrecedenceNode(Node osm, Point p, boolean use_selected) {
-        boolean ret = false;
-
         if (osm != null) {
-            ret |= !(p.distanceSq(getPoint2D(osm)) > (4)*(4));
-            ret |= osm.isTagged();
-            if (use_selected) {
-                ret |= osm.isSelected();
-            }
+            if (!(p.distanceSq(getPoint2D(osm)) > (4)*(4))) return true;
+            if (osm.isTagged()) return true;
+            if (use_selected && osm.isSelected()) return true;
         }
-
-        return ret;
+        return false;
     }
 
     /**
@@ -1001,42 +1170,50 @@ public class NavigatableComponent extends JComponent implements Helpful {
      *
      * @return A primitive within snap-distance to point p,
      *      that is chosen by the algorithm described.
-     * @see getNearestNode(Point, Predicate)
-     * @see getNearestNodesImpl(Point, Predicate)
-     * @see getNearestWay(Point, Predicate)
+     * @see #getNearestNode(Point, Predicate)
+     * @see #getNearestNodesImpl(Point, Predicate)
+     * @see #getNearestWay(Point, Predicate)
      *
      * @param p The point on screen.
      * @param predicate the returned object has to fulfill certain properties.
-     * @param use_selected whether to prefer primitives that are currently selected.
+     * @param use_selected whether to prefer primitives that are currently selected or referred by selected primitives
      */
     public final OsmPrimitive getNearestNodeOrWay(Point p, Predicate<OsmPrimitive> predicate, boolean use_selected) {
-        OsmPrimitive osm = getNearestNode(p, predicate, use_selected);
-        WaySegment ws = null;
+        Collection<OsmPrimitive> sel;
+        DataSet ds = getCurrentDataSet();
+        if (use_selected && ds!=null) {
+            sel = ds.getSelected();
+        } else {
+            sel = null;
+        }
+        OsmPrimitive osm = getNearestNode(p, predicate, use_selected, sel);
 
-        if (!isPrecedenceNode((Node)osm, p, use_selected)) {
+        if (isPrecedenceNode((Node)osm, p, use_selected)) return osm;
+        WaySegment ws;
+        if (use_selected) {
+            ws = getNearestWaySegment(p, predicate, use_selected, sel);
+        } else {
             ws = getNearestWaySegment(p, predicate, use_selected);
+        }
+        if (ws == null) return osm;
 
-            if (ws != null) {
-                if ((ws.way.isSelected() && use_selected) || osm == null) {
-                    // either (no _selected_ nearest node found, if desired) or no nearest node was found
-                    osm = ws.way;
-                } else {
-                    int maxWaySegLenSq = 3*PROP_SNAP_DISTANCE.get();
-                    maxWaySegLenSq *= maxWaySegLenSq;
+        if ((ws.way.isSelected() && use_selected) || osm == null) {
+            // either (no _selected_ nearest node found, if desired) or no nearest node was found
+            osm = ws.way;
+        } else {
+            int maxWaySegLenSq = 3*PROP_SNAP_DISTANCE.get();
+            maxWaySegLenSq *= maxWaySegLenSq;
 
-                    Point2D wp1 = getPoint2D(ws.way.getNode(ws.lowerIndex));
-                    Point2D wp2 = getPoint2D(ws.way.getNode(ws.lowerIndex+1));
+            Point2D wp1 = getPoint2D(ws.way.getNode(ws.lowerIndex));
+            Point2D wp2 = getPoint2D(ws.way.getNode(ws.lowerIndex+1));
 
-                    // is wayseg shorter than maxWaySegLenSq and
-                    // is p closer to the middle of wayseg  than  to the nearest node?
-                    if (wp1.distanceSq(wp2) < maxWaySegLenSq &&
-                            p.distanceSq(project(0.5, wp1, wp2)) < p.distanceSq(getPoint2D((Node)osm))) {
-                        osm = ws.way;
-                    }
-                }
+            // is wayseg shorter than maxWaySegLenSq and
+            // is p closer to the middle of wayseg  than  to the nearest node?
+            if (wp1.distanceSq(wp2) < maxWaySegLenSq &&
+                    p.distanceSq(project(0.5, wp1, wp2)) < p.distanceSq(getPoint2D((Node)osm))) {
+                osm = ws.way;
             }
         }
-
         return osm;
     }
 
@@ -1122,12 +1299,12 @@ public class NavigatableComponent extends JComponent implements Helpful {
                 }
             }
         }
-        
+
         // add nearby nodes
         for (List<Node> nlist : getNearestNodesImpl(p, predicate).values()) {
             nearestList.addAll(nlist);
         }
-        
+
         // add parent relations of nearby nodes and ways
         Set<OsmPrimitive> parentRelations = new HashSet<OsmPrimitive>();
         for (OsmPrimitive o : nearestList) {
@@ -1138,7 +1315,7 @@ public class NavigatableComponent extends JComponent implements Helpful {
             }
         }
         nearestList.addAll(parentRelations);
-        
+
         if (ignore != null) {
             nearestList.removeAll(ignore);
         }
@@ -1169,6 +1346,7 @@ public class NavigatableComponent extends JComponent implements Helpful {
         return Main.getProjection();
     }
 
+    @Override
     public String helpTopic() {
         String n = getClass().getName();
         return n.substring(n.lastIndexOf('.')+1);
@@ -1198,26 +1376,80 @@ public class NavigatableComponent extends JComponent implements Helpful {
     }
 
     /**
+     * Sets the current system of measurement.
+     * @param somKey The system of measurement key. Must be defined in {@link NavigatableComponent#SYSTEMS_OF_MEASUREMENT}.
+     * @since 6056
+     * @throws IllegalArgumentException if {@code somKey} is not known
+     */
+    public static void setSystemOfMeasurement(String somKey) {
+        if (!SYSTEMS_OF_MEASUREMENT.containsKey(somKey)) {
+            throw new IllegalArgumentException("Invalid system of measurement: "+somKey);
+        }
+        String oldKey = ProjectionPreference.PROP_SYSTEM_OF_MEASUREMENT.get();
+        if (ProjectionPreference.PROP_SYSTEM_OF_MEASUREMENT.put(somKey)) {
+            fireSoMChanged(oldKey, somKey);
+        }
+    }
+
+    /**
      * A system of units used to express length and area measurements.
      * @since 3406
      */
     public static class SystemOfMeasurement {
+
+        /** First value, in meters, used to translate unit according to above formula. */
         public final double aValue;
+        /** Second value, in meters, used to translate unit according to above formula. */
         public final double bValue;
+        /** First unit used to format text. */
         public final String aName;
+        /** Second unit used to format text. */
         public final String bName;
+        /** Specific optional area value, in squared meters, between {@code aValue*aValue} and {@code bValue*bValue}. Set to {@code -1} if not used.
+         *  @since 5870 */
+        public final double areaCustomValue;
+        /** Specific optional area unit. Set to {@code null} if not used.
+         *  @since 5870 */
+        public final String areaCustomName;
 
         /**
          * System of measurement. Currently covers only length (and area) units.
          *
          * If a quantity x is given in m (x_m) and in unit a (x_a) then it translates as
          * x_a == x_m / aValue
+         *
+         * @param aValue First value, in meters, used to translate unit according to above formula.
+         * @param aName First unit used to format text.
+         * @param bValue Second value, in meters, used to translate unit according to above formula.
+         * @param bName Second unit used to format text.
          */
         public SystemOfMeasurement(double aValue, String aName, double bValue, String bName) {
+            this(aValue, aName, bValue, bName, -1, null);
+        }
+
+        /**
+         * System of measurement. Currently covers only length (and area) units.
+         *
+         * If a quantity x is given in m (x_m) and in unit a (x_a) then it translates as
+         * x_a == x_m / aValue
+         *
+         * @param aValue First value, in meters, used to translate unit according to above formula.
+         * @param aName First unit used to format text.
+         * @param bValue Second value, in meters, used to translate unit according to above formula.
+         * @param bName Second unit used to format text.
+         * @param areaCustomValue Specific optional area value, in squared meters, between {@code aValue*aValue} and {@code bValue*bValue}.
+         *                        Set to {@code -1} if not used.
+         * @param areaCustomName Specific optional area unit. Set to {@code null} if not used.
+         *
+         * @since 5870
+         */
+        public SystemOfMeasurement(double aValue, String aName, double bValue, String bName, double areaCustomValue, String areaCustomName) {
             this.aValue = aValue;
             this.aName = aName;
             this.bValue = bValue;
             this.bName = bName;
+            this.areaCustomValue = areaCustomValue;
+            this.areaCustomName = areaCustomName;
         }
 
         /**
@@ -1227,13 +1459,12 @@ public class NavigatableComponent extends JComponent implements Helpful {
          */
         public String getDistText(double dist) {
             double a = dist / aValue;
-            if (!Main.pref.getBoolean("system_of_measurement.use_only_lower_unit", false) && a > bValue / aValue) {
-                double b = dist / bValue;
-                return String.format(Locale.US, "%." + (b<10 ? 2 : 1) + "f %s", b, bName);
-            } else if (a < 0.01)
+            if (!Main.pref.getBoolean("system_of_measurement.use_only_lower_unit", false) && a > bValue / aValue)
+                return formatText(dist / bValue, bName);
+            else if (a < 0.01)
                 return "< 0.01 " + aName;
             else
-                return String.format(Locale.US, "%." + (a<10 ? 2 : 1) + "f %s", a, aName);
+                return formatText(a, aName);
         }
 
         /**
@@ -1244,13 +1475,20 @@ public class NavigatableComponent extends JComponent implements Helpful {
          */
         public String getAreaText(double area) {
             double a = area / (aValue*aValue);
-            if (!Main.pref.getBoolean("system_of_measurement.use_only_lower_unit", false) && a > bValue / aValue) {
-                double b = area / (bValue*bValue);
-                return String.format(Locale.US, "%." + (b<10 ? 2 : 1) + "f %s", b, bName+"\u00b2");
-            } else if (a < 0.01)
-                return "< 0.01 " + aName;
+            boolean lowerOnly = Main.pref.getBoolean("system_of_measurement.use_only_lower_unit", false);
+            boolean customAreaOnly = Main.pref.getBoolean("system_of_measurement.use_only_custom_area_unit", false);
+            if ((!lowerOnly && areaCustomValue > 0 && a > areaCustomValue / (aValue*aValue) && a < (bValue*bValue) / (aValue*aValue)) || customAreaOnly)
+                return formatText(area / areaCustomValue, areaCustomName);
+            else if (!lowerOnly && a >= (bValue*bValue) / (aValue*aValue))
+                return formatText(area / (bValue*bValue), bName+"\u00b2");
+            else if (a < 0.01)
+                return "< 0.01 " + aName+"\u00b2";
             else
-                return String.format(Locale.US, "%." + (a<10 ? 2 : 1) + "f %s", a, aName+"\u00b2");
+                return formatText(a, aName+"\u00b2");
+        }
+
+        private static String formatText(double v, String unit) {
+            return String.format(Locale.US, "%." + (v<9.999999 ? 2 : 1) + "f %s", v, unit);
         }
     }
 
@@ -1258,20 +1496,20 @@ public class NavigatableComponent extends JComponent implements Helpful {
      * Metric system (international standard).
      * @since 3406
      */
-    public static final SystemOfMeasurement METRIC_SOM = new SystemOfMeasurement(1, "m", 1000, "km");
-    
+    public static final SystemOfMeasurement METRIC_SOM = new SystemOfMeasurement(1, "m", 1000, "km", 10000, "ha");
+
     /**
      * Chinese system.
      * @since 3406
      */
     public static final SystemOfMeasurement CHINESE_SOM = new SystemOfMeasurement(1.0/3.0, "\u5e02\u5c3a" /* chi */, 500, "\u5e02\u91cc" /* li */);
-    
+
     /**
      * Imperial system (British Commonwealth and former British Empire).
      * @since 3406
      */
-    public static final SystemOfMeasurement IMPERIAL_SOM = new SystemOfMeasurement(0.3048, "ft", 1609.344, "mi");
-    
+    public static final SystemOfMeasurement IMPERIAL_SOM = new SystemOfMeasurement(0.3048, "ft", 1609.344, "mi", 4046.86, "ac");
+
     /**
      * Nautical mile system (navigation, polar exploration).
      * @since 5549
@@ -1305,7 +1543,7 @@ public class NavigatableComponent extends JComponent implements Helpful {
      * Set new cursor.
      */
     public void setNewCursor(Cursor cursor, Object reference) {
-        if(Cursors.size() > 0) {
+        if(!Cursors.isEmpty()) {
             CursorInfo l = Cursors.getLast();
             if(l != null && l.cursor == cursor && l.object == reference)
                 return;
@@ -1321,14 +1559,14 @@ public class NavigatableComponent extends JComponent implements Helpful {
      * Remove the new cursor and reset to previous
      */
     public void resetCursor(Object reference) {
-        if(Cursors.size() == 0) {
+        if(Cursors.isEmpty()) {
             setCursor(null);
             return;
         }
         CursorInfo l = Cursors.getLast();
         stripCursors(reference);
         if(l != null && l.object == reference) {
-            if(Cursors.size() == 0) {
+            if(Cursors.isEmpty()) {
                 setCursor(null);
             } else {
                 setCursor(Cursors.getLast().cursor);
@@ -1345,7 +1583,7 @@ public class NavigatableComponent extends JComponent implements Helpful {
         }
         Cursors = c;
     }
-    
+
     @Override
     public void paint(Graphics g) {
         synchronized (paintRequestLock) {
@@ -1379,7 +1617,7 @@ public class NavigatableComponent extends JComponent implements Helpful {
             repaint();
         }
     }
-    
+
     /**
      * Requests to paint the given {@code Polygon} as a polyline (unclosed polygon).
      * @param p The Polygon to draw
@@ -1394,7 +1632,7 @@ public class NavigatableComponent extends JComponent implements Helpful {
             repaint();
         }
     }
-    
+
     /**
      * Requests to clear the rectangled previously drawn.
      * @see #requestPaintRect

@@ -5,7 +5,6 @@ import static org.openstreetmap.josm.gui.help.HelpUtil.ht;
 import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.awt.AWTEvent;
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Graphics2D;
@@ -23,11 +22,14 @@ import javax.swing.JOptionPane;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.Bounds;
+import org.openstreetmap.josm.data.Preferences.PreferenceChangeEvent;
+import org.openstreetmap.josm.data.Preferences.PreferenceChangedListener;
 import org.openstreetmap.josm.data.coor.EastNorth;
 import org.openstreetmap.josm.data.osm.Node;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.osm.Way;
 import org.openstreetmap.josm.data.osm.WaySegment;
+import org.openstreetmap.josm.data.osm.visitor.paint.PaintColors;
 import org.openstreetmap.josm.gui.MapFrame;
 import org.openstreetmap.josm.gui.MapView;
 import org.openstreetmap.josm.gui.NavigatableComponent;
@@ -35,7 +37,9 @@ import org.openstreetmap.josm.gui.NavigatableComponent.SystemOfMeasurement;
 import org.openstreetmap.josm.gui.layer.Layer;
 import org.openstreetmap.josm.gui.layer.MapViewPaintable;
 import org.openstreetmap.josm.gui.layer.OsmDataLayer;
+import org.openstreetmap.josm.gui.util.GuiHelper;
 import org.openstreetmap.josm.tools.Geometry;
+import static org.openstreetmap.josm.tools.I18n.marktr;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.Shortcut;
 
@@ -78,9 +82,7 @@ import org.openstreetmap.josm.tools.Shortcut;
  *
  * @author Ole Jørgen Brønner (olejorgenb)
  */
-public class ParallelWayAction extends MapMode implements AWTEventListener, MapViewPaintable {
-
-    private static final long serialVersionUID = 1L;
+public class ParallelWayAction extends MapMode implements AWTEventListener, MapViewPaintable, PreferenceChangedListener {
 
     private enum Mode {
         dragging, normal
@@ -95,10 +97,11 @@ public class ParallelWayAction extends MapMode implements AWTEventListener, MapV
     private boolean snap;
     private boolean snapDefault;
 
-    private double snapThreshold; 
+    private double snapThreshold;
     private double snapDistanceMetric;
     private double snapDistanceImperial;
     private double snapDistanceChinese;
+    private double snapDistanceNautical;
 
     private ModifiersSpec snapModifierCombo;
     private ModifiersSpec copyTagsModifierCombo;
@@ -118,9 +121,13 @@ public class ParallelWayAction extends MapMode implements AWTEventListener, MapV
 
     private WaySegment referenceSegment;
     private ParallelWays pWays;
-    LinkedHashSet<Way> sourceWays;
+    private LinkedHashSet<Way> sourceWays;
     private EastNorth helperLineStart;
     private EastNorth helperLineEnd;
+
+    Stroke helpLineStroke;
+    Stroke refLineStroke;
+    Color mainColor;
 
     public ParallelWayAction(MapFrame mapFrame) {
         super(tr("Parallel"), "parallel", tr("Make parallel copies of ways"),
@@ -130,6 +137,7 @@ public class ParallelWayAction extends MapMode implements AWTEventListener, MapV
         putValue("help", ht("/Action/Parallel"));
         mv = mapFrame.mapView;
         updateModeLocalPreferences();
+        Main.pref.addPreferenceChangeListener(this);
     }
 
     @Override
@@ -144,6 +152,11 @@ public class ParallelWayAction extends MapMode implements AWTEventListener, MapV
         mv.addMouseListener(this);
         mv.addMouseMotionListener(this);
         mv.addTemporaryLayer(this);
+
+        helpLineStroke = GuiHelper.getCustomizedStroke(getStringPref("stroke.hepler-line", "1" ));
+        refLineStroke = GuiHelper.getCustomizedStroke(getStringPref("stroke.ref-line", "1 2 2"));
+        mainColor = Main.pref.getColor(marktr("make parallel helper line"), null);
+        if (mainColor == null) mainColor = PaintColors.SELECTED.get();
 
         //// Needed to update the mouse cursor if modifiers are changed when the mouse is motionless
         try {
@@ -198,7 +211,6 @@ public class ParallelWayAction extends MapMode implements AWTEventListener, MapV
 
     private void updateModeLocalPreferences() {
         // @formatter:off
-        //snapThreshold        = Main.pref.getDouble (prefKey("snap-threshold"), 0.35); // Old preference was stored in meters, hence the new name (percent)
         snapThreshold        = Main.pref.getDouble (prefKey("snap-threshold-percent"), 0.70);
         snapDefault          = Main.pref.getBoolean(prefKey("snap-default"),      true);
         copyTagsDefault      = Main.pref.getBoolean(prefKey("copy-tags-default"), true);
@@ -206,6 +218,7 @@ public class ParallelWayAction extends MapMode implements AWTEventListener, MapV
         snapDistanceMetric   = Main.pref.getDouble(prefKey("snap-distance-metric"), 0.5);
         snapDistanceImperial = Main.pref.getDouble(prefKey("snap-distance-imperial"), 1);
         snapDistanceChinese  = Main.pref.getDouble(prefKey("snap-distance-chinese"), 1);
+        snapDistanceNautical = Main.pref.getDouble(prefKey("snap-distance-nautical"), 0.1);
 
         snapModifierCombo           = new ModifiersSpec(getStringPref("snap-modifier-combo",             "?sC"));
         copyTagsModifierCombo       = new ModifiersSpec(getStringPref("copy-tags-modifier-combo",        "As?"));
@@ -290,6 +303,7 @@ public class ParallelWayAction extends MapMode implements AWTEventListener, MapV
 
     @Override
     public void mousePressed(MouseEvent e) {
+        requestFocusInMapView();
         updateModifiersState(e);
         // Other buttons are off limit, but we still get events.
         if (e.getButton() != MouseEvent.BUTTON1)
@@ -398,7 +412,7 @@ public class ParallelWayAction extends MapMode implements AWTEventListener, MapV
             setMode(Mode.dragging);
         }
 
-        //// Calculate distance to the reference line
+        // Calculate distance to the reference line
         EastNorth enp = mv.getEastNorth((int) p.getX(), (int) p.getY());
         EastNorth nearestPointOnRefLine = Geometry.closestPointToLine(referenceSegment.getFirstNode().getEastNorth(),
                 referenceSegment.getSecondNode().getEastNorth(), enp);
@@ -421,6 +435,8 @@ public class ParallelWayAction extends MapMode implements AWTEventListener, MapV
                 snapDistance = snapDistanceChinese * NavigatableComponent.CHINESE_SOM.aValue;
             } else if (som.equals(NavigatableComponent.IMPERIAL_SOM)) {
                 snapDistance = snapDistanceImperial * NavigatableComponent.IMPERIAL_SOM.aValue;
+            } else if (som.equals(NavigatableComponent.NAUTICAL_MILE_SOM)) {
+                snapDistance = snapDistanceNautical * NavigatableComponent.NAUTICAL_MILE_SOM.aValue;
             } else {
                 snapDistance = snapDistanceMetric; // Metric system by default
             }
@@ -462,17 +478,14 @@ public class ParallelWayAction extends MapMode implements AWTEventListener, MapV
                 return;
 
             // FIXME: should clip the line (gets insanely slow when zoomed in on a very long line
-            Stroke refLineStroke = new BasicStroke(1, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 10.0f, new float[] {
-                    2f, 2f }, 0f);
             g.setStroke(refLineStroke);
-            g.setColor(Color.RED);
+            g.setColor(mainColor);
             Point p1 = mv.getPoint(referenceSegment.getFirstNode().getEastNorth());
             Point p2 = mv.getPoint(referenceSegment.getSecondNode().getEastNorth());
             g.drawLine(p1.x, p1.y, p2.x, p2.y);
 
-            Stroke helpLineStroke = new BasicStroke(1, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL);
             g.setStroke(helpLineStroke);
-            g.setColor(Color.RED);
+            g.setColor(mainColor);
             p1 = mv.getPoint(helperLineStart);
             p2 = mv.getPoint(helperLineEnd);
             g.drawLine(p1.x, p1.y, p2.x, p2.y);
@@ -574,5 +587,18 @@ public class ParallelWayAction extends MapMode implements AWTEventListener, MapV
 
     private String getStringPref(String subKey) {
         return getStringPref(subKey, null);
+    }
+
+    @Override
+    public void preferenceChanged(PreferenceChangeEvent e) {
+        if (e.getKey().startsWith(prefKey(""))) {
+            updateAllPreferences();
+        }
+    }
+
+    @Override
+    public void destroy() {
+        super.destroy();
+        Main.pref.removePreferenceChangeListener(this);
     }
 }

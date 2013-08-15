@@ -25,7 +25,7 @@ abstract public class StyleSource extends SourceEntry {
     public File zipIcons;
 
     private ImageIcon imageIcon;
-    private long lastMTime = 0l;
+    private long lastMTime = 0L;
 
     /******
      * The following fields is additional information found in the header
@@ -39,7 +39,7 @@ abstract public class StyleSource extends SourceEntry {
     }
 
     public StyleSource(SourceEntry entry) {
-        super(entry.url, entry.name, entry.title, entry.active);
+        super(entry);
     }
 
     abstract public void apply(MultiCascade mc, OsmPrimitive osm, double scale, OsmPrimitive multipolyOuterWay, boolean pretendWayIsClosed);

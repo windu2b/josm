@@ -6,10 +6,13 @@ import static org.openstreetmap.josm.tools.I18n.tr;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.text.MessageFormat;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 
 import org.openstreetmap.josm.Main;
@@ -43,6 +46,12 @@ public abstract class RequestHandler {
     protected String myCommand;
 
     /**
+     * who send th request?
+     * the host from refrerer header or IP of request sender
+     */
+    protected String sender;
+
+    /**
      * Check permission and parameters and handle request.
      *
      * @throws RequestHandlerForbiddenException
@@ -52,9 +61,17 @@ public abstract class RequestHandler {
     public final void handle() throws RequestHandlerForbiddenException, RequestHandlerBadRequestException, RequestHandlerErrorException
     {
         checkMandatoryParams();
+        validateRequest();
         checkPermission();
         handleRequest();
     }
+
+    /**
+     * Validates the request before attempting to perform it.
+     * @throws RequestHandlerBadRequestException
+     * @since 5678
+     */
+    protected abstract void validateRequest() throws RequestHandlerBadRequestException;
 
     /**
      * Handle a specific command sent as remote control.
@@ -90,6 +107,14 @@ public abstract class RequestHandler {
     abstract public PermissionPrefWithDefault getPermissionPref();
 
     abstract public String[] getMandatoryParams();
+    
+    public String[] getOptionalParams() {
+        return null;
+    }
+     
+    public String[] getUsageExamples() {
+        return null;
+    }
 
     /**
      * Check permissions in preferences and display error message
@@ -120,9 +145,15 @@ public abstract class RequestHandler {
          * If yes, display specific confirmation message.
          */
         if (Main.pref.getBoolean(globalConfirmationKey, globalConfirmationDefault)) {
-            if (JOptionPane.showConfirmDialog(Main.parent,
-                "<html>" + getPermissionMessage() +
-                "<br>" + tr("Do you want to allow this?"),
+            // Ensure dialog box does not exceed main window size
+            Integer maxWidth = (int) Math.max(200, Main.parent.getWidth()*0.6);
+            String message = "<html><div>" + getPermissionMessage() +
+                    "<br/>" + tr("Do you want to allow this?") + "</div></html>";
+            JLabel label = new JLabel(message);
+            if (label.getPreferredSize().width > maxWidth) {
+                label.setText(message.replaceFirst("<div>", "<div style=\"width:" + maxWidth + "px;\">"));
+            }
+            if (JOptionPane.showConfirmDialog(Main.parent, label,
                 tr("Confirm Remote Control action"),
                 JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) {
                     String err = MessageFormat.format("RemoteControl: ''{0}'' forbidden by user''s choice", myCommand);
@@ -154,8 +185,8 @@ public abstract class RequestHandler {
             if (req.indexOf('?') != -1) {
                 String query = req.substring(req.indexOf('?') + 1);
                 if (query.indexOf('#') != -1) {
-                    query = query.substring(0, query.indexOf('#'));
-                }
+                            query = query.substring(0, query.indexOf('#'));
+                        }
                 String[] params = query.split("&", -1);
                 for (String param : params) {
                     int eq = param.indexOf('=');
@@ -172,11 +203,10 @@ public abstract class RequestHandler {
 
     void checkMandatoryParams() throws RequestHandlerBadRequestException {
         String[] mandatory = getMandatoryParams();
-        if(mandatory == null) return;
-
+        String[] optional = getOptionalParams();
         List<String> missingKeys = new LinkedList<String>();
         boolean error = false;
-        for (String key : mandatory) {
+        if(mandatory != null) for (String key : mandatory) {
             String value = args.get(key);
             if ((value == null) || (value.length() == 0)) {
                 error = true;
@@ -184,11 +214,20 @@ public abstract class RequestHandler {
                 missingKeys.add(key);
             }
         }
+        HashSet<String> knownParams = new HashSet<String>();
+        if (mandatory != null) Collections.addAll(knownParams, mandatory);
+        if (optional != null) Collections.addAll(knownParams, optional);
+        for (String par: args.keySet()) {
+            if (!knownParams.contains(par)) {
+                Main.warn("Unknown remote control parameter {0}, skipping it", par);
+            }
+        }
         if (error) {
             throw new RequestHandlerBadRequestException(
                     "The following keys are mandatory, but have not been provided: "
                     + Utils.join(", ", missingKeys));
         }
+        
     }
 
     /**
@@ -216,6 +255,18 @@ public abstract class RequestHandler {
         return args.get("new_layer") != null && !args.get("new_layer").isEmpty()
                 ? Boolean.parseBoolean(args.get("new_layer"))
                 : Main.pref.getBoolean(loadInNewLayerKey, loadInNewLayerDefault);
+    }
+
+    protected final String decodeParam(String param) {
+        try {
+            return URLDecoder.decode(param, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException();
+        }
+    }
+
+    public void setSender(String sender) {
+        this.sender = sender;
     }
 
     public static class RequestHandlerException extends Exception {

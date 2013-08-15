@@ -5,8 +5,10 @@ import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.awt.Container;
 import java.awt.Dimension;
+import java.awt.KeyboardFocusManager;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 
@@ -17,30 +19,37 @@ import javax.swing.JTable;
 import javax.swing.JViewport;
 import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
+import javax.swing.SwingUtilities;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.actions.AutoScaleAction;
 import org.openstreetmap.josm.actions.ZoomToAction;
+import org.openstreetmap.josm.data.osm.OsmPrimitive;
+import org.openstreetmap.josm.data.osm.RelationMember;
 import org.openstreetmap.josm.data.osm.Way;
 import org.openstreetmap.josm.gui.MapView;
 import org.openstreetmap.josm.gui.MapView.LayerChangeListener;
-import org.openstreetmap.josm.gui.dialogs.relation.WayConnectionType.Direction;
+import org.openstreetmap.josm.gui.dialogs.relation.sort.WayConnectionType;
+import org.openstreetmap.josm.gui.dialogs.relation.sort.WayConnectionType.Direction;
 import org.openstreetmap.josm.gui.layer.Layer;
 import org.openstreetmap.josm.gui.layer.OsmDataLayer;
+import org.openstreetmap.josm.gui.util.HighlightHelper;
 import org.openstreetmap.josm.gui.widgets.OsmPrimitivesTable;
 
 public class MemberTable extends OsmPrimitivesTable implements IMemberModelListener {
 
     /** the additional actions in popup menu */
     private ZoomToGapAction zoomToGap;
+    private HighlightHelper highlightHelper = new HighlightHelper();
+    private boolean highlightEnabled;
 
     /**
-     * constructor
+     * constructor for relation member table
      *
-     * @param model
-     * @param columnModel
+     * @param layer the data layer of the relation
+     * @param model the table model
      */
     public MemberTable(OsmDataLayer layer, MemberTableModel model) {
         super(model, new MemberTableColumnModel(layer.data), model.getSelectionModel());
@@ -53,7 +62,7 @@ public class MemberTable extends OsmPrimitivesTable implements IMemberModelListe
      * initialize the table
      */
     protected void init() {
-        MemberRoleCellEditor ce = (MemberRoleCellEditor)getColumnModel().getColumn(0).getCellEditor();  
+        MemberRoleCellEditor ce = (MemberRoleCellEditor)getColumnModel().getColumn(0).getCellEditor();
         setRowHeight(ce.getEditor().getPreferredSize().height);
         setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
         setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
@@ -64,17 +73,19 @@ public class MemberTable extends OsmPrimitivesTable implements IMemberModelListe
         getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).put(
                 KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0, false), "selectNextColumnCell");
 
+        initHighlighting();
+
         // install custom navigation actions
         //
         getActionMap().put("selectNextColumnCell", new SelectNextColumnCellAction());
         getActionMap().put("selectPreviousColumnCell", new SelectPreviousColumnCellAction());
     }
-    
+
     @Override
     protected ZoomToAction buildZoomToAction() {
         return new ZoomToAction(this);
     }
-    
+
     @Override
     protected JPopupMenu buildPopupMenu() {
         JPopupMenu menu = super.buildPopupMenu();
@@ -102,8 +113,41 @@ public class MemberTable extends OsmPrimitivesTable implements IMemberModelListe
         return super.getPreferredSize();
     }
 
+    @Override
     public void makeMemberVisible(int index) {
         scrollRectToVisible(getCellRect(index, 0, true));
+    }
+
+    ListSelectionListener highlighterListener = new ListSelectionListener() {
+            @Override
+            public void valueChanged(ListSelectionEvent lse) {
+                if (Main.isDisplayingMapView()) {
+                    Collection<RelationMember> sel = getMemberTableModel().getSelectedMembers();
+                    final ArrayList<OsmPrimitive> toHighlight = new ArrayList<OsmPrimitive>();
+                    for (RelationMember r: sel) {
+                        if (r.getMember().isUsable()) {
+                            toHighlight.add(r.getMember());
+                        }
+                    }
+                    SwingUtilities.invokeLater(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (highlightHelper.highlightOnly(toHighlight)) {
+                                Main.map.mapView.repaint();
+                            }
+                        }
+                    });
+                }
+            }};
+
+    private void initHighlighting() {
+        highlightEnabled = Main.pref.getBoolean("draw.target-highlight", true);
+        if (!highlightEnabled) return;
+        getMemberTableModel().getSelectionModel().addListSelectionListener(highlighterListener);
+        if (Main.isDisplayingMapView()) {
+            HighlightHelper.clearAllHighlighted();
+            Main.map.mapView.repaint();
+        }
     }
 
     /**
@@ -115,6 +159,7 @@ public class MemberTable extends OsmPrimitivesTable implements IMemberModelListe
      *
      */
     class SelectNextColumnCellAction extends AbstractAction {
+        @Override
         public void actionPerformed(ActionEvent e) {
             run();
         }
@@ -131,6 +176,11 @@ public class MemberTable extends OsmPrimitivesTable implements IMemberModelListe
             } else if (row < getRowCount() - 1) {
                 col = 0;
                 row++;
+            } else {
+                // go to next component, no more rows in this table
+                KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager();
+                manager.focusNextComponent();
+                return;
             }
             changeSelection(row, col, false, false);
         }
@@ -143,6 +193,7 @@ public class MemberTable extends OsmPrimitivesTable implements IMemberModelListe
      */
     private class SelectPreviousColumnCellAction extends AbstractAction {
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             int col = getSelectedColumn();
             int row = getSelectedRow();
@@ -164,6 +215,17 @@ public class MemberTable extends OsmPrimitivesTable implements IMemberModelListe
     public void unlinkAsListener() {
         super.unlinkAsListener();
         MapView.removeLayerChangeListener(zoomToGap);
+    }
+
+    public void stopHighlighting() {
+        if (highlighterListener == null) return;
+        if (!highlightEnabled) return;
+        getMemberTableModel().getSelectionModel().removeListSelectionListener(highlighterListener);
+        highlighterListener = null;
+        if (Main.isDisplayingMapView()) {
+            HighlightHelper.clearAllHighlighted();
+            Main.map.mapView.repaint();
+        }
     }
 
     private class SelectPreviousGapAction extends AbstractAction {

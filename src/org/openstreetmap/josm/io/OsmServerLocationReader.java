@@ -8,9 +8,11 @@ import java.io.InputStream;
 import java.util.zip.GZIPInputStream;
 
 import org.apache.tools.bzip2.CBZip2InputStream;
+import org.openstreetmap.josm.actions.downloadtasks.DownloadGpsTask;
 import org.openstreetmap.josm.data.gpx.GpxData;
 import org.openstreetmap.josm.data.osm.DataSet;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
+import org.openstreetmap.josm.tools.Utils;
 import org.xml.sax.SAXException;
 
 public class OsmServerLocationReader extends OsmServerReader {
@@ -38,13 +40,9 @@ public class OsmServerLocationReader extends OsmServerReader {
             throw new OsmTransferException(e);
         } finally {
             progressMonitor.finishTask();
-            try {
-                activeConnection = null;
-                if (parser.in != null) {
-                    parser.in.close();
-                    parser.in = null;
-                }
-            } catch(Exception e) {/* ignore it */}
+            activeConnection = null;
+            Utils.close(parser.in);
+            parser.in = null;
         }
     }
 
@@ -82,7 +80,7 @@ public class OsmServerLocationReader extends OsmServerReader {
             }
         }, progressMonitor);
     }
-    
+
     /**
      * Method to download GZip-compressed OSM files from somewhere
      */
@@ -118,7 +116,7 @@ public class OsmServerLocationReader extends OsmServerReader {
             }
         }, progressMonitor);
     }
-    
+
     /**
      * Method to download BZip2-compressed OSM Change files from somewhere
      */
@@ -136,7 +134,7 @@ public class OsmServerLocationReader extends OsmServerReader {
             }
         }, progressMonitor);
     }
-    
+
     /**
      * Method to download GZip-compressed OSM Change files from somewhere
      */
@@ -166,8 +164,8 @@ public class OsmServerLocationReader extends OsmServerReader {
                 progressMonitor.subTask(tr("Downloading OSM data..."));
                 GpxReader reader = new GpxReader(in);
                 gpxParsedProperly = reader.parse(false);
-                GpxData result = reader.data;
-                result.fromServer = true;
+                GpxData result = reader.getGpxData();
+                result.fromServer = DownloadGpsTask.isFromServer(url);
                 return result;
             }
         }, progressMonitor);

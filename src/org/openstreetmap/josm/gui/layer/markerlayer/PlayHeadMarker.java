@@ -31,7 +31,7 @@ import org.openstreetmap.josm.tools.AudioPlayer;
  * Singleton marker class to track position of audio.
  *
  * @author David Earl<david@frankieandshadow.com>
- *
+ * @since 572
  */
 public class PlayHeadMarker extends Marker {
 
@@ -46,6 +46,10 @@ public class PlayHeadMarker extends Marker {
     private boolean wasPlaying = false;
     private int dropTolerance; /* pixels */
 
+    /**
+     * Returns the unique instance of {@code PlayHeadMarker}.
+     * @return The unique instance of {@code PlayHeadMarker}.
+     */
     public static PlayHeadMarker create() {
         if (playHead == null) {
             try {
@@ -142,7 +146,7 @@ public class PlayHeadMarker extends Marker {
             /* work out EastNorth equivalent of 50 (default) pixels tolerance */
             Point p = Main.map.mapView.getPoint(en);
             EastNorth enPlus25px = Main.map.mapView.getEastNorth(p.x+dropTolerance, p.y);
-            cw = recent.parentLayer.fromLayer.nearestPointOnTrack(en, enPlus25px.east() - en.east());
+            cw = recent.parentLayer.fromLayer.data.nearestPointOnTrack(en, enPlus25px.east() - en.east());
         }
 
         AudioMarker ca = null;
@@ -218,7 +222,7 @@ public class PlayHeadMarker extends Marker {
             /* work out EastNorth equivalent of 50 (default) pixels tolerance */
             Point p = Main.map.mapView.getPoint(en);
             EastNorth enPlus25px = Main.map.mapView.getEastNorth(p.x+dropTolerance, p.y);
-            WayPoint cw = recent.parentLayer.fromLayer.nearestPointOnTrack(en, enPlus25px.east() - en.east());
+            WayPoint cw = recent.parentLayer.fromLayer.data.nearestPointOnTrack(en, enPlus25px.east() - en.east());
             if (cw == null) {
                 JOptionPane.showMessageDialog(
                         Main.parent,
@@ -263,17 +267,26 @@ public class PlayHeadMarker extends Marker {
         }
     }
 
-    public void paint(Graphics g, MapView mv /*, boolean mousePressed */) {
+    /**
+     * Paint the marker icon in the given graphics context.
+     * @param g The graphics context
+     * @param mv The map
+     */
+    public void paint(Graphics g, MapView mv) {
         if (time < 0.0) return;
         Point screen = mv.getPoint(getEastNorth());
         symbol.paintIcon(mv, g, screen.x, screen.y);
     }
 
+    /**
+     * Animates the marker along the track.
+     */
     public void animate() {
         if (! enabled) return;
         if (timer == null) {
-            animationInterval = Double.parseDouble(Main.pref.get("marker.audioanimationinterval", "1")); //milliseconds
+            animationInterval = Main.pref.getDouble("marker.audioanimationinterval", 1.0); //milliseconds
             timer = new Timer((int)(animationInterval * 1000.0), new ActionListener() {
+                @Override
                 public void actionPerformed(ActionEvent e) {
                     timerAction();
                 }

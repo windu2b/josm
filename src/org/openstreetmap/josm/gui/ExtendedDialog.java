@@ -50,9 +50,9 @@ import org.openstreetmap.josm.tools.WindowGeometry;
  * There are various options, see below.
  *
  * Note: The button indices are counted from 1 and upwards.
- * So for {@link #getValue()}, {@link #setDefaultButton(int)} and 
+ * So for {@link #getValue()}, {@link #setDefaultButton(int)} and
  * {@link #setCancelButton} the first button has index 1.
- * 
+ *
  * Simple example:
  * <pre>
  *  ExtendedDialog ed = new ExtendedDialog(
@@ -273,7 +273,7 @@ public class ExtendedDialog extends JDialog {
 
     /**
      * Retrieve the user choice after the dialog has been closed.
-     * 
+     *
      * @return <ul> <li>The selected button. The count starts with 1.</li>
      *              <li>A return value of {@link #DialogClosedOtherwise} means the dialog has been closed otherwise.</li>
      *         </ul>
@@ -446,6 +446,16 @@ public class ExtendedDialog extends JDialog {
         getRootPane().getActionMap().put("ESCAPE", actionListener);
     }
 
+    protected final void rememberWindowGeometry(WindowGeometry geometry) {
+        if (geometry != null) {
+            geometry.remember(rememberSizePref);
+        }
+    }
+
+    protected final WindowGeometry initWindowGeometry() {
+        return new WindowGeometry(rememberSizePref, defaultWindowGeometry);
+    }
+
     /**
      * Override setVisible to be able to save the window geometry if required
      */
@@ -458,10 +468,9 @@ public class ExtendedDialog extends JDialog {
         // Ensure all required variables are available
         if(rememberSizePref.length() != 0 && defaultWindowGeometry != null) {
             if(visible) {
-                new WindowGeometry(rememberSizePref,
-                        defaultWindowGeometry).applySafe(this);
-            } else {
-                new WindowGeometry(this).remember(rememberSizePref);
+                initWindowGeometry().applySafe(this);
+            } else if (isShowing()) { // should fix #6438, #6981, #8295
+                rememberWindowGeometry(new WindowGeometry(this));
             }
         }
         super.setVisible(visible);
@@ -472,7 +481,7 @@ public class ExtendedDialog extends JDialog {
     }
 
     /**
-     * Call this if you want the dialog to remember the size set by the user.
+     * Call this if you want the dialog to remember the geometry (size and position) set by the user.
      * Set the pref to <code>null</code> or to an empty string to disable again.
      * By default, it's disabled.
      *
@@ -538,8 +547,7 @@ public class ExtendedDialog extends JDialog {
     /**
      * Used in combination with toggle:
      * If the user presses 'cancel' the toggle settings are ignored and not saved to the pref
-     * @param cancelButton index of the button that stands for cancel, accepts
-     *                     multiple values
+     * @param cancelButtonIdx index of the button that stands for cancel, accepts multiple values
      */
     public ExtendedDialog setCancelButton(Integer... cancelButtonIdx) {
         this.cancelButtonIdx = Arrays.<Integer>asList(cancelButtonIdx);
@@ -564,7 +572,7 @@ public class ExtendedDialog extends JDialog {
      * @return true if dialog should not be shown again
      */
     private boolean toggleCheckState(String togglePref) {
-        toggleable = togglePref != null && !togglePref.equals("");
+        toggleable = togglePref != null && !togglePref.isEmpty();
 
         toggleValue = Main.pref.getInteger("message."+togglePref+".value", -1);
         // No identifier given, so return false (= show the dialog)

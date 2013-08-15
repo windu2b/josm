@@ -1,8 +1,6 @@
 // License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui;
 
-import static org.openstreetmap.josm.tools.I18n.tr;
-
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Image;
@@ -19,14 +17,15 @@ import javax.swing.JButton;
 import javax.swing.SwingConstants;
 import javax.swing.plaf.basic.BasicArrowButton;
 
-import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.tools.Destroyable;
 import org.openstreetmap.josm.tools.ImageProvider;
-import org.openstreetmap.josm.tools.Shortcut;
 
+/**
+ * Button that is usually used in toggle dialogs
+ */
 public class SideButton extends JButton implements Destroyable {
     private final static int iconHeight = 20;
-    
+
     private PropertyChangeListener propertyChangeListener;
 
     public SideButton(Action action)
@@ -83,39 +82,6 @@ public class SideButton extends JButton implements Destroyable {
         return getScaledImage(im);
     }
 
-    // Used constructor with Action
-    @Deprecated
-    public SideButton(String imagename, String property, String tooltip, ActionListener actionListener)
-    {
-        super(makeIcon(imagename));
-        doStyle();
-        setActionCommand(imagename);
-        addActionListener(actionListener);
-        setToolTipText(tooltip);
-    }
-
-    // Used constructor with Action
-    @Deprecated
-    public SideButton(String name, String imagename, String property, String tooltip, Shortcut shortcut, ActionListener actionListener)
-    {
-        super(tr(name), makeIcon(imagename));
-        if(shortcut != null)
-        {
-            shortcut.setMnemonic(this);
-            if(tooltip != null) {
-                tooltip = Main.platform.makeTooltip(tooltip, shortcut);
-            }
-        }
-        setup(name, property, tooltip, actionListener);
-    }
-
-    // Used constructor with Action
-    @Deprecated
-    public SideButton(String name, String imagename, String property, String tooltip, ActionListener actionListener)
-    {
-        super(tr(name), makeIcon(imagename));
-        setup(name, property, tooltip, actionListener);
-    }
     private void setup(String name, String property, String tooltip, ActionListener actionListener)
     {
         doStyle();
@@ -124,6 +90,7 @@ public class SideButton extends JButton implements Destroyable {
         setToolTipText(tooltip);
         putClientProperty("help", "Dialog/"+property+"/"+name);
     }
+
     private void doStyle()
     {
         setLayout(new BorderLayout());

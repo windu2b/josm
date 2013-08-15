@@ -14,8 +14,9 @@ import java.util.Set;
 
 import javax.swing.Icon;
 
+import org.openstreetmap.josm.data.conflict.Conflict;
+import org.openstreetmap.josm.data.conflict.ConflictCollection;
 import org.openstreetmap.josm.data.osm.DataSet;
-import org.openstreetmap.josm.data.osm.Hash;
 import org.openstreetmap.josm.data.osm.Node;
 import org.openstreetmap.josm.data.osm.NodeData;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
@@ -37,6 +38,8 @@ public class PurgeCommand extends Command {
     protected Storage<PrimitiveData> makeIncompleteData;
 
     protected Map<PrimitiveId, PrimitiveData> makeIncompleteData_byPrimId;
+
+    protected final ConflictCollection purgedConflicts = new ConflictCollection();
 
     final protected DataSet ds;
 
@@ -64,24 +67,8 @@ public class PurgeCommand extends Command {
     }
 
     protected void saveIncomplete(Collection<OsmPrimitive> makeIncomplete) {
-        makeIncompleteData = new Storage<PrimitiveData>(new Hash<PrimitiveData,PrimitiveData>() {
-            public int getHashCode(PrimitiveData k) {
-                return (int) k.getUniqueId();
-            }
-
-            public boolean equals(PrimitiveData k, PrimitiveData t) {
-                return k.getUniqueId() == t.getUniqueId() && k.getType() == t.getType();
-            }
-        });
-        makeIncompleteData_byPrimId = makeIncompleteData.foreignKey(new Hash<PrimitiveId, PrimitiveData>() {
-            public int getHashCode(PrimitiveId k) {
-                return (int) k.getUniqueId();
-            }
-
-            public boolean equals(PrimitiveId k, PrimitiveData t) {
-                return k.getUniqueId() == t.getUniqueId() && k.getType() == t.getType();
-            }
-        });
+        makeIncompleteData = new Storage<PrimitiveData>(new Storage.PrimitiveIdHash());
+        makeIncompleteData_byPrimId = makeIncompleteData.foreignKey(new Storage.PrimitiveIdHash());
 
         for (OsmPrimitive osm : makeIncomplete) {
             makeIncompleteData.add(osm.save());
@@ -92,6 +79,7 @@ public class PurgeCommand extends Command {
     public boolean executeCommand() {
         ds.beginUpdate();
         try {
+            purgedConflicts.get().clear();
             /**
              * Loop from back to front to keep referential integrity.
              */
@@ -113,6 +101,11 @@ public class PurgeCommand extends Command {
                     osm.load(empty);
                 } else {
                     ds.removePrimitive(osm);
+                    Conflict<?> conflict = getLayer().getConflicts().getConflictForMy(osm);
+                    if (conflict != null) {
+                        purgedConflicts.add(conflict);
+                        getLayer().getConflicts().remove(conflict);
+                    }
                 }
             }
         } finally {
@@ -138,6 +131,10 @@ public class PurgeCommand extends Command {
                 ds.addPrimitive(osm);
             }
         }
+
+        for (Conflict<?> conflict : purgedConflicts) {
+            getLayer().getConflicts().add(conflict);
+        }
     }
 
     /**
@@ -149,6 +146,9 @@ public class PurgeCommand extends Command {
 
         List<OsmPrimitive> out = new ArrayList<OsmPrimitive>(in.size());
 
+        // Nodes not deleted in the first pass
+        Set<OsmPrimitive> remainingNodes = new HashSet<OsmPrimitive>(in.size());
+
         /**
          *  First add nodes that have no way referrer.
          */
@@ -159,6 +159,8 @@ public class PurgeCommand extends Command {
                     Node n = (Node) u;
                     for (OsmPrimitive ref : n.getReferrers()) {
                         if (ref instanceof Way && in.contains(ref)) {
+                            it.remove();
+                            remainingNodes.add(n);
                             continue outer;
                         }
                     }
@@ -170,31 +172,30 @@ public class PurgeCommand extends Command {
         /**
          * Then add all ways, each preceded by its (remaining) nodes.
          */
-        top:
-            while (!in.isEmpty()) {
-                for (Iterator<OsmPrimitive> it = in.iterator(); it.hasNext();) {
-                    OsmPrimitive u = it.next();
-                    if (u instanceof Way) {
-                        Way w = (Way) u;
-                        it.remove();
-                        for (Node n : w.getNodes()) {
-                            if (in.contains(n)) {
-                                in.remove(n);
-                                out.add(n);
-                            }
-                        }
-                        out.add(w);
-                        continue top;
+        for (Iterator<OsmPrimitive> it = in.iterator(); it.hasNext();) {
+            OsmPrimitive u = it.next();
+            if (u instanceof Way) {
+                Way w = (Way) u;
+                it.remove();
+                for (Node n : w.getNodes()) {
+                    if (remainingNodes.contains(n)) {
+                        remainingNodes.remove(n);
+                        out.add(n);
                     }
                 }
-                break; // no more ways left
+                out.add(w);
             }
+        }
+
+        if (!remainingNodes.isEmpty())
+            throw new AssertionError("topo sort algorithm failed (nodes remaining)");
 
         /**
-         * Rest are relations. Do topological sorting on a DAG where each
-         * arrow points from child to parent. (Because it is faster to
-         * loop over getReferrers() than getMembers().)
-         */
+          * Rest are relations. Do topological sorting on a DAG where each
+          * arrow points from child to parent. (Because it is faster to
+          * loop over getReferrers() than getMembers().)
+          */
+        @SuppressWarnings({ "unchecked", "rawtypes" })
         Set<Relation> inR = (Set) in;
         Set<Relation> childlessR = new HashSet<Relation>();
         List<Relation> outR = new ArrayList<Relation>(inR.size());

@@ -10,7 +10,6 @@ import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.Point;
 import java.awt.Rectangle;
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,17 +25,16 @@ import org.openstreetmap.gui.jmapviewer.Coordinate;
 import org.openstreetmap.gui.jmapviewer.JMapViewer;
 import org.openstreetmap.gui.jmapviewer.MapMarkerDot;
 import org.openstreetmap.gui.jmapviewer.MemoryTileCache;
-import org.openstreetmap.gui.jmapviewer.OsmFileCacheTileLoader;
 import org.openstreetmap.gui.jmapviewer.OsmMercator;
 import org.openstreetmap.gui.jmapviewer.OsmTileLoader;
 import org.openstreetmap.gui.jmapviewer.interfaces.MapMarker;
-import org.openstreetmap.gui.jmapviewer.interfaces.TileLoader;
 import org.openstreetmap.gui.jmapviewer.interfaces.TileSource;
 import org.openstreetmap.gui.jmapviewer.tilesources.MapQuestOpenAerialTileSource;
 import org.openstreetmap.gui.jmapviewer.tilesources.MapQuestOsmTileSource;
 import org.openstreetmap.gui.jmapviewer.tilesources.OsmTileSource;
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.Bounds;
+import org.openstreetmap.josm.data.Version;
 import org.openstreetmap.josm.data.coor.LatLon;
 import org.openstreetmap.josm.data.imagery.ImageryInfo;
 import org.openstreetmap.josm.data.imagery.ImageryLayerInfo;
@@ -169,8 +167,8 @@ public class SlippyMapBBoxChooser extends JMapViewer implements BBoxChooser{
     private static final StringProperty PROP_MAPSTYLE = new StringProperty("slippy_map_chooser.mapstyle", "Mapnik");
     public static final String RESIZE_PROP = SlippyMapBBoxChooser.class.getName() + ".resize";
 
-    private TileLoader cachedLoader;
-    private TileLoader uncachedLoader;
+    private OsmTileLoader cachedLoader;
+    private OsmTileLoader uncachedLoader;
 
     private final SizeButton iSizeButton = new SizeButton();
     private final SourceButton iSourceButton;
@@ -184,16 +182,10 @@ public class SlippyMapBBoxChooser extends JMapViewer implements BBoxChooser{
     public SlippyMapBBoxChooser() {
         super();
         TMSLayer.setMaxWorkers();
-        cachedLoader = null;
-        String cachePath = TMSLayer.PROP_TILECACHE_DIR.get();
-        if (cachePath != null && !cachePath.isEmpty()) {
-            try {
-                cachedLoader = new OsmFileCacheTileLoader(this, new File(cachePath));
-            } catch (IOException e) {
-            }
-        }
+        cachedLoader = TMSLayer.loaderFactory.makeTileLoader(this);
 
         uncachedLoader = new OsmTileLoader(this);
+        uncachedLoader.headers.put("User-Agent", Version.getInstance().getFullAgentString());
         setZoomContolsVisible(Main.pref.getBoolean("slippy_map_chooser.zoomcontrols",false));
         setMapMarkerVisible(false);
         setMinimumSize(new Dimension(350, 350 / 2));
@@ -347,6 +339,7 @@ public class SlippyMapBBoxChooser extends JMapViewer implements BBoxChooser{
         PROP_MAPSTYLE.put(tileSource.getName()); // TODO Is name really unique?
     }
 
+    @Override
     public Bounds getBoundingBox() {
         return bbox;
     }
@@ -357,6 +350,7 @@ public class SlippyMapBBoxChooser extends JMapViewer implements BBoxChooser{
      *
      * @param bbox the bounding box. null to reset the bounding box
      */
+    @Override
     public void setBoundingBox(Bounds bbox) {
         if (bbox == null || (bbox.getMin().lat() == 0.0 && bbox.getMin().lon() == 0.0
                 && bbox.getMax().lat() == 0.0 && bbox.getMax().lon() == 0.0)) {

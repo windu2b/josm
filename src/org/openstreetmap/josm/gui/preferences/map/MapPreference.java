@@ -13,16 +13,15 @@ import org.openstreetmap.josm.tools.GBC;
 
 public class MapPreference extends DefaultTabPreferenceSetting {
     public static class Factory implements PreferenceSettingFactory {
+        @Override
         public PreferenceSetting createPreferenceSetting() {
             return new MapPreference();
         }
     }
     
     private MapPreference() {
-        super("map", tr("Map Settings"), tr("Settings for the map projection and data interpretation."));
+        super("map", tr("Map Settings"), tr("Settings for the map projection and data interpretation."), false, new JTabbedPane());
     }
-    
-    public final JTabbedPane mapcontent = new JTabbedPane();
     
     @Override
     public boolean ok() {
@@ -31,6 +30,6 @@ public class MapPreference extends DefaultTabPreferenceSetting {
 
     @Override
     public void addGui(PreferenceTabbedPane gui) {
-        gui.createPreferenceTab(this).add(mapcontent, GBC.eol().fill(GBC.BOTH));
+        gui.createPreferenceTab(this).add(getTabPane(), GBC.eol().fill(GBC.BOTH));
     }
 }

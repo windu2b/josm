@@ -7,8 +7,6 @@ import static org.openstreetmap.josm.tools.I18n.tr;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 
-import javax.swing.KeyStroke;
-
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.tools.Shortcut;
 
@@ -24,6 +22,7 @@ public final class ZoomOutAction extends JosmAction {
                 KeyEvent.VK_SUBTRACT, Shortcut.DIRECT));
     }
 
+    @Override
     public void actionPerformed(ActionEvent e) {
         if (!Main.isDisplayingMapView()) return;
         Main.map.mapView.zoomToFactor(Math.sqrt(2));

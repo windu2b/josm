@@ -9,19 +9,33 @@ import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
+import java.io.BufferedReader;
+import java.io.Closeable;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.Reader;
 import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLConnection;
+import java.nio.channels.FileChannel;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.MessageFormat;
+import java.util.AbstractCollection;
+import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.zip.ZipFile;
+
+import org.openstreetmap.josm.Main;
+import org.openstreetmap.josm.data.Version;
 
 /**
  * Basic utils, that can be useful in different parts of the program.
@@ -226,6 +240,32 @@ public class Utils {
         return new Color(255 - clr.getRed(), 255 - clr.getGreen(), 255 - clr.getBlue(), clr.getAlpha());
     }
 
+    /**
+     * Simple file copy function that will overwrite the target file.<br/>
+     * Taken from <a href="http://www.rgagnon.com/javadetails/java-0064.html">this article</a> (CC-NC-BY-SA)
+     * @param in The source file
+     * @param out The destination file
+     * @throws IOException If any I/O error occurs
+     */
+    public static void copyFile(File in, File out) throws IOException  {
+        // TODO: remove this function when we move to Java 7 (use Files.copy instead)
+        FileInputStream inStream = null;
+        FileOutputStream outStream = null;
+        try {
+            inStream = new FileInputStream(in);
+            outStream = new FileOutputStream(out);
+            FileChannel inChannel = inStream.getChannel();
+            inChannel.transferTo(0, inChannel.size(), outStream.getChannel());
+        }
+        catch (IOException e) {
+            throw e;
+        }
+        finally {
+            close(outStream);
+            close(inStream);
+        }
+    }
+
     public static int copyStream(InputStream source, OutputStream destination) throws IOException {
         int count = 0;
         byte[] b = new byte[512];
@@ -240,12 +280,11 @@ public class Utils {
     public static boolean deleteDirectory(File path) {
         if( path.exists() ) {
             File[] files = path.listFiles();
-            for(int i=0; i<files.length; i++) {
-                if(files[i].isDirectory()) {
-                    deleteDirectory(files[i]);
-                }
-                else {
-                    files[i].delete();
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    deleteDirectory(file);
+                } else {
+                    file.delete();
                 }
             }
         }
@@ -253,43 +292,29 @@ public class Utils {
     }
 
     /**
-     * <p>Utility method for closing an input stream.</p>
+     * <p>Utility method for closing a {@link Closeable} object.</p>
      *
-     * @param is the input stream. May be null.
+     * @param c the closeable object. May be null.
      */
-    public static void close(InputStream is){
-        if (is == null) return;
+    public static void close(Closeable c) {
+        if (c == null) return;
         try {
-            is.close();
-        } catch(IOException e){
+            c.close();
+        } catch(IOException e) {
             // ignore
         }
     }
 
     /**
-     * <p>Utility method for closing an output stream.</p>
+     * <p>Utility method for closing a {@link ZipFile}.</p>
      *
-     * @param os the output stream. May be null.
+     * @param zip the zip file. May be null.
      */
-    public static void close(OutputStream os){
-        if (os == null) return;
+    public static void close(ZipFile zip) {
+        if (zip == null) return;
         try {
-            os.close();
-        } catch(IOException e){
-            // ignore
-        }
-    }
-
-    /**
-     * <p>Utility method for closing a reader.</p>
-     *
-     * @param reader the reader. May be null.
-     */
-    public static void close(Reader reader){
-        if (reader == null) return;
-        try {
-            reader.close();
-        } catch(IOException e){
+            zip.close();
+        } catch(IOException e) {
             // ignore
         }
     }
@@ -330,7 +355,7 @@ public class Utils {
         for (int tries = 0; t == null && tries < 10; tries++) {
             try {
                 t = clipboard.getContents(null);
-            } catch (IllegalStateException e) { 
+            } catch (IllegalStateException e) {
                 // Clipboard currently unavailable. On some platforms, the system clipboard is unavailable while it is accessed by another application.
                 try {
                     Thread.sleep(1);
@@ -355,7 +380,8 @@ public class Utils {
 
     /**
      * Calculate MD5 hash of a string and output in hexadecimal format.
-     * Output has length 32 with characters in range [0-9a-f]
+     * @param data arbitrary String
+     * @return MD5 hash of data, string of length 32 with characters in range [0-9a-f]
      */
     public static String md5Hex(String data) {
         byte[] byteData = null;
@@ -375,8 +401,11 @@ public class Utils {
     }
 
     /**
-     * Converts a byte array to a string of hexadecimal characters. Preserves leading zeros, so the
-     * size of the output string is always twice the number of input bytes.
+     * Converts a byte array to a string of hexadecimal characters.
+     * Preserves leading zeros, so the size of the output string is always twice
+     * the number of input bytes.
+     * @param bytes the byte array
+     * @return hexadecimal representation
      */
     public static String toHexString(byte[] bytes) {
         char[] hexArray = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
@@ -412,7 +441,7 @@ public class Utils {
         for (int i=0; i<size; ++i) {
             T parentless = null;
             for (T key : deps.keySet()) {
-                if (deps.get(key).size() == 0) {
+                if (deps.get(key).isEmpty()) {
                     parentless = key;
                     break;
                 }
@@ -454,36 +483,11 @@ public class Utils {
      * @return the transformed unmodifiable collection
      */
     public static <A, B> Collection<B> transform(final Collection<? extends A> c, final Function<A, B> f) {
-        return new Collection<B>() {
+        return new AbstractCollection<B>() {
 
             @Override
             public int size() {
                 return c.size();
-            }
-
-            @Override
-            public boolean isEmpty() {
-                return c.isEmpty();
-            }
-
-            @Override
-            public boolean contains(Object o) {
-                return c.contains(o);
-            }
-
-            @Override
-            public Object[] toArray() {
-                return c.toArray();
-            }
-
-            @Override
-            public <T> T[] toArray(T[] a) {
-                return c.toArray(a);
-            }
-
-            @Override
-            public String toString() {
-                return c.toString();
             }
 
             @Override
@@ -508,41 +512,182 @@ public class Utils {
                     }
                 };
             }
-
-            @Override
-            public boolean add(B e) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public boolean remove(Object o) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public boolean containsAll(Collection<?> c) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public boolean addAll(Collection<? extends B> c) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public boolean removeAll(Collection<?> c) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public boolean retainAll(Collection<?> c) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public void clear() {
-                throw new UnsupportedOperationException();
-            }
         };
     }
+
+    /**
+     * Transforms the list {@code l} into an unmodifiable list and
+     * applies the {@link Function} {@code f} on each element upon access.
+     * @param <A> class of input collection
+     * @param <B> class of transformed collection
+     * @param l a collection
+     * @param f a function that transforms objects of {@code A} to objects of {@code B}
+     * @return the transformed unmodifiable list
+     */
+    public static <A, B> List<B> transform(final List<? extends A> l, final Function<A, B> f) {
+        return new AbstractList<B>() {
+
+
+            @Override
+            public int size() {
+                return l.size();
+            }
+
+            @Override
+            public B get(int index) {
+                return f.apply(l.get(index));
+            }
+
+
+        };
+    }
+
+    /**
+     * Convert Hex String to Color.
+     * @param s Must be of the form "#34a300" or "#3f2", otherwise throws Exception.
+     * Upper/lower case does not matter.
+     * @return The corresponding color.
+     */
+    static public Color hexToColor(String s) {
+        String clr = s.substring(1);
+        if (clr.length() == 3) {
+            clr = new String(new char[] {
+                clr.charAt(0), clr.charAt(0), clr.charAt(1), clr.charAt(1), clr.charAt(2), clr.charAt(2)
+            });
+        }
+        if (clr.length() != 6)
+            throw new IllegalArgumentException();
+        return new Color(Integer.parseInt(clr, 16));
+    }
+
+    /**
+     * Opens a HTTP connection to the given URL and sets the User-Agent property to JOSM's one.
+     * @param httpURL The HTTP url to open (must use http:// or https://)
+     * @return An open HTTP connection to the given URL
+     * @throws IOException if an I/O exception occurs.
+     * @since 5587
+     */
+    public static HttpURLConnection openHttpConnection(URL httpURL) throws IOException {
+        if (httpURL == null || !httpURL.getProtocol().matches("https?")) {
+            throw new IllegalArgumentException("Invalid HTTP url");
+        }
+        HttpURLConnection connection = (HttpURLConnection) httpURL.openConnection();
+        connection.setRequestProperty("User-Agent", Version.getInstance().getFullAgentString());
+        connection.setUseCaches(false);
+        return connection;
+    }
+
+    /**
+     * Opens a connection to the given URL and sets the User-Agent property to JOSM's one.
+     * @param url The url to open
+     * @return An stream for the given URL
+     * @throws IOException if an I/O exception occurs.
+     * @since 5867
+     */
+    public static InputStream openURL(URL url) throws IOException {
+        return setupURLConnection(url.openConnection()).getInputStream();
+    }
+
+    /***
+     * Setups the given URL connection to match JOSM needs by setting its User-Agent and timeout properties.
+     * @param connection The connection to setup
+     * @return {@code connection}, with updated properties
+     * @since 5887
+     */
+    public static URLConnection setupURLConnection(URLConnection connection) {
+        if (connection != null) {
+            connection.setRequestProperty("User-Agent", Version.getInstance().getFullAgentString());
+            connection.setConnectTimeout(Main.pref.getInteger("socket.timeout.connect",15)*1000);
+            connection.setReadTimeout(Main.pref.getInteger("socket.timeout.read",30)*1000);
+        }
+        return connection;
+    }
+
+    /**
+     * Opens a connection to the given URL and sets the User-Agent property to JOSM's one.
+     * @param url The url to open
+     * @return An buffered stream reader for the given URL (using UTF-8)
+     * @throws IOException if an I/O exception occurs.
+     * @since 5868
+     */
+    public static BufferedReader openURLReader(URL url) throws IOException {
+        return new BufferedReader(new InputStreamReader(openURL(url), "utf-8"));
+    }
+
+    /**
+     * Opens a HTTP connection to the given URL, sets the User-Agent property to JOSM's one and optionnaly disables Keep-Alive.
+     * @param httpURL The HTTP url to open (must use http:// or https://)
+     * @param keepAlive
+     * @return An open HTTP connection to the given URL
+     * @throws IOException if an I/O exception occurs.
+     * @since 5587
+     */
+    public static HttpURLConnection openHttpConnection(URL httpURL, boolean keepAlive) throws IOException {
+        HttpURLConnection connection = openHttpConnection(httpURL);
+        if (!keepAlive) {
+            connection.setRequestProperty("Connection", "close");
+        }
+        return connection;
+    }
+
+    /**
+     * An alternative to {@link String#trim()} to effectively remove all leading and trailing white characters, including Unicode ones.
+     * @see <a href="http://closingbraces.net/2008/11/11/javastringtrim/">Java’s String.trim has a strange idea of whitespace</a>
+     * @see <a href="http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=4080617">JDK bug 4080617</a>
+     * @param str The string to strip
+     * @return <code>str</code>, without leading and trailing characters, according to
+     *         {@link Character#isWhitespace(char)} and {@link Character#isSpaceChar(char)}.
+     * @since 5772
+     */
+    public static String strip(String str) {
+        if (str == null || str.isEmpty()) {
+            return str;
+        }
+        int start = 0, end = str.length();
+        boolean leadingWhite = true;
+        while (leadingWhite && start < end) {
+            char c = str.charAt(start);
+            // '\u200B' (ZERO WIDTH SPACE character) needs to be handled manually because of change in Unicode 6.0 (Java 7, see #8918)
+            leadingWhite = (Character.isWhitespace(c) || Character.isSpaceChar(c) || c == '\u200B');
+            if (leadingWhite) {
+                start++;
+            }
+        }
+        boolean trailingWhite = true;
+        while (trailingWhite && end > start+1) {
+            char c = str.charAt(end-1);
+            trailingWhite = (Character.isWhitespace(c) || Character.isSpaceChar(c) || c == '\u200B');
+            if (trailingWhite) {
+                end--;
+            }
+        }
+        return str.substring(start, end);
+    }
+
+    /**
+     * Runs an external command and returns the standard output.
+     * 
+     * The program is expected to execute fast.
+     * 
+     * @param command the command with arguments
+     * @return the output
+     * @throws IOException when there was an error, e.g. command does not exist
+     */
+    public static String execOutput(List<String> command) throws IOException {
+        Process p = new ProcessBuilder(command).start();
+        BufferedReader input = new BufferedReader(new InputStreamReader(p.getInputStream()));
+        StringBuilder all = null;
+        String line;
+        while ((line = input.readLine()) != null) {
+            if (all == null) {
+                all = new StringBuilder(line);
+            } else {
+                all.append("\n");
+                all.append(line);
+            }
+        }
+        Utils.close(input);
+        return all.toString();
+    }
+
 }

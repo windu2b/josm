@@ -31,9 +31,9 @@ public class ValidatorPreference extends DefaultTabPreferenceSetting {
             return new ValidatorPreference();
         }
     }
-    
+
     private ValidatorPreference() {
-        super("validator", tr("Data validator"), 
+        super("validator", tr("Data validator"),
                 tr("An OSM data validator that checks for common errors made by users and editor programs."));
     }
 
@@ -95,6 +95,7 @@ public class ValidatorPreference extends DefaultTabPreferenceSetting {
         testPanel.add(prefOtherUpload, GBC.eol());
 
         ActionListener otherUploadEnabled = new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 prefOtherUpload.setEnabled(prefOther.isSelected());
             }

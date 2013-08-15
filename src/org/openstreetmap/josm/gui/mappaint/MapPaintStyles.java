@@ -5,12 +5,10 @@ import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -30,6 +28,7 @@ import org.openstreetmap.josm.gui.preferences.map.MapPaintPreference.MapPaintPre
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
 import org.openstreetmap.josm.io.MirroredInputStream;
 import org.openstreetmap.josm.tools.ImageProvider;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * This class manages the ElemStyles instance. The object you get with
@@ -96,6 +95,7 @@ public class MapPaintStyles {
                 .setDirs(getIconSourceDirs(ref.source))
                 .setId("mappaint."+namespace)
                 .setArchive(ref.source.zipIcons)
+                .setInArchiveDir(ref.source.getZipEntryDirName())
                 .setWidth(width)
                 .setHeight(height)
                 .setOptional(true).get();
@@ -120,21 +120,21 @@ public class MapPaintStyles {
                 .setDirs(getIconSourceDirs(source))
                 .setId("mappaint."+source.getPrefName())
                 .setArchive(source.zipIcons)
+                .setInArchiveDir(source.getZipEntryDirName())
                 .setOptional(true).get();
     }
-    
+
     public static ImageIcon getNodeIcon(Tag tag) {
         return getNodeIcon(tag, true);
     }
-    
+
     public static ImageIcon getNodeIcon(Tag tag, boolean includeDeprecatedIcon) {
         if (tag != null) {
             Node virtualNode = new Node();
             virtualNode.put(tag.getKey(), tag.getValue());
             StyleList styleList = getStyles().generateStyles(virtualNode, 0.5, null, false).a;
             if (styleList != null) {
-                for (Iterator<ElemStyle> it = styleList.iterator(); it.hasNext(); ) {
-                    ElemStyle style = it.next();
+                for (ElemStyle style : styleList) {
                     if (style instanceof NodeElemStyle) {
                         MapImage mapImage = ((NodeElemStyle) style).mapImage;
                         if (mapImage != null) {
@@ -163,7 +163,7 @@ public class MapPaintStyles {
         for(String fileset : prefIconDirs)
         {
             String[] a;
-            if(fileset.indexOf("=") >= 0) {
+            if(fileset.indexOf('=') >= 0) {
                 a = fileset.split("=", 2);
             } else {
                 a = new String[] {"", fileset};
@@ -211,12 +211,15 @@ public class MapPaintStyles {
         MirroredInputStream in = null;
         try {
             in = new MirroredInputStream(entry.url);
-            InputStream zip = in.getZipEntry("xml", "style");
-            if (zip != null)
-                return new XmlStyleSource(entry);
-            zip = in.getZipEntry("mapcss", "style");
-            if (zip != null)
+            String zipEntryPath = in.findZipEntryPath("mapcss", "style");
+            if (zipEntryPath != null) {
+                entry.isZip = true;
+                entry.zipEntryPath = zipEntryPath;
                 return new MapCSSStyleSource(entry);
+            }
+            zipEntryPath = in.findZipEntryPath("xml", "style");
+            if (zipEntryPath != null)
+                return new XmlStyleSource(entry);
             if (entry.url.toLowerCase().endsWith(".mapcss"))
                 return new MapCSSStyleSource(entry);
             if (entry.url.toLowerCase().endsWith(".xml"))
@@ -246,12 +249,7 @@ public class MapPaintStyles {
             System.err.println(tr("Warning: failed to load Mappaint styles from ''{0}''. Exception was: {1}", entry.url, e.toString()));
             e.printStackTrace();
         } finally {
-            try {
-                if (in != null) {
-                    in.close();
-                }
-            } catch (IOException ex) {
-            }
+            Utils.close(in);
         }
         return null;
     }
@@ -313,7 +311,7 @@ public class MapPaintStyles {
 
     /**
      * Move position of entries in the current list of StyleSources
-     * @param sele The indices of styles to be moved.
+     * @param sel The indices of styles to be moved.
      * @param delta The number of lines it should move. positive int moves
      *      down and negative moves up.
      */

@@ -8,6 +8,8 @@ import static org.openstreetmap.josm.tools.I18n.tr;
 import java.awt.Component;
 import java.awt.Toolkit;
 import java.awt.event.KeyEvent;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JMenu;
@@ -33,6 +35,7 @@ import org.openstreetmap.josm.actions.CopyCoordinatesAction;
 import org.openstreetmap.josm.actions.CreateCircleAction;
 import org.openstreetmap.josm.actions.CreateMultipolygonAction;
 import org.openstreetmap.josm.actions.DeleteAction;
+import org.openstreetmap.josm.actions.DialogsToggleAction;
 import org.openstreetmap.josm.actions.DistributeAction;
 import org.openstreetmap.josm.actions.DownloadAction;
 import org.openstreetmap.josm.actions.DownloadPrimitiveAction;
@@ -62,11 +65,14 @@ import org.openstreetmap.josm.actions.NewAction;
 import org.openstreetmap.josm.actions.OpenFileAction;
 import org.openstreetmap.josm.actions.OpenLocationAction;
 import org.openstreetmap.josm.actions.OrthogonalizeAction;
+import org.openstreetmap.josm.actions.OrthogonalizeAction.Undo;
 import org.openstreetmap.josm.actions.PasteAction;
 import org.openstreetmap.josm.actions.PasteTagsAction;
+import org.openstreetmap.josm.actions.PreferenceToggleAction;
 import org.openstreetmap.josm.actions.PreferencesAction;
 import org.openstreetmap.josm.actions.PurgeAction;
 import org.openstreetmap.josm.actions.RedoAction;
+import org.openstreetmap.josm.actions.RestartAction;
 import org.openstreetmap.josm.actions.ReverseWayAction;
 import org.openstreetmap.josm.actions.SaveAction;
 import org.openstreetmap.josm.actions.SaveAsAction;
@@ -89,8 +95,6 @@ import org.openstreetmap.josm.actions.ViewportFollowToggleAction;
 import org.openstreetmap.josm.actions.WireframeToggleAction;
 import org.openstreetmap.josm.actions.ZoomInAction;
 import org.openstreetmap.josm.actions.ZoomOutAction;
-import org.openstreetmap.josm.actions.OrthogonalizeAction.Undo;
-import org.openstreetmap.josm.actions.PreferenceToggleAction;
 import org.openstreetmap.josm.actions.audio.AudioBackAction;
 import org.openstreetmap.josm.actions.audio.AudioFasterAction;
 import org.openstreetmap.josm.actions.audio.AudioFwdAction;
@@ -99,6 +103,8 @@ import org.openstreetmap.josm.actions.audio.AudioPlayPauseAction;
 import org.openstreetmap.josm.actions.audio.AudioPrevAction;
 import org.openstreetmap.josm.actions.audio.AudioSlowerAction;
 import org.openstreetmap.josm.actions.search.SearchAction;
+import org.openstreetmap.josm.data.Preferences.PreferenceChangeEvent;
+import org.openstreetmap.josm.data.Preferences.PreferenceChangedListener;
 import org.openstreetmap.josm.gui.io.RecentlyOpenedFilesMenu;
 import org.openstreetmap.josm.gui.layer.Layer;
 import org.openstreetmap.josm.gui.mappaint.MapPaintMenu;
@@ -135,6 +141,7 @@ public class MainMenu extends JMenuBar {
     public final JosmAction updateModified = new UpdateModifiedAction();
     public final JosmAction upload = new UploadAction();
     public final JosmAction uploadSelection = new UploadSelectionAction();
+    public final JosmAction restart = new RestartAction();
     public final JosmAction exit = new ExitAction();
 
     /* Edit menu */
@@ -161,27 +168,28 @@ public class MainMenu extends JMenuBar {
     public final InfoWebAction infoweb = new InfoWebAction();
     public final HistoryInfoAction historyinfo = new HistoryInfoAction();
     public final HistoryInfoWebAction historyinfoweb = new HistoryInfoWebAction();
+    public final Map<String, AutoScaleAction> autoScaleActions = new HashMap<String, AutoScaleAction>();
 
     /* Tools menu */
     public final JosmAction splitWay = new SplitWayAction();
     public final JosmAction combineWay = new CombineWayAction();
     public final JosmAction reverseWay = new ReverseWayAction();
+    public final JosmAction simplifyWay = new SimplifyWayAction();
     public final JosmAction alignInCircle = new AlignInCircleAction();
     public final JosmAction alignInLine = new AlignInLineAction();
     public final JosmAction distribute = new DistributeAction();
     public final OrthogonalizeAction ortho = new OrthogonalizeAction();
     public final JosmAction orthoUndo = new Undo();  // action is not shown in the menu. Only triggered by shortcut
     public final JosmAction mirror = new MirrorAction();
+    public final JosmAction followLine = new FollowLineAction();
     public final AddNodeAction addnode = new AddNodeAction();
     public final MoveNodeAction movenode = new MoveNodeAction();
     public final JosmAction createCircle = new CreateCircleAction();
     public final JosmAction mergeNodes = new MergeNodesAction();
     public final JosmAction joinNodeWay = new JoinNodeWayAction();
     public final JosmAction unglueNodes = new UnGlueAction();
-    public final JosmAction simplifyWay = new SimplifyWayAction();
     public final JosmAction joinAreas = new JoinAreasAction();
     public final JosmAction createMultipolygon = new CreateMultipolygonAction();
-    public final JosmAction followLine = new FollowLineAction();
 
     /* Audio menu */
     public final JosmAction audioPlayPause = new AudioPlayPauseAction();
@@ -201,22 +209,53 @@ public class MainMenu extends JMenuBar {
     public final JMenu sessionMenu = new JMenu(tr("Session")); // submenu of the file menu
     public final JMenu editMenu = addMenu(marktr("Edit"), KeyEvent.VK_E, 1, ht("/Menu/Edit"));
     public final JMenu viewMenu = addMenu(marktr("View"), KeyEvent.VK_V, 2, ht("/Menu/View"));
+    /**
+     * toolsMenu contains different geometry manipulation actions from JOSM core (most used)
+     * The plugins should use other menus
+     */
     public final JMenu toolsMenu = addMenu(marktr("Tools"), KeyEvent.VK_T, 3, ht("/Menu/Tools"));
-    public final JMenu presetsMenu = addMenu(marktr("Presets"), KeyEvent.VK_P, 4, ht("/Menu/Presets"));
+    /**
+     * moreToolsMenu contains geometry-related actions from all the plugins
+     * @since 6082 (moved from Utilsplugin2)
+     */
+    public final JMenu moreToolsMenu = addMenu(marktr("More tools"), KeyEvent.VK_M, 4, ht("/Menu/MoreTools"));
+    /**
+     * dataMenu contains plugin actions that are related to certain tagging schemes (addressing opening hours),
+     * importing external data and using external web APIs
+     * @since 6082 
+     */    
+    public final JMenu dataMenu = addMenu(marktr("Data"), KeyEvent.VK_D, 5, ht("/Menu/Data"));
+     /**
+     * selectionMenu contains all actions related to selecting different objects
+     * @since 6082 (moved from Utilsplugin2)
+     */
+    public final JMenu selectionMenu = addMenu(marktr("Selection"), KeyEvent.VK_N, 6, ht("/Menu/Selection"));
+    public final JMenu presetsMenu = addMenu(marktr("Presets"), KeyEvent.VK_P, 7, ht("/Menu/Presets"));
+    /**
+     * submenu in Imagery menu that contains plugin-managed additional imagery layers 
+     * @since 6097
+     */
+    public final JMenu imagerySubMenu = new JMenu(tr("More..."));
     public final ImageryMenu imageryMenu =
-        (ImageryMenu)addMenu(new ImageryMenu(), marktr("Imagery"), KeyEvent.VK_I, 5, ht("/Menu/Imagery"));
+        (ImageryMenu)addMenu(new ImageryMenu(imagerySubMenu), marktr("Imagery"), KeyEvent.VK_I, 8, ht("/Menu/Imagery"));
+     /**
+     * gpsMenu contains all plugin actions that are related
+     * to using GPS data, including opening, uploading and real-time tracking
+     * @since 6082 
+     */
+    public final JMenu gpsMenu = addMenu(marktr("GPS"), KeyEvent.VK_G, 9, ht("/Menu/GPS"));
     /** the window menu is split into several groups. The first is for windows that can be opened from
      * this menu any time, e.g. the changeset editor. The second group is for toggle dialogs and the third
      * group is for currently open windows that cannot be toggled, e.g. relation editors. It's recommended
      * to use WINDOW_MENU_GROUP to determine the group integer.
      */
-    public final JMenu windowMenu = addMenu(marktr("Windows"), KeyEvent.VK_W, 6, ht("/Menu/Windows"));
+    public final JMenu windowMenu = addMenu(marktr("Windows"), KeyEvent.VK_W, 10, ht("/Menu/Windows"));
     public static enum WINDOW_MENU_GROUP { ALWAYS, TOGGLE_DIALOG, VOLATILE }
 
     public JMenu audioMenu = null;
-    public final JMenu helpMenu = addMenu(marktr("Help"), KeyEvent.VK_H, 7, ht("/Menu/Help"));
+    public final JMenu helpMenu = addMenu(marktr("Help"), KeyEvent.VK_H, 11, ht("/Menu/Help"));
 
-    public final int defaultMenuPos = 7;
+    private final int defaultMenuPos = 11;
 
     public final JosmAction moveUpAction = new MoveAction(MoveAction.Direction.UP);
     public final JosmAction moveDownAction = new MoveAction(MoveAction.Direction.DOWN);
@@ -225,6 +264,7 @@ public class MainMenu extends JMenuBar {
     public final JumpToAction jumpToAct = new JumpToAction();
 
     public final TaggingPresetSearchAction presetSearchAction = new TaggingPresetSearchAction();
+    public final DialogsToggleAction dialogsToggleAction = new DialogsToggleAction();
     public FullscreenToggleAction fullscreenToggleAction = null;
 
     /** this menu listener hides unnecessary JSeparators in a menu list but does not remove them.
@@ -255,6 +295,14 @@ public class MainMenu extends JMenuBar {
             }
         }
     };
+    
+    /**
+     * @since 6088
+     * @return the default position of tnew top-level menus
+     */
+    public int getDefaultMenuPos() { 
+         return defaultMenuPos; 
+    }
 
     /**
      * Add a JosmAction at the end of a menu.
@@ -310,6 +358,8 @@ public class MainMenu extends JMenuBar {
         if (ks != null) {
             menuitem.setAccelerator(ks);
         }
+        // some menus are hidden before they are populated with some items by plugins
+        if (!menu.isVisible()) menu.setVisible(true);
         return menuitem;
     }
 
@@ -418,7 +468,11 @@ public class MainMenu extends JMenuBar {
 
     public MainMenu() {
         JMenuItem current;
-
+        
+        moreToolsMenu.setVisible(false);
+        dataMenu.setVisible(false);
+        gpsMenu.setVisible(false);
+        
         add(fileMenu, newAction);
         add(fileMenu, openFile);
         fileMenu.add(recentlyOpened);
@@ -426,15 +480,14 @@ public class MainMenu extends JMenuBar {
         fileMenu.addSeparator();
         add(fileMenu, save);
         add(fileMenu, saveAs);
-        if (Main.pref.getBoolean("session")) {
-            sessionMenu.setToolTipText(tr("Save and load the current session (list of layers, etc.)"));
-            sessionMenu.setIcon(ImageProvider.get("session"));
-            sessionSaveAs = new SessionSaveAsAction();
-            sessionLoad = new SessionLoadAction();
-            add(sessionMenu, sessionSaveAs);
-            add(sessionMenu, sessionLoad);
-            fileMenu.add(sessionMenu);
-        }
+        sessionMenu.setToolTipText(tr("Save and load the current session (list of layers, etc.)"));
+        sessionMenu.setIcon(ImageProvider.get("session"));
+        sessionSaveAs = new SessionSaveAsAction();
+        sessionLoad = new SessionLoadAction();
+        add(sessionMenu, sessionSaveAs);
+        add(sessionMenu, sessionLoad);
+        fileMenu.add(sessionMenu);
+        ExpertToggleAction.addVisibilitySwitcher(sessionMenu);
         add(fileMenu, gpxExport, true);
         fileMenu.addSeparator();
         add(fileMenu, download);
@@ -451,6 +504,7 @@ public class MainMenu extends JMenuBar {
         ExpertToggleAction.addVisibilitySwitcher(sep);
         add(fileMenu, closeChangesetAction, true);
         fileMenu.addSeparator();
+        add(fileMenu, restart);
         add(fileMenu, exit);
 
         add(editMenu, undo);
@@ -469,9 +523,6 @@ public class MainMenu extends JMenuBar {
         add(editMenu,merge);
         add(editMenu,mergeSelected);
         editMenu.addSeparator();
-        add(editMenu, selectAll);
-        add(editMenu, unselectAll);
-        editMenu.addSeparator();
         add(editMenu, search);
         editMenu.addSeparator();
         add(editMenu, preferences);
@@ -488,7 +539,8 @@ public class MainMenu extends JMenuBar {
         add(viewMenu, new ZoomOutAction());
         viewMenu.addSeparator();
         for (String mode : AutoScaleAction.MODES) {
-            JosmAction autoScaleAction = new AutoScaleAction(mode);
+            AutoScaleAction autoScaleAction = new AutoScaleAction(mode);
+            autoScaleActions.put(mode, autoScaleAction);
             add(viewMenu, autoScaleAction);
         }
 
@@ -509,6 +561,13 @@ public class MainMenu extends JMenuBar {
             fullscreen.setAccelerator(fullscreenToggleAction.getShortcut().getKeyStroke());
             fullscreenToggleAction.addButtonModel(fullscreen.getModel());
         }
+
+        // -- dialogs panel toggle action
+        final JCheckBoxMenuItem dialogsToggle = new JCheckBoxMenuItem(dialogsToggleAction);
+        dialogsToggle.setAccelerator(dialogsToggleAction.getShortcut().getKeyStroke());
+        dialogsToggleAction.addButtonModel(dialogsToggle.getModel());
+        viewMenu.add(dialogsToggle);
+
         viewMenu.addSeparator();
         add(viewMenu, info);
         add(viewMenu, infoweb);
@@ -525,6 +584,9 @@ public class MainMenu extends JMenuBar {
 
         add(presetsMenu, presetSearchAction);
         presetsMenu.addSeparator();
+        
+        add(selectionMenu, selectAll);
+        add(selectionMenu, unselectAll);
 
         add(toolsMenu, splitWay);
         add(toolsMenu, combineWay);
@@ -556,17 +618,18 @@ public class MainMenu extends JMenuBar {
                 MainMenu.WINDOW_MENU_GROUP.ALWAYS);
         changesetManagerToggleAction.addButtonModel(mi.getModel());
 
-
         if (!Main.pref.getBoolean("audio.menuinvisible", false)) {
-            audioMenu = addMenu(marktr("Audio"), KeyEvent.VK_U, defaultMenuPos, ht("/Menu/Audio"));
-            add(audioMenu, audioPlayPause);
-            add(audioMenu, audioNext);
-            add(audioMenu, audioPrev);
-            add(audioMenu, audioFwd);
-            add(audioMenu, audioBack);
-            add(audioMenu, audioSlower);
-            add(audioMenu, audioFaster);
+            showAudioMenu(true);
         }
+
+        Main.pref.addPreferenceChangeListener(new PreferenceChangedListener() {
+            @Override
+            public void preferenceChanged(PreferenceChangeEvent e) {
+                if (e.getKey().equals("audio.menuinvisible")) {
+                    showAudioMenu(!Boolean.parseBoolean(e.getNewValue().toString()));
+                }
+            }
+        });
 
         helpMenu.add(statusreport);
 
@@ -579,6 +642,25 @@ public class MainMenu extends JMenuBar {
         windowMenu.addMenuListener(menuSeparatorHandler);
 
         new PresetsMenuEnabler(presetsMenu).refreshEnabled();
+    }
+
+    protected void showAudioMenu(boolean showMenu) {
+        if (showMenu && audioMenu == null) {
+            audioMenu = addMenu(marktr("Audio"), KeyEvent.VK_U, defaultMenuPos, ht("/Menu/Audio"));
+            add(audioMenu, audioPlayPause);
+            add(audioMenu, audioNext);
+            add(audioMenu, audioPrev);
+            add(audioMenu, audioFwd);
+            add(audioMenu, audioBack);
+            add(audioMenu, audioSlower);
+            add(audioMenu, audioFaster);
+            validate();
+        } else if (!showMenu && audioMenu != null) {
+            remove(audioMenu);
+            audioMenu.removeAll();
+            audioMenu = null;
+            validate();
+        }
     }
 
     static class PresetsMenuEnabler implements MapView.LayerChangeListener {
@@ -597,14 +679,17 @@ public class MainMenu extends JMenuBar {
             );
         }
 
+        @Override
         public void activeLayerChange(Layer oldLayer, Layer newLayer) {
             refreshEnabled();
         }
 
+        @Override
         public void layerAdded(Layer newLayer) {
             refreshEnabled();
         }
 
+        @Override
         public void layerRemoved(Layer oldLayer) {
             refreshEnabled();
         }

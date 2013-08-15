@@ -14,19 +14,27 @@ import org.openstreetmap.josm.gui.layer.markerlayer.MarkerLayer;
 import org.openstreetmap.josm.tools.AudioPlayer;
 import org.openstreetmap.josm.tools.Shortcut;
 
+/**
+ * Jump the audio backward 10 seconds and start playing if paused.
+ * @since 547
+ */
 public class AudioBackAction extends JosmAction {
 
+    /**
+     * Constructs a new {@code AudioBackAction}.
+     */
     public AudioBackAction() {
         super(trc("audio", "Back"), "audio-back", trc("audio", "Jump back."),
         Shortcut.registerShortcut("audio:back", tr("Audio: {0}", trc("audio", "Back")), KeyEvent.VK_F6, Shortcut.DIRECT), true);
         this.putValue("help", ht("/Action/AudioBack"));
     }
 
+    @Override
     public void actionPerformed(ActionEvent e) {
         try {
             if (AudioPlayer.playing() || AudioPlayer.paused())
                 AudioPlayer.play(AudioPlayer.url(), AudioPlayer.position()
-                - Main.pref.getDouble("audio.forwardbackamount","10.0"));
+                - Main.pref.getDouble("audio.forwardbackamount", 10.0));
             else
                 MarkerLayer.playAudio();
         } catch (Exception ex) {

@@ -5,10 +5,15 @@ import static org.openstreetmap.josm.tools.I18n.marktr;
 import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.text.MessageFormat;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.Set;
 
+import org.openstreetmap.josm.command.Command;
+import org.openstreetmap.josm.command.DeleteCommand;
 import org.openstreetmap.josm.data.osm.Node;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.osm.Relation;
@@ -19,7 +24,11 @@ import org.openstreetmap.josm.data.validation.Test;
 import org.openstreetmap.josm.data.validation.TestError;
 import org.openstreetmap.josm.gui.preferences.map.TaggingPresetPreference;
 import org.openstreetmap.josm.gui.tagging.TaggingPreset;
-import org.openstreetmap.josm.gui.tagging.TaggingPreset.PresetType;
+import org.openstreetmap.josm.gui.tagging.TaggingPresetItem;
+import org.openstreetmap.josm.gui.tagging.TaggingPresetItems.Role;
+import org.openstreetmap.josm.gui.tagging.TaggingPresetItems.Key;
+import org.openstreetmap.josm.gui.tagging.TaggingPresetItems.Roles;
+import org.openstreetmap.josm.gui.tagging.TaggingPresetType;
 
 /**
  * Check for wrong relations
@@ -59,8 +68,8 @@ public class RelationChecker extends Test {
         Collection<TaggingPreset> presets = TaggingPresetPreference.taggingPresets;
         if (presets != null) {
             for (TaggingPreset p : presets) {
-                for (TaggingPreset.Item i : p.data) {
-                    if (i instanceof TaggingPreset.Roles) {
+                for (TaggingPresetItem i : p.data) {
+                    if (i instanceof Roles) {
                         relationpresets.add(p);
                         break;
                     }
@@ -78,28 +87,29 @@ public class RelationChecker extends Test {
         Collection<Relation> relations = new LinkedList<Relation>();
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public void visit(Relation n) {
-        LinkedList<TaggingPreset.Role> allroles = new LinkedList<TaggingPreset.Role>();
+        LinkedList<Role> allroles = new LinkedList<Role>();
         for (TaggingPreset p : relationpresets) {
             boolean matches = true;
-            TaggingPreset.Roles r = null;
-            for (TaggingPreset.Item i : p.data) {
-                if (i instanceof TaggingPreset.Key) {
-                    TaggingPreset.Key k = (TaggingPreset.Key) i;
+            Roles r = null;
+            for (TaggingPresetItem i : p.data) {
+                if (i instanceof Key) {
+                    Key k = (Key) i;
                     if (!k.value.equals(n.get(k.key))) {
                         matches = false;
                         break;
                     }
-                } else if (i instanceof TaggingPreset.Roles) {
-                    r = (TaggingPreset.Roles) i;
+                } else if (i instanceof Roles) {
+                    r = (Roles) i;
                 }
             }
             if (matches && r != null) {
                 allroles.addAll(r.roles);
             }
         }
-        if (allroles.size() == 0) {
+        if (allroles.isEmpty()) {
             errors.add( new TestError(this, Severity.WARNING, tr("Relation type is unknown"),
                     RELATION_UNKNOWN, n) );
         } else {
@@ -134,7 +144,7 @@ public class RelationChecker extends Test {
                         RELATION_EMPTY, n) );
             } else {
                 LinkedList<String> done = new LinkedList<String>();
-                for (TaggingPreset.Role r : allroles) {
+                for (Role r : allroles) {
                     done.add(r.key);
                     String keyname = r.key;
                     if ("".equals(keyname)) {
@@ -160,15 +170,26 @@ public class RelationChecker extends Test {
                         }
                     }
                     if (ri != null) {
-                        Collection<OsmPrimitive> wrongTypes = new LinkedList<OsmPrimitive>();
-                        if (!r.types.contains(PresetType.WAY)) {
-                            wrongTypes.addAll(r.types.contains(PresetType.CLOSEDWAY) ? ri.openways : ri.ways);
+                        Set<OsmPrimitive> wrongTypes = new HashSet<OsmPrimitive>();
+                        if (r.types != null) {
+                            if (!r.types.contains(TaggingPresetType.WAY)) {
+                                wrongTypes.addAll(r.types.contains(TaggingPresetType.CLOSEDWAY) ? ri.openways : ri.ways);
+                            }
+                            if (!r.types.contains(TaggingPresetType.NODE)) {
+                                wrongTypes.addAll(ri.nodes);
+                            }
+                            if (!r.types.contains(TaggingPresetType.RELATION)) {
+                                wrongTypes.addAll(ri.relations);
+                            }
                         }
-                        if (!r.types.contains(PresetType.NODE)) {
-                            wrongTypes.addAll(ri.nodes);
-                        }
-                        if (!r.types.contains(PresetType.RELATION)) {
-                            wrongTypes.addAll(ri.relations);
+                        if (r.memberExpression != null) {
+                            for (Collection<OsmPrimitive> c : Arrays.asList(new Collection[]{ri.nodes, ri.ways, ri.relations})) {
+                                for (OsmPrimitive p : c) {
+                                    if (p.isUsable() && !r.memberExpression.match(p)) {
+                                        wrongTypes.add(p);
+                                    }
+                                }
+                            }
                         }
                         if (!wrongTypes.isEmpty()) {
                             String s = marktr("Member for role {0} of wrong type");
@@ -195,5 +216,25 @@ public class RelationChecker extends Test {
                 }
             }
         }
+    }
+
+    /* (non-Javadoc)
+     * @see org.openstreetmap.josm.data.validation.Test#fixError(org.openstreetmap.josm.data.validation.TestError)
+     */
+    @Override
+    public Command fixError(TestError testError) {
+        if (isFixable(testError)) {
+            return new DeleteCommand(testError.getPrimitives());
+        }
+        return null;
+    }
+
+    /* (non-Javadoc)
+     * @see org.openstreetmap.josm.data.validation.Test#isFixable(org.openstreetmap.josm.data.validation.TestError)
+     */
+    @Override
+    public boolean isFixable(TestError testError) {
+        Collection<? extends OsmPrimitive> primitives = testError.getPrimitives();
+        return testError.getCode() == RELATION_EMPTY && !primitives.isEmpty() && primitives.iterator().next().isNew();
     }
 }

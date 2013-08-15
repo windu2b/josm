@@ -27,7 +27,7 @@ public class ViewportFollowToggleAction extends JosmAction {
                 true /* register shortcut */
         );
         putValue("help", ht("/Action/ViewportFollowing"));
-        selected = false; 
+        selected = false;
         notifySelectedState();
     }
 
@@ -57,6 +57,7 @@ public class ViewportFollowToggleAction extends JosmAction {
         Main.map.mapView.viewportFollowing = selected;
         notifySelectedState();
     }
+    @Override
     public void actionPerformed(ActionEvent e) {
         toggleSelectedState();
     }

@@ -14,7 +14,6 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
-import javax.swing.JTextField;
 
 import org.openstreetmap.josm.data.AutosaveTask;
 import org.openstreetmap.josm.data.preferences.BooleanProperty;
@@ -25,6 +24,7 @@ import org.openstreetmap.josm.gui.preferences.TabPreferenceSetting;
 import org.openstreetmap.josm.gui.widgets.HtmlPanel;
 import org.openstreetmap.josm.gui.widgets.VerticallyScrollablePanel;
 import org.openstreetmap.josm.tools.GBC;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 
 public class BackupPreference implements SubPreferenceSetting {
 
@@ -37,8 +37,8 @@ public class BackupPreference implements SubPreferenceSetting {
     private static final BooleanProperty PROP_KEEP_BACKUP = new BooleanProperty("save.keepbackup", false);
     private JCheckBox keepBackup;
     private JCheckBox autosave;
-    private final JTextField autosaveInterval = new JTextField(8);
-    private final JTextField backupPerLayer = new JTextField(8);
+    private final JosmTextField autosaveInterval = new JosmTextField(8);
+    private final JosmTextField backupPerLayer = new JosmTextField(8);
 
     @Override
     public void addGui(PreferenceTabbedPane gui) {
@@ -84,6 +84,7 @@ public class BackupPreference implements SubPreferenceSetting {
             GBC.eop().fill(GBC.HORIZONTAL).insets(5,0,0,0));
 
         ActionListener autosaveEnabled = new ActionListener(){
+            @Override
             public void actionPerformed(ActionEvent e) {
                 boolean enabled = autosave.isSelected();
                 autosaveIntervalLabel.setEnabled(enabled);
@@ -100,7 +101,7 @@ public class BackupPreference implements SubPreferenceSetting {
         sp.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         sp.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 
-        gui.getMapPreference().mapcontent.addTab(tr("File backup"), null, sp, tr("Configure whether to create backup files"));
+        gui.getMapPreference().addSubTab(this, tr("File backup"), sp, tr("Configure whether to create backup files"));
     }
 
     @Override

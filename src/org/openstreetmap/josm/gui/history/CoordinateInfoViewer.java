@@ -251,14 +251,14 @@ public class CoordinateInfoViewer extends JPanel {
         protected void refresh() {
             HistoryOsmPrimitive p = getPrimitive();
             HistoryOsmPrimitive  opposite = getOppositePrimitive();
-            if (p == null || ! ( p instanceof HistoryNode)) return;
-            if (opposite == null || ! (opposite instanceof HistoryNode)) return;
+            if (!(p instanceof HistoryNode)) return;
+            if (!(opposite instanceof HistoryNode)) return;
             HistoryNode node = (HistoryNode)p;
             HistoryNode oppositeNode = (HistoryNode) opposite;
 
             LatLon coord = node.getCoords();
             LatLon oppositeCoord = oppositeNode.getCoords();
-            
+
             // display the coordinates
             //
             lblLat.setText(coord != null ? coord.latToString(CoordinateFormat.DECIMAL_DEGREES) : tr("(none)"));
@@ -266,13 +266,13 @@ public class CoordinateInfoViewer extends JPanel {
 
             // update background color to reflect differences in the coordinates
             //
-            if (coord == oppositeCoord || 
+            if (coord == oppositeCoord ||
                     (coord != null && oppositeCoord != null && coord.lat() == oppositeCoord.lat())) {
                 lblLat.setBackground(Color.WHITE);
             } else {
                 lblLat.setBackground(BGCOLOR_DIFFERENCE);
             }
-            if (coord == oppositeCoord || 
+            if (coord == oppositeCoord ||
                     (coord != null && oppositeCoord != null && coord.lon() == oppositeCoord.lon())) {
                 lblLon.setBackground(Color.WHITE);
             } else {
@@ -280,19 +280,21 @@ public class CoordinateInfoViewer extends JPanel {
             }
         }
 
+        @Override
         public void update(Observable o, Object arg) {
             refresh();
         }
     }
-    
+
     private static class DistanceViewer extends LatLonViewer {
 
         private JLabel lblDistance;
-        
+
         public DistanceViewer(HistoryBrowserModel model) {
             super(model, PointInTimeType.REFERENCE_POINT_IN_TIME);
         }
 
+        @Override
         protected void build() {
             setLayout(new GridBagLayout());
             setBorder(BorderFactory.createLineBorder(Color.DARK_GRAY));
@@ -318,17 +320,18 @@ public class CoordinateInfoViewer extends JPanel {
             lblDistance.setBorder(BorderFactory.createEmptyBorder(2,2,2,2));
         }
 
+        @Override
         protected void refresh() {
             HistoryOsmPrimitive p = getPrimitive();
             HistoryOsmPrimitive opposite = getOppositePrimitive();
-            if (p == null || ! ( p instanceof HistoryNode)) return;
-            if (opposite == null || ! (opposite instanceof HistoryNode)) return;
+            if (!(p instanceof HistoryNode)) return;
+            if (!(opposite instanceof HistoryNode)) return;
             HistoryNode node = (HistoryNode) p;
             HistoryNode oppositeNode = (HistoryNode) opposite;
 
             LatLon coord = node.getCoords();
             LatLon oppositeCoord = oppositeNode.getCoords();
-            
+
             // update distance
             //
             if (coord != null && oppositeCoord != null) {

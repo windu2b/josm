@@ -49,6 +49,8 @@ public class OsmReader extends AbstractReader {
 
     protected XMLStreamReader parser;
 
+    protected boolean cancel;
+
     /** Used by plugins to register themselves as data postprocessors. */
     public static ArrayList<OsmServerReadPostprocessor> postprocessors;
 
@@ -70,7 +72,7 @@ public class OsmReader extends AbstractReader {
     /**
      * constructor (for private and subclasses use only)
      *
-     * @see #parseDataSet(InputStream, DataSet, ProgressMonitor)
+     * @see #parseDataSet(InputStream, ProgressMonitor)
      */
     protected OsmReader() {
     }
@@ -127,6 +129,12 @@ public class OsmReader extends AbstractReader {
         }
         while (true) {
             int event = parser.next();
+
+            if (cancel) {
+                cancel = false;
+                throwException(tr("Reading was canceled"));
+            }
+
             if (event == XMLStreamConstants.START_ELEMENT) {
                 if (parser.getLocalName().equals("bounds")) {
                     parseBounds(generator);
@@ -223,7 +231,7 @@ public class OsmReader extends AbstractReader {
                 break;
             }
         }
-        if (w.isDeleted() && nodeIds.size() > 0) {
+        if (w.isDeleted() && !nodeIds.isEmpty()) {
             System.out.println(tr("Deleted way {0} contains nodes", w.getUniqueId()));
             nodeIds = new ArrayList<Long>();
         }
@@ -270,7 +278,7 @@ public class OsmReader extends AbstractReader {
                 break;
             }
         }
-        if (r.isDeleted() && members.size() > 0) {
+        if (r.isDeleted() && !members.isEmpty()) {
             System.out.println(tr("Deleted relation {0} contains members", r.getUniqueId()));
             members = new ArrayList<RelationMemberData>();
         }
@@ -311,10 +319,14 @@ public class OsmReader extends AbstractReader {
     }
 
     private void parseChangeset(Long uploadChangesetId) throws XMLStreamException {
-        long id = getLong("id");
 
-        if (id == uploadChangesetId) {
-            uploadChangeset = new Changeset((int) getLong("id"));
+        Long id = null;
+        if (parser.getAttributeValue(null, "id") != null) {
+            id = getLong("id");
+        }
+        // Read changeset info if neither upload-changeset nor id are set, or if they are both set to the same value
+        if (id == uploadChangesetId || (id != null && id.equals(uploadChangesetId))) {
+            uploadChangeset = new Changeset(id != null ? id.intValue() : 0);
             while (true) {
                 int event = parser.next();
                 if (event == XMLStreamConstants.START_ELEMENT) {
@@ -560,6 +572,12 @@ public class OsmReader extends AbstractReader {
         if (progressMonitor == null) {
             progressMonitor = NullProgressMonitor.INSTANCE;
         }
+        ProgressMonitor.CancelListener cancelListener = new ProgressMonitor.CancelListener() {
+            @Override public void operationCanceled() {
+                cancel = true;
+            }
+        };
+        progressMonitor.addCancelListener(cancelListener);
         CheckParameterUtil.ensureParameterNotNull(source, "source");
         try {
             progressMonitor.beginTask(tr("Prepare OSM data...", 2));
@@ -602,6 +620,7 @@ public class OsmReader extends AbstractReader {
             throw new IllegalDataException(e);
         } finally {
             progressMonitor.finishTask();
+            progressMonitor.removeCancelListener(cancelListener);
         }
     }
 

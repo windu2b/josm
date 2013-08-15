@@ -20,18 +20,18 @@ import org.openstreetmap.josm.gui.widgets.VerticallyScrollablePanel;
 public class ServerAccessPreference extends DefaultTabPreferenceSetting {
 
     public static class Factory implements PreferenceSettingFactory {
+        @Override
         public PreferenceSetting createPreferenceSetting() {
             return new ServerAccessPreference();
         }
     }
-    
+
     private ServerAccessPreference() {
-        super("connection", tr("Connection Settings"), tr("Connection Settings for the OSM server."));
+        super("connection", tr("Connection Settings"), tr("Connection Settings for the OSM server."), false, new JTabbedPane());
     }
 
     private OsmApiUrlInputPanel pnlApiUrlPreferences;
 
-    private JTabbedPane tpServerPreferences;
     /** indicates whether to use the default OSM URL or not */
     /** panel for configuring authentication preferences */
     private AuthenticationPreferencesPanel pnlAuthPreferences;
@@ -54,12 +54,12 @@ public class ServerAccessPreference extends DefaultTabPreferenceSetting {
     /**
      * Builds the tabbed pane with the server preferences
      *
-     * @return
+     * @return panel with server preferences tabs
      */
     protected JPanel buildTabbedServerPreferences() {
         JPanel pnl = new JPanel(new BorderLayout());
 
-        tpServerPreferences = new JTabbedPane();
+        JTabbedPane tpServerPreferences = getTabPane();
         pnlAuthPreferences = new AuthenticationPreferencesPanel();
         tpServerPreferences.add(wrapVerticallyScrollablePanel(pnlAuthPreferences));
         pnlProxyPreferences = new ProxyPreferencesPanel();
@@ -77,7 +77,7 @@ public class ServerAccessPreference extends DefaultTabPreferenceSetting {
     /**
      * Builds the panel for entering the server access preferences
      *
-     * @return
+     * @return preferences panel for server settings
      */
     protected JPanel buildContentPanel() {
         JPanel pnl = new JPanel(new GridBagLayout());
@@ -106,6 +106,7 @@ public class ServerAccessPreference extends DefaultTabPreferenceSetting {
         return pnl;
     }
 
+    @Override
     public void addGui(PreferenceTabbedPane gui) {
         GridBagConstraints gc = new GridBagConstraints();
         gc.fill = GridBagConstraints.BOTH;
@@ -129,6 +130,7 @@ public class ServerAccessPreference extends DefaultTabPreferenceSetting {
     /**
      * Saves the values to the preferences
      */
+    @Override
     public boolean ok() {
         pnlApiUrlPreferences.saveToPreferences();
         pnlAuthPreferences.saveToPreferences();

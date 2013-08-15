@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParserFactory;
 
 import org.openstreetmap.josm.Main;
@@ -35,9 +36,11 @@ import org.openstreetmap.josm.gui.layer.Layer;
 import org.openstreetmap.josm.gui.progress.NullProgressMonitor;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
+import org.openstreetmap.josm.tools.Utils;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
 import org.xml.sax.helpers.DefaultHandler;
 
 /**
@@ -50,22 +53,22 @@ import org.xml.sax.helpers.DefaultHandler;
  *
  */
 public class OsmApi extends OsmConnection {
-    
-    /** 
-     * Maximum number of retries to send a request in case of HTTP 500 errors or timeouts 
+
+    /**
+     * Maximum number of retries to send a request in case of HTTP 500 errors or timeouts
      */
     static public final int DEFAULT_MAX_NUM_RETRIES = 5;
 
     /**
-     * Maximum number of concurrent download threads, imposed by 
+     * Maximum number of concurrent download threads, imposed by
      * <a href="http://wiki.openstreetmap.org/wiki/API_usage_policy#Technical_Usage_Requirements">
      * OSM API usage policy.</a>
      * @since 5386
      */
     static public final int MAX_DOWNLOAD_THREADS = 2;
-    
+
     /**
-     * Default URL of the standard OSM API. 
+     * Default URL of the standard OSM API.
      * @since 5422
      */
     static public final String DEFAULT_API_URL = "http://api.openstreetmap.org/api";
@@ -89,7 +92,7 @@ public class OsmApi extends OsmConnection {
         }
         return api;
     }
-    
+
     /**
      * Replies the {@link OsmApi} for the URL given by the preference <code>osm-server.url</code>
      *
@@ -183,7 +186,7 @@ public class OsmApi extends OsmConnection {
             this.monitor = monitor;
             this.fastFail = fastFail;
         }
-        
+
         @Override
         protected byte[] updateData() throws OsmTransferException {
             return sendRequest("GET", "capabilities", null, monitor, false, fastFail).getBytes();
@@ -192,7 +195,7 @@ public class OsmApi extends OsmConnection {
 
     /**
      * Initializes this component by negotiating a protocol version with the server.
-     * 
+     *
      * @param monitor the progress monitor
      * @throws OsmTransferCanceledException If the initialisation has been cancelled by user.
      * @throws OsmApiInitializationException If any other exception occurs. Use getCause() to get the original exception.
@@ -200,9 +203,9 @@ public class OsmApi extends OsmConnection {
     public void initialize(ProgressMonitor monitor) throws OsmTransferCanceledException, OsmApiInitializationException {
         initialize(monitor, false);
     }
-    
+
     /**
-     * Initializes this component by negotiating a protocol version with the server, with the ability to control the timeout. 
+     * Initializes this component by negotiating a protocol version with the server, with the ability to control the timeout.
      *
      * @param monitor the progress monitor
      * @param fastFail true to request quick initialisation with a small timeout (more likely to throw exception)
@@ -214,9 +217,14 @@ public class OsmApi extends OsmConnection {
             return;
         cancel = false;
         try {
-            String s = new CapabilitiesCache(monitor, fastFail).updateIfRequiredString();
-            InputSource inputSource = new InputSource(new StringReader(s));
-            SAXParserFactory.newInstance().newSAXParser().parse(inputSource, new CapabilitiesParser());
+            CapabilitiesCache cache = new CapabilitiesCache(monitor, fastFail);
+            try {
+                initializeCapabilities(cache.updateIfRequiredString());
+            } catch (SAXParseException parseException) {
+                // XML parsing may fail if JOSM previously stored a corrupted capabilities document (see #8278)
+                // In that case, force update and try again
+                initializeCapabilities(cache.updateForceString());
+            }
             if (capabilities.supportsVersion("0.6")) {
                 version = "0.6";
             } else {
@@ -261,6 +269,11 @@ public class OsmApi extends OsmConnection {
         }
     }
 
+    private void initializeCapabilities(String xml) throws SAXException, IOException, ParserConfigurationException {
+        InputSource inputSource = new InputSource(new StringReader(xml));
+        SAXParserFactory.newInstance().newSAXParser().parse(inputSource, new CapabilitiesParser());
+    }
+
     /**
      * Makes an XML string from an OSM primitive. Uses the OsmWriter class.
      * @param o the OSM primitive
@@ -274,7 +287,7 @@ public class OsmApi extends OsmConnection {
         osmWriter.setWithBody(addBody);
         osmWriter.setChangeset(changeset);
         osmWriter.header();
-        o.visit(osmWriter);
+        o.accept(osmWriter);
         osmWriter.footer();
         osmWriter.flush();
         return swriter.toString();
@@ -282,8 +295,7 @@ public class OsmApi extends OsmConnection {
 
     /**
      * Makes an XML string from an OSM primitive. Uses the OsmWriter class.
-     * @param o the OSM primitive
-     * @param addBody true to generate the full XML, false to only generate the encapsulating tag
+     * @param s the changeset
      * @return XML string
      */
     private String toXml(Changeset s) {
@@ -584,9 +596,8 @@ public class OsmApi extends OsmConnection {
             try {
                 URL url = new URL(new URL(getBaseUrl()), urlSuffix);
                 System.out.print(requestMethod + " " + url + "... ");
-                activeConnection = (HttpURLConnection)url.openConnection();
                 // fix #5369, see http://www.tikalk.com/java/forums/httpurlconnection-disable-keep-alive
-                activeConnection.setRequestProperty("Connection", "close");
+                activeConnection = Utils.openHttpConnection(url, false);
                 activeConnection.setConnectTimeout(fastFail ? 1000 : Main.pref.getInteger("socket.timeout.connect",15)*1000);
                 if (fastFail) {
                     activeConnection.setReadTimeout(1000);
@@ -612,7 +623,7 @@ public class OsmApi extends OsmConnection {
                         bwr.write(requestBody);
                         bwr.flush();
                     }
-                    out.close();
+                    Utils.close(out);
                 }
 
                 activeConnection.connect();
@@ -722,7 +733,7 @@ public class OsmApi extends OsmConnection {
         if (changeset.getId() <= 0)
             throw new OsmTransferException(tr("ID of current changeset > 0 required. Current ID is {0}.", changeset.getId()));
     }
-    
+
     /**
      * Replies the changeset data uploads are currently directed to
      *

@@ -29,6 +29,7 @@ import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.osm.Relation;
 import org.openstreetmap.josm.data.osm.RelationMember;
 import org.openstreetmap.josm.data.osm.Way;
+import org.openstreetmap.josm.gui.Notification;
 import org.openstreetmap.josm.gui.dialogs.relation.RelationEditor;
 import org.openstreetmap.josm.tools.Shortcut;
 
@@ -59,9 +60,14 @@ public class CreateMultipolygonAction extends JosmAction {
      *
      * @param e Action Event
      */
+    @Override
     public void actionPerformed(ActionEvent e) {
         if (Main.main.getEditLayer() == null) {
-            JOptionPane.showMessageDialog(Main.parent, tr("No data loaded."));
+            new Notification(
+                    tr("No data loaded."))
+                    .setIcon(JOptionPane.WARNING_MESSAGE)
+                    .setDuration(Notification.TIME_SHORT)
+                    .show();
             return;
         }
 
@@ -70,7 +76,11 @@ public class CreateMultipolygonAction extends JosmAction {
         if (selectedWays.size() < 1) {
             // Sometimes it make sense creating multipoly of only one way (so it will form outer way)
             // and then splitting the way later (so there are multiple ways forming outer way)
-            JOptionPane.showMessageDialog(Main.parent, tr("You must select at least one way."));
+            new Notification(
+                    tr("You must select at least one way."))
+                    .setIcon(JOptionPane.INFORMATION_MESSAGE)
+                    .setDuration(Notification.TIME_SHORT)
+                    .show();
             return;
         }
 
@@ -111,6 +121,7 @@ public class CreateMultipolygonAction extends JosmAction {
             // uses 'SwingUtilities.invokeLater' to fire events so we have to do
             // the same.)
             SwingUtilities.invokeLater(new Runnable() {
+                @Override
                 public void run() {
                     Main.map.relationListDialog.selectRelation(relation);
                 }
@@ -129,15 +140,19 @@ public class CreateMultipolygonAction extends JosmAction {
         }
     }
 
-    /** Enable this action only if something is selected */
+    /**
+      * Enable this action only if something is selected
+      *
+      * @param selection the current selection, gets tested for emptyness
+      */
     @Override protected void updateEnabledState(Collection < ? extends OsmPrimitive > selection) {
         setEnabled(selection != null && !selection.isEmpty());
     }
 
     /**
      * This method analyzes ways and creates multipolygon.
-     * @param selectedWays
-     * @return null, if there was a problem with the ways.
+     * @param selectedWays list of selected ways
+     * @return <code>null</code>, if there was a problem with the ways.
      */
     private MultipolygonCreate analyzeWays(Collection < Way > selectedWays) {
 
@@ -145,7 +160,9 @@ public class CreateMultipolygonAction extends JosmAction {
         String error = pol.makeFromWays(selectedWays);
 
         if (error != null) {
-            JOptionPane.showMessageDialog(Main.parent, error);
+            new Notification(error)
+                    .setIcon(JOptionPane.INFORMATION_MESSAGE)
+                    .show();
             return null;
         } else {
             return pol;
@@ -154,8 +171,8 @@ public class CreateMultipolygonAction extends JosmAction {
 
     /**
      * Builds a relation from polygon ways.
-     * @param pol
-     * @return
+     * @param pol data storage class containing polygon information
+     * @return multipolygon relation
      */
     private Relation createRelation(MultipolygonCreate pol) {
         // Create new relation
@@ -180,108 +197,109 @@ public class CreateMultipolygonAction extends JosmAction {
 
     /**
      * This method removes tags/value pairs from inner and outer ways and put them on relation if necessary
-     * Function was extended in reltoolbox plugin by Zverikk and copied back to the core 
-     * @param relation
+     * Function was extended in reltoolbox plugin by Zverikk and copied back to the core
+     * @param relation the multipolygon style relation to process
+     * @return a list of commands to execute
      */
     private List<Command> removeTagsFromWaysIfNeeded( Relation relation ) {
-	Map<String, String> values = new HashMap<String, String>();
+        Map<String, String> values = new HashMap<String, String>();
 
-	if( relation.hasKeys() ) {
-	    for( String key : relation.keySet() ) {
-		values.put(key, relation.get(key));
-	    }
-	}
+        if( relation.hasKeys() ) {
+            for( String key : relation.keySet() ) {
+                values.put(key, relation.get(key));
+            }
+        }
 
-	List<Way> innerWays = new ArrayList<Way>();
-	List<Way> outerWays = new ArrayList<Way>();
+        List<Way> innerWays = new ArrayList<Way>();
+        List<Way> outerWays = new ArrayList<Way>();
 
-	Set<String> conflictingKeys = new TreeSet<String>();
+        Set<String> conflictingKeys = new TreeSet<String>();
 
-	for( RelationMember m : relation.getMembers() ) {
+        for( RelationMember m : relation.getMembers() ) {
 
-	    if( m.hasRole() && "inner".equals(m.getRole()) && m.isWay() && m.getWay().hasKeys() ) {
-		innerWays.add(m.getWay());
-	    }
+            if( m.hasRole() && "inner".equals(m.getRole()) && m.isWay() && m.getWay().hasKeys() ) {
+                innerWays.add(m.getWay());
+            }
 
-	    if( m.hasRole() && "outer".equals(m.getRole()) && m.isWay() && m.getWay().hasKeys() ) {
-		Way way = m.getWay();
-		outerWays.add(way);
-                
-		for( String key : way.keySet() ) {
-		    if( !values.containsKey(key) ) { //relation values take precedence
-			values.put(key, way.get(key));
-		    } else if( !relation.hasKey(key) && !values.get(key).equals(way.get(key)) ) {
-			conflictingKeys.add(key);
-		    }
-		}
-	    }
-	}
+            if( m.hasRole() && "outer".equals(m.getRole()) && m.isWay() && m.getWay().hasKeys() ) {
+                Way way = m.getWay();
+                outerWays.add(way);
 
-	// filter out empty key conflicts - we need second iteration
-	if( !Main.pref.getBoolean("multipoly.alltags", false) )
-	    for( RelationMember m : relation.getMembers() )
-		if( m.hasRole() && m.getRole().equals("outer") && m.isWay() )
-		    for( String key : values.keySet() )
-			if( !m.getWay().hasKey(key) && !relation.hasKey(key) )
-			    conflictingKeys.add(key);
+                for( String key : way.keySet() ) {
+                    if( !values.containsKey(key) ) { //relation values take precedence
+                        values.put(key, way.get(key));
+                    } else if( !relation.hasKey(key) && !values.get(key).equals(way.get(key)) ) {
+                        conflictingKeys.add(key);
+                    }
+                }
+            }
+        }
 
-	for( String key : conflictingKeys )
-	    values.remove(key);
+        // filter out empty key conflicts - we need second iteration
+        if( !Main.pref.getBoolean("multipoly.alltags", false) )
+            for( RelationMember m : relation.getMembers() )
+                if( m.hasRole() && m.getRole().equals("outer") && m.isWay() )
+                    for( String key : values.keySet() )
+                        if( !m.getWay().hasKey(key) && !relation.hasKey(key) )
+                            conflictingKeys.add(key);
 
-	for( String linearTag : Main.pref.getCollection("multipoly.lineartagstokeep", DEFAULT_LINEAR_TAGS) )
-	    values.remove(linearTag);
+        for( String key : conflictingKeys )
+            values.remove(key);
 
-	if( values.containsKey("natural") && values.get("natural").equals("coastline") )
-	    values.remove("natural");
+        for( String linearTag : Main.pref.getCollection("multipoly.lineartagstokeep", DEFAULT_LINEAR_TAGS) )
+            values.remove(linearTag);
 
-	values.put("area", "yes");
+        if( values.containsKey("natural") && values.get("natural").equals("coastline") )
+            values.remove("natural");
 
-	List<Command> commands = new ArrayList<Command>();
-	boolean moveTags = Main.pref.getBoolean("multipoly.movetags", true);
+        values.put("area", "yes");
 
-	for( String key : values.keySet() ) {
-	    List<OsmPrimitive> affectedWays = new ArrayList<OsmPrimitive>();
-	    String value = values.get(key);
+        List<Command> commands = new ArrayList<Command>();
+        boolean moveTags = Main.pref.getBoolean("multipoly.movetags", true);
 
-	    for( Way way : innerWays ) {
-		if( way.hasKey(key) && (value.equals(way.get(key))) ) {
-		    affectedWays.add(way);
-		}
-	    }
+        for( String key : values.keySet() ) {
+            List<OsmPrimitive> affectedWays = new ArrayList<OsmPrimitive>();
+            String value = values.get(key);
 
-	    if( moveTags ) {
-		// remove duplicated tags from outer ways
-		for( Way way : outerWays ) {
-		    if( way.hasKey(key) ) {
-			affectedWays.add(way);
-		    }
-		}
-	    }
+            for( Way way : innerWays ) {
+                if( way.hasKey(key) && (value.equals(way.get(key))) ) {
+                    affectedWays.add(way);
+                }
+            }
 
-	    if( affectedWays.size() > 0 ) {
+            if( moveTags ) {
+                // remove duplicated tags from outer ways
+                for( Way way : outerWays ) {
+                    if( way.hasKey(key) ) {
+                        affectedWays.add(way);
+                    }
+                }
+            }
+
+            if(!affectedWays.isEmpty()) {
                 // reset key tag on affected ways
-		commands.add(new ChangePropertyCommand(affectedWays, key, null));
-	    }
-	}
+                commands.add(new ChangePropertyCommand(affectedWays, key, null));
+            }
+        }
 
-	if( moveTags ) {
-	    // add those tag values to the relation
+        if( moveTags ) {
+            // add those tag values to the relation
 
-	    boolean fixed = false;
-	    Relation r2 = new Relation(relation);
-	    for( String key : values.keySet() ) {
-		if( !r2.hasKey(key) && !key.equals("area") ) {
-		    if( relation.isNew() )
-			relation.put(key, values.get(key));
-		    else
-			r2.put(key, values.get(key));
-		    fixed = true;
-		}
-	    }
-	    if( fixed && !relation.isNew() )
-		commands.add(new ChangeCommand(relation, r2));
-	}
+            boolean fixed = false;
+            Relation r2 = new Relation(relation);
+            for( String key : values.keySet() ) {
+                if( !r2.hasKey(key) && !key.equals("area") ) {
+                    if( relation.isNew() )
+                        relation.put(key, values.get(key));
+                    else
+                        r2.put(key, values.get(key));
+                    fixed = true;
+                }
+            }
+            if( fixed && !relation.isNew() )
+                commands.add(new ChangeCommand(relation, r2));
+        }
 
-	return commands;
+        return commands;
     }
 }

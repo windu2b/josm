@@ -17,21 +17,19 @@ import javax.swing.AbstractAction;
 import javax.swing.JButton;
 import javax.swing.JPanel;
 import javax.swing.JTable;
-import javax.swing.JTextField;
 import javax.swing.event.CellEditorListener;
 import javax.swing.event.ChangeEvent;
 import javax.swing.table.TableCellEditor;
 
 import org.openstreetmap.josm.actions.SaveActionBase;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 
 /**
  * This is a {@link TableCellEditor} for filenames. It provides a text input field and
- * a button for launchinig a {@link JFileChooser}.
- *
- *
+ * a button for launchinig a {@link javax.swing.JFileChooser}.
  */
 class FilenameCellEditor extends JPanel implements TableCellEditor {
-    private JTextField tfFileName;
+    private JosmTextField tfFileName;
     private CopyOnWriteArrayList<CellEditorListener> listeners;
     private File value;
 
@@ -46,7 +44,7 @@ class FilenameCellEditor extends JPanel implements TableCellEditor {
         gc.fill = GridBagConstraints.BOTH;
         gc.weightx = 1.0;
         gc.weighty = 1.0;
-        add(tfFileName = new JTextField(), gc);
+        add(tfFileName = new JosmTextField(), gc);
 
         gc.gridx = 1;
         gc.gridy = 0;
@@ -70,6 +68,7 @@ class FilenameCellEditor extends JPanel implements TableCellEditor {
         build();
     }
 
+    @Override
     public void addCellEditorListener(CellEditorListener l) {
         if (l != null) {
             listeners.addIfAbsent(l);
@@ -88,28 +87,34 @@ class FilenameCellEditor extends JPanel implements TableCellEditor {
         }
     }
 
+    @Override
     public void cancelCellEditing() {
         fireEditingCanceled();
     }
 
+    @Override
     public Object getCellEditorValue() {
         return value;
     }
 
+    @Override
     public boolean isCellEditable(EventObject anEvent) {
         return true;
     }
 
+    @Override
     public void removeCellEditorListener(CellEditorListener l) {
         listeners.remove(l);
     }
 
+    @Override
     public boolean shouldSelectCell(EventObject anEvent) {
         return true;
     }
 
+    @Override
     public boolean stopCellEditing() {
-        if (tfFileName.getText() == null || tfFileName.getText().trim().equals("")) {
+        if (tfFileName.getText() == null || tfFileName.getText().trim().isEmpty()) {
             value = null;
         } else {
             value = new File(tfFileName.getText());
@@ -127,6 +132,7 @@ class FilenameCellEditor extends JPanel implements TableCellEditor {
         }
     }
 
+    @Override
     public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
         SaveLayerInfo info = (SaveLayerInfo)value;
         setInitialValue(info.getFile());
@@ -140,6 +146,7 @@ class FilenameCellEditor extends JPanel implements TableCellEditor {
             putValue(SHORT_DESCRIPTION, tr("Launch a file chooser to select a file"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             File f = SaveActionBase.createAndOpenSaveFileChooser(tr("Select filename"), "osm");
             if (f != null) {

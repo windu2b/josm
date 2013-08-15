@@ -9,7 +9,7 @@ import java.awt.Rectangle;
 import org.openstreetmap.josm.data.osm.Node;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.osm.visitor.paint.MapPaintSettings;
-import org.openstreetmap.josm.data.osm.visitor.paint.MapPainter;
+import org.openstreetmap.josm.data.osm.visitor.paint.StyledMapRenderer;
 import org.openstreetmap.josm.data.osm.visitor.paint.PaintColors;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
 
@@ -68,7 +68,7 @@ public class BoxTextElemStyle extends ElemStyle {
 
         @Override
         public boolean equals(Object obj) {
-            if (obj == null || !(obj instanceof BoxProvider))
+            if (!(obj instanceof BoxProvider))
                 return false;
             final BoxProvider other = (BoxProvider) obj;
             BoxProviderResult resultOther = other.get();
@@ -180,7 +180,7 @@ public class BoxTextElemStyle extends ElemStyle {
     }
 
     @Override
-    public void paintPrimitive(OsmPrimitive osm, MapPaintSettings settings, MapPainter painter, boolean selected, boolean member) {
+    public void paintPrimitive(OsmPrimitive osm, MapPaintSettings settings, StyledMapRenderer painter, boolean selected, boolean member) {
         if (osm instanceof Node) {
             painter.drawBoxText((Node) osm, this);
         }

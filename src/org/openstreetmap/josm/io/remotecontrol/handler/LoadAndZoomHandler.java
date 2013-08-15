@@ -5,10 +5,8 @@ import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.awt.geom.Area;
 import java.awt.geom.Rectangle2D;
-import java.io.UnsupportedEncodingException;
-import java.net.URLDecoder;
 import java.util.HashSet;
-import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Future;
 
 import org.openstreetmap.josm.Main;
@@ -18,12 +16,14 @@ import org.openstreetmap.josm.actions.downloadtasks.DownloadTask;
 import org.openstreetmap.josm.actions.downloadtasks.PostDownloadHandler;
 import org.openstreetmap.josm.data.Bounds;
 import org.openstreetmap.josm.data.coor.LatLon;
+import org.openstreetmap.josm.data.osm.BBox;
 import org.openstreetmap.josm.data.osm.DataSet;
 import org.openstreetmap.josm.data.osm.Node;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.osm.Relation;
 import org.openstreetmap.josm.data.osm.Way;
 import org.openstreetmap.josm.data.osm.visitor.BoundingXYVisitor;
+import org.openstreetmap.josm.gui.util.GuiHelper;
 import org.openstreetmap.josm.io.remotecontrol.AddTagsDialog;
 import org.openstreetmap.josm.io.remotecontrol.PermissionPrefWithDefault;
 import org.openstreetmap.josm.tools.Utils;
@@ -33,14 +33,36 @@ import org.openstreetmap.josm.tools.Utils;
  */
 public class LoadAndZoomHandler extends RequestHandler
 {
+    /**
+     * The remote control command name used to load data and zoom.
+     */
     public static final String command = "load_and_zoom";
+
+    /**
+     * The remote control command name used to zoom.
+     */
     public static final String command2 = "zoom";
+
+    // Mandatory arguments
+    private double minlat;
+    private double maxlat;
+    private double minlon;
+    private double maxlon;
+
+    // Optional argument 'select'
+    private final Set<Long> ways = new HashSet<Long>();
+    private final Set<Long> nodes = new HashSet<Long>();
+    private final Set<Long> relations = new HashSet<Long>();
 
     @Override
     public String getPermissionMessage()
     {
-        return tr("Remote Control has been asked to load data from the API.") +
-                "<br>" + tr("Request details: {0}", request);
+        String msg = tr("Remote Control has been asked to load data from the API.") +
+                "<br>" + tr("Bounding box: ") + new BBox(minlon, minlat, maxlon, maxlat).toStringCSV(", ");
+        if (args.containsKey("select") && ways.size()+nodes.size()+relations.size() > 0) {
+            msg += "<br>" + tr("Sel.: Rel.:{0} / Ways:{1} / Nodes:{2}", relations.size(), ways.size(), nodes.size());
+        }
+        return msg;
     }
 
     @Override
@@ -50,18 +72,28 @@ public class LoadAndZoomHandler extends RequestHandler
     }
 
     @Override
+    public String[] getOptionalParams()
+    {
+        return new String[] {"new_layer", "addtags", "select", "zoom_mode"};
+    }
+
+    @Override
+    public String[] getUsageExamples() {
+        if (command.equals(myCommand)) {
+            return new String[] { 
+                "/load_and_zoom?addtags=wikipedia:de=Wei%C3%9Fe_Gasse|maxspeed=5&select=way23071688,way23076176,way23076177,&left=13.740&right=13.741&top=51.05&bottom=51.049",
+                "/load_and_zoom?left=8.19&right=8.20&top=48.605&bottom=48.590&select=node413602999&new_layer=true"};
+        } else {
+            return new String[] { 
+                "/zoom?left=8.19&right=8.20&top=48.605&bottom=48.590&select=node413602999"};
+        }
+    }
+    
+    @Override
     protected void handleRequest() throws RequestHandlerErrorException
     {
         DownloadTask osmTask = new DownloadOsmTask();
-        double minlat = 0;
-        double maxlat = 0;
-        double minlon = 0;
-        double maxlon = 0;
         try {
-            minlat = LatLon.roundToOsmPrecision(Double.parseDouble(args.get("bottom")));
-            maxlat = LatLon.roundToOsmPrecision(Double.parseDouble(args.get("top")));
-            minlon = LatLon.roundToOsmPrecision(Double.parseDouble(args.get("left")));
-            maxlon = LatLon.roundToOsmPrecision(Double.parseDouble(args.get("right")));
             boolean newLayer = isLoadInNewLayer();
 
             if(command.equals(myCommand))
@@ -115,7 +147,8 @@ public class LoadAndZoomHandler extends RequestHandler
          * deselect objects if parameter addtags given
          */
         if (args.containsKey("addtags")) {
-            Main.worker.execute(new Runnable() {
+            GuiHelper.executeByMainWorkerInEDT(new Runnable() {
+                @Override
                 public void run() {
                     DataSet ds = Main.main.getCurrentDataSet();
                     if(ds == null) // e.g. download failed
@@ -125,28 +158,13 @@ public class LoadAndZoomHandler extends RequestHandler
             });
         }
 
+        final Bounds bbox = new Bounds(new LatLon(minlat, minlon), new LatLon(maxlat, maxlon));
         if (args.containsKey("select") && PermissionPrefWithDefault.CHANGE_SELECTION.isAllowed()) {
             // select objects after downloading, zoom to selection.
-            final String selection = args.get("select");
-            Main.worker.execute(new Runnable() {
+            GuiHelper.executeByMainWorkerInEDT(new Runnable() {
+                @Override
                 public void run() {
-                    HashSet<Long> ways = new HashSet<Long>();
-                    HashSet<Long> nodes = new HashSet<Long>();
-                    HashSet<Long> relations = new HashSet<Long>();
                     HashSet<OsmPrimitive> newSel = new HashSet<OsmPrimitive>();
-                    for (String item : selection.split(",")) {
-                        if (item.startsWith("way")) {
-                            ways.add(Long.parseLong(item.substring(3)));
-                        } else if (item.startsWith("node")) {
-                            nodes.add(Long.parseLong(item.substring(4)));
-                        } else if (item.startsWith("relation")) {
-                            relations.add(Long.parseLong(item.substring(8)));
-                        } else if (item.startsWith("rel")) {
-                            relations.add(Long.parseLong(item.substring(3)));
-                        } else {
-                            System.out.println("RemoteControl: invalid selection '"+item+"' ignored");
-                        }
-                    }
                     DataSet ds = Main.main.getCurrentDataSet();
                     if(ds == null) // e.g. download failed
                         return;
@@ -155,19 +173,27 @@ public class LoadAndZoomHandler extends RequestHandler
                             newSel.add(w);
                         }
                     }
+                    ways.clear();
                     for (Node n : ds.getNodes()) {
                         if (nodes.contains(n.getId())) {
                             newSel.add(n);
                         }
                     }
+                    nodes.clear();
                     for (Relation r : ds.getRelations()) {
                         if (relations.contains(r.getId())) {
                             newSel.add(r);
                         }
                     }
+                    relations.clear();
                     ds.setSelected(newSel);
                     if (PermissionPrefWithDefault.CHANGE_VIEWPORT.isAllowed()) {
-                        AutoScaleAction.autoScale("selection");
+                        // zoom_mode=(download|selection), defaults to selection
+                        if (!"download".equals(args.get("zoom_mode")) && !newSel.isEmpty()) {
+                            AutoScaleAction.autoScale("selection");
+                        } else {
+                            zoom(bbox);
+                        }
                     }
                     if (Main.isDisplayingMapView() && Main.map.relationListDialog != null) {
                         Main.map.relationListDialog.selectRelations(null); // unselect all relations to fix #7342
@@ -178,50 +204,17 @@ public class LoadAndZoomHandler extends RequestHandler
             });
         } else if (PermissionPrefWithDefault.CHANGE_VIEWPORT.isAllowed()) {
             // after downloading, zoom to downloaded area.
-            zoom(minlat, maxlat, minlon, maxlon);
+            zoom(bbox);
         }
 
-        addTags(args);
-
+        AddTagsDialog.addTags(args, sender);
     }
 
-    /*
-     * parse addtags parameters Example URL (part):
-     * addtags=wikipedia:de%3DResidenzschloss Dresden|name:en%3DDresden Castle
-     */
-    static void addTags(final Map<String, String> args) {
-        if (args.containsKey("addtags")) {
-            Main.worker.execute(new Runnable() {
-
-                public void run() {
-                    String[] tags = null;
-                    try {
-                        tags = URLDecoder.decode(args.get("addtags"), "UTF-8").split("\\|");
-                    } catch (UnsupportedEncodingException e) {
-                        throw new RuntimeException();
-                    }
-                    String[][] keyValue = new String[tags.length][2];
-                    for (int i = 0; i < tags.length; i++) {
-                        keyValue[i] = tags[i].split("=");
-
-                        keyValue[i][0] = keyValue[i][0];
-                        keyValue[i][1] = keyValue[i][1];
-                    }
-
-                    new AddTagsDialog(keyValue);
-                }
-            });
-        }
-    }
-
-    protected void zoom(double minlat, double maxlat, double minlon, double maxlon) {
-        final Bounds bounds = new Bounds(new LatLon(minlat, minlon),
-                new LatLon(maxlat, maxlon));
-
+    protected void zoom(final Bounds bounds) {
         // make sure this isn't called unless there *is* a MapView
-        //
         if (Main.isDisplayingMapView()) {
-            Main.worker.execute(new Runnable() {
+            GuiHelper.executeByMainWorkerInEDT(new Runnable() {
+                @Override
                 public void run() {
                     BoundingXYVisitor bbox = new BoundingXYVisitor();
                     bbox.visit(bounds);
@@ -234,5 +227,46 @@ public class LoadAndZoomHandler extends RequestHandler
     @Override
     public PermissionPrefWithDefault getPermissionPref() {
         return null;
+    }
+
+    @Override
+    protected void validateRequest() throws RequestHandlerBadRequestException {
+        // Process mandatory arguments
+        minlat = 0;
+        maxlat = 0;
+        minlon = 0;
+        maxlon = 0;
+        try {
+            minlat = LatLon.roundToOsmPrecision(Double.parseDouble(args.get("bottom")));
+            maxlat = LatLon.roundToOsmPrecision(Double.parseDouble(args.get("top")));
+            minlon = LatLon.roundToOsmPrecision(Double.parseDouble(args.get("left")));
+            maxlon = LatLon.roundToOsmPrecision(Double.parseDouble(args.get("right")));
+        } catch (NumberFormatException e) {
+            throw new RequestHandlerBadRequestException("NumberFormatException ("+e.getMessage()+")");
+        }
+
+        // Process optional argument 'select'
+        if (args.containsKey("select")) {
+            ways.clear();
+            nodes.clear();
+            relations.clear();
+            for (String item : args.get("select").split(",")) {
+                try {
+                    if (item.startsWith("way")) {
+                        ways.add(Long.parseLong(item.substring(3)));
+                    } else if (item.startsWith("node")) {
+                        nodes.add(Long.parseLong(item.substring(4)));
+                    } else if (item.startsWith("relation")) {
+                        relations.add(Long.parseLong(item.substring(8)));
+                    } else if (item.startsWith("rel")) {
+                        relations.add(Long.parseLong(item.substring(3)));
+                    } else {
+                        System.out.println("RemoteControl: invalid selection '"+item+"' ignored");
+                    }
+                } catch (NumberFormatException e) {
+                    System.out.println("RemoteControl: invalid selection '"+item+"' ignored");
+                }
+            }
+        }
     }
 }

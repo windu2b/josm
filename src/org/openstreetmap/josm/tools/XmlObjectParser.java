@@ -184,7 +184,8 @@ public class XmlObjectParser implements Iterable<Object> {
                 if (f == null && fieldName.startsWith(lang)) {
                     f = entry.getField("locale_" + fieldName.substring(lang.length()));
                 }
-                if (f != null && Modifier.isPublic(f.getModifiers()) && String.class.equals(f.getType())) {
+                if (f != null && Modifier.isPublic(f.getModifiers()) && (
+                        String.class.equals(f.getType()) || boolean.class.equals(f.getType()))) {
                     f.set(c, getValueForClass(f.getType(), value));
                 } else {
                     if (fieldName.startsWith(lang)) {
@@ -291,6 +292,13 @@ public class XmlObjectParser implements Iterable<Object> {
             SAXParser saxParser = parserFactory.newSAXParser();
             XMLReader reader = saxParser.getXMLReader();
             reader.setContentHandler(contentHandler);
+            try {
+                // Do not load external DTDs (fix #8191)
+                reader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+            } catch (SAXException e) {
+                // Exception very unlikely to happen, so no need to translate this
+                System.err.println("Cannot disable 'load-external-dtd' feature: "+e.getMessage());
+            }
             reader.parse(new InputSource(in));
             queueIterator = queue.iterator();
             return this;

@@ -47,8 +47,8 @@ public class ElemStyles {
      *
      * @param osm the primitive
      * @param scale the scale (in meters per 100 pixel)
-     * @param nc
-     * @return
+     * @param nc display component
+     * @return list of styles
      */
     public StyleList get(OsmPrimitive osm, double scale, NavigatableComponent nc) {
         return getStyleCacheWithRange(osm, scale, nc).a;
@@ -61,7 +61,7 @@ public class ElemStyles {
      * Uses the cache, if possible, and saves the results to the cache.
      */
     public Pair<StyleList, Range> getStyleCacheWithRange(OsmPrimitive osm, double scale, NavigatableComponent nc) {
-        if (osm.mappaintStyle == null || osm.mappaintCacheIdx != cacheIdx) {
+        if (osm.mappaintStyle == null || osm.mappaintCacheIdx != cacheIdx || scale <= 0) {
             osm.mappaintStyle = StyleCache.EMPTY_STYLECACHE;
         } else {
             Pair<StyleList, Range> lst = osm.mappaintStyle.getWithRange(scale);
@@ -111,7 +111,8 @@ public class ElemStyles {
                 p.a = new StyleList(p.a, line);
             }
         }
-        osm.mappaintStyle = osm.mappaintStyle.put(p.a, p.b);
+        StyleCache style = osm.mappaintStyle != null ? osm.mappaintStyle : StyleCache.EMPTY_STYLECACHE;
+        osm.mappaintStyle = style.put(p.a, p.b);
         osm.mappaintCacheIdx = cacheIdx;
         return p;
     }
@@ -312,6 +313,7 @@ public class ElemStyles {
             if (osm instanceof Way) {
                 addIfNotNull(sl, AreaElemStyle.create(c));
                 addIfNotNull(sl, LinePatternElemStyle.create(env));
+                addIfNotNull(sl, RepeatImageElemStyle.create(env));
                 addIfNotNull(sl, LineElemStyle.createLine(env));
                 addIfNotNull(sl, LineElemStyle.createLeftCasing(env));
                 addIfNotNull(sl, LineElemStyle.createRightCasing(env));
@@ -329,6 +331,7 @@ public class ElemStyles {
                 if (((Relation)osm).isMultipolygon()) {
                     addIfNotNull(sl, AreaElemStyle.create(c));
                     addIfNotNull(sl, LinePatternElemStyle.create(env));
+                    addIfNotNull(sl, RepeatImageElemStyle.create(env));
                     addIfNotNull(sl, LineElemStyle.createLine(env));
                     addIfNotNull(sl, LineElemStyle.createCasing(env));
                     addIfNotNull(sl, LineTextElemStyle.create(env));

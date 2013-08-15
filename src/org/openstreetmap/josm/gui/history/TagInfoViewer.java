@@ -10,9 +10,11 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
 
+import org.openstreetmap.josm.gui.util.AdjustmentSynchronizer;
+
 /**
  * TagInfoViewer is a UI component which displays the list of tags of two
- * version of a {@link OsmPrimitive} in a {@link History}.
+ * version of a {@link org.openstreetmap.josm.data.osm.OsmPrimitive} in a {@link org.openstreetmap.josm.data.osm.history.History}.
  *
  * <ul>
  *   <li>on the left, it displays the list of tags for the version at {@link PointInTimeType#REFERENCE_POINT_IN_TIME}</li>

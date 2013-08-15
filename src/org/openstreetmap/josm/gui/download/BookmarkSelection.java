@@ -16,18 +16,17 @@ import javax.swing.JButton;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.Bounds;
-import org.openstreetmap.josm.data.coor.CoordinateFormat;
 import org.openstreetmap.josm.data.osm.BBox;
 import org.openstreetmap.josm.gui.BookmarkList;
 import org.openstreetmap.josm.gui.BookmarkList.Bookmark;
 import org.openstreetmap.josm.gui.JMultilineLabel;
+import org.openstreetmap.josm.gui.widgets.JosmTextArea;
 import org.openstreetmap.josm.tools.ImageProvider;
 
 /**
@@ -49,7 +48,7 @@ public class BookmarkSelection implements DownloadSelection {
 
     /** displays information about the current download area */
     private JMultilineLabel lblCurrentDownloadArea;
-    final private JTextArea bboxDisplay = new JTextArea();
+    final private JosmTextArea bboxDisplay = new JosmTextArea();
     /** the add action */
     private AddAction actAdd;
 
@@ -105,6 +104,7 @@ public class BookmarkSelection implements DownloadSelection {
         return pnl;
     }
 
+    @Override
     public void addGui(final DownloadDialog gui) {
         JPanel dlg = new JPanel(new GridBagLayout());
         gui.addDownloadAreaSelector(dlg, tr("Bookmarks"));
@@ -112,6 +112,7 @@ public class BookmarkSelection implements DownloadSelection {
 
         bookmarks = new BookmarkList();
         bookmarks.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+            @Override
             public void valueChanged(ListSelectionEvent e) {
                 Bookmark b = (Bookmark)bookmarks.getSelectedValue();
                 if (b != null) {
@@ -161,6 +162,7 @@ public class BookmarkSelection implements DownloadSelection {
      *
      * @param area the download area.
      */
+    @Override
     public void setDownloadArea(Bounds area) {
         if (area == null) return;
         this.currentArea = area;
@@ -180,6 +182,7 @@ public class BookmarkSelection implements DownloadSelection {
             putValue(SHORT_DESCRIPTION, tr("Add a bookmark for the currently selected download area"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             if (currentArea == null) {
                 JOptionPane.showMessageDialog(
@@ -198,7 +201,7 @@ public class BookmarkSelection implements DownloadSelection {
                             JOptionPane.QUESTION_MESSAGE)
             );
             b.setArea(currentArea);
-            if (b.getName() != null && !b.getName().equals("")) {
+            if (b.getName() != null && !b.getName().isEmpty()) {
                 ((DefaultListModel)bookmarks.getModel()).addElement(b);
                 bookmarks.save();
             }
@@ -213,6 +216,7 @@ public class BookmarkSelection implements DownloadSelection {
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             Object[] sels = bookmarks.getSelectedValues();
             if (sels == null || sels.length == 0)
@@ -225,6 +229,7 @@ public class BookmarkSelection implements DownloadSelection {
         protected void updateEnabledState() {
             setEnabled(bookmarks.getSelectedIndices().length > 0);
         }
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }
@@ -238,6 +243,7 @@ public class BookmarkSelection implements DownloadSelection {
             updateEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             Object[] sels = bookmarks.getSelectedValues();
             if (sels == null || sels.length != 1)
@@ -261,6 +267,7 @@ public class BookmarkSelection implements DownloadSelection {
         protected void updateEnabledState() {
             setEnabled(bookmarks.getSelectedIndices().length == 1);
         }
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             updateEnabledState();
         }

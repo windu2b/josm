@@ -38,6 +38,10 @@ abstract public class AbstractProjection implements Projection {
         return datum;
     }
 
+    /**
+     * Replies the projection (in the narrow sense)
+     * @return The projection object
+     */
     public final Proj getProj() {
         return proj;
     }
@@ -99,7 +103,7 @@ abstract public class AbstractProjection implements Projection {
     protected static final double convertDegreeMinuteSecond(double degree, double minute, double second) {
         return degree + (minute/60.0) + (second/3600.0);
     }
-    
+
     public void dump() {
         System.err.println("x_0="+x_0);
         System.err.println("y_0="+y_0);

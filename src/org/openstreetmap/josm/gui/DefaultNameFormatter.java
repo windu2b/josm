@@ -120,7 +120,6 @@ public class DefaultNameFormatter implements NameFormatter, HistoryNameFormatter
      *
      * @param name  the name without the id
      * @param primitive the primitive
-     * @return the decorated name
      */
     protected void decorateNameWithId(StringBuilder name, IPrimitive primitive) {
         if (Main.pref.getBoolean("osm-primitives.showid")) {
@@ -138,6 +137,7 @@ public class DefaultNameFormatter implements NameFormatter, HistoryNameFormatter
      * @param node the node
      * @return the name
      */
+    @Override
     public String format(Node node) {
         StringBuilder name = new StringBuilder();
         if (node.isIncomplete()) {
@@ -203,6 +203,7 @@ public class DefaultNameFormatter implements NameFormatter, HistoryNameFormatter
         }
     };
 
+    @Override
     public Comparator<Node> getNodeComparator() {
         return nodeComparator;
     }
@@ -214,6 +215,7 @@ public class DefaultNameFormatter implements NameFormatter, HistoryNameFormatter
      * @param way the way
      * @return the name
      */
+    @Override
     public String format(Way way) {
         StringBuilder name = new StringBuilder();
         if (way.isIncomplete()) {
@@ -267,10 +269,7 @@ public class DefaultNameFormatter implements NameFormatter, HistoryNameFormatter
                 preset.nameTemplate.appendText(name, way);
             }
 
-            int nodesNo = way.getNodesCount();
-            if (nodesNo > 1 && way.isClosed()) {
-                nodesNo--;
-            }
+            int nodesNo = way.getRealNodesCount();
             /* note: length == 0 should no longer happen, but leave the bracket code
                nevertheless, who knows what future brings */
             /* I18n: count of nodes as parameter */
@@ -296,6 +295,7 @@ public class DefaultNameFormatter implements NameFormatter, HistoryNameFormatter
         }
     };
 
+    @Override
     public Comparator<Way> getWayComparator() {
         return wayComparator;
     }
@@ -307,6 +307,7 @@ public class DefaultNameFormatter implements NameFormatter, HistoryNameFormatter
      * @param relation the relation
      * @return the name
      */
+    @Override
     public String format(Relation relation) {
         StringBuilder name = new StringBuilder();
         if (relation.isIncomplete()) {
@@ -383,7 +384,9 @@ public class DefaultNameFormatter implements NameFormatter, HistoryNameFormatter
                 String name1 = getRelationName(r1);
                 String name2 = getRelationName(r2);
 
-                return ALPHANUM_COMPARATOR.compare(name1, name2);
+                comp = ALPHANUM_COMPARATOR.compare(name1, name2);
+                if (comp != 0)
+                    return comp;
             }
 
             if (r1.getMembersCount() != r2.getMembersCount())
@@ -393,10 +396,16 @@ public class DefaultNameFormatter implements NameFormatter, HistoryNameFormatter
             if (comp != 0)
                 return comp;
 
-            return r1.getUniqueId() > r2.getUniqueId()?1:-1;
+            if (r1.getUniqueId() > r2.getUniqueId())
+                return 1;
+            else if (r1.getUniqueId() < r2.getUniqueId())
+                return -1;
+            else
+                return 0;
         }
     };
 
+    @Override
     public Comparator<Relation> getRelationComparator() {
         return relationComparator;
     }
@@ -480,6 +489,7 @@ public class DefaultNameFormatter implements NameFormatter, HistoryNameFormatter
      * @param changeset the changeset
      * @return the name
      */
+    @Override
     public String format(Changeset changeset) {
         return tr("Changeset {0}",changeset.getId());
     }
@@ -543,6 +553,7 @@ public class DefaultNameFormatter implements NameFormatter, HistoryNameFormatter
      * @param node the node
      * @return the name
      */
+    @Override
     public String format(HistoryNode node) {
         StringBuilder sb = new StringBuilder();
         String name;
@@ -574,6 +585,7 @@ public class DefaultNameFormatter implements NameFormatter, HistoryNameFormatter
      * @param way the way
      * @return the name
      */
+    @Override
     public String format(HistoryWay way) {
         StringBuilder sb = new StringBuilder();
         String name;
@@ -615,6 +627,7 @@ public class DefaultNameFormatter implements NameFormatter, HistoryNameFormatter
      * @param relation the relation
      * @return the name
      */
+    @Override
     public String format(HistoryRelation relation) {
         StringBuilder sb = new StringBuilder();
         if (relation.get("type") != null) {

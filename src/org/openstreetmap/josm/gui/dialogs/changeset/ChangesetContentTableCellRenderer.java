@@ -15,7 +15,7 @@ import org.openstreetmap.josm.data.osm.history.HistoryOsmPrimitive;
 
 /**
  * The table cell renderer used in the changeset content table, except for the "name"
- * column in which we use a {@link OsmPrimitivRenderer}.
+ * column in which we use a {@link org.openstreetmap.josm.gui.OsmPrimitivRenderer}.
  *
  */
 public class ChangesetContentTableCellRenderer extends JLabel implements TableCellRenderer{
@@ -54,6 +54,7 @@ public class ChangesetContentTableCellRenderer extends JLabel implements TableCe
         setToolTipText("");
     }
 
+    @Override
     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
             int row, int column) {
         if (value == null)

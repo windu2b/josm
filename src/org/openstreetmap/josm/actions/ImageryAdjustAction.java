@@ -19,7 +19,6 @@ import java.awt.event.MouseMotionListener;
 
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JTextField;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.actions.mapmode.MapMode;
@@ -30,7 +29,7 @@ import org.openstreetmap.josm.gui.JMultilineLabel;
 import org.openstreetmap.josm.gui.layer.ImageryLayer;
 import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.ImageProvider;
-
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 
 public class ImageryAdjustAction extends MapMode implements MouseListener, MouseMotionListener, AWTEventListener{
     static ImageryOffsetDialog offsetDialog;
@@ -57,16 +56,20 @@ public class ImageryAdjustAction extends MapMode implements MouseListener, Mouse
         if (!layer.isVisible()) {
             layer.setVisible(true);
         }
-        Main.map.mapView.addMouseListener(this);
-        Main.map.mapView.addMouseMotionListener(this);
         oldDx = layer.getDx();
         oldDy = layer.getDy();
+        addListeners();
+        offsetDialog = new ImageryOffsetDialog();
+        offsetDialog.setVisible(true);
+    }
+    
+    protected void addListeners() {
+        Main.map.mapView.addMouseListener(this);
+        Main.map.mapView.addMouseMotionListener(this);
         try {
             Toolkit.getDefaultToolkit().addAWTEventListener(this, AWTEvent.KEY_EVENT_MASK);
         } catch (SecurityException ex) {
         }
-        offsetDialog = new ImageryOffsetDialog();
-        offsetDialog.setVisible(true);
     }
 
     @Override public void exitMode() {
@@ -76,12 +79,18 @@ public class ImageryAdjustAction extends MapMode implements MouseListener, Mouse
             offsetDialog.setVisible(false);
             offsetDialog = null;
         }
+        removeListeners();
+    }
+    
+    protected void removeListeners() {
         try {
             Toolkit.getDefaultToolkit().removeAWTEventListener(this);
         } catch (SecurityException ex) {
         }
-        Main.map.mapView.removeMouseListener(this);
-        Main.map.mapView.removeMouseMotionListener(this);
+        if (Main.isDisplayingMapView()) {
+            Main.map.mapView.removeMouseMotionListener(this);
+            Main.map.mapView.removeMouseListener(this);
+        }
     }
 
     @Override
@@ -114,6 +123,7 @@ public class ImageryAdjustAction extends MapMode implements MouseListener, Mouse
             return;
 
         if (layer.isVisible()) {
+            requestFocusInMapView();
             prevEastNorth=Main.map.mapView.getEastNorth(e.getX(),e.getY());
             Main.map.mapView.setNewCursor(Cursor.MOVE_CURSOR, this);
         }
@@ -144,13 +154,12 @@ public class ImageryAdjustAction extends MapMode implements MouseListener, Mouse
         if (offsetDialog != null || layer == null || Main.map == null)
             return;
         oldMapMode = Main.map.mapMode;
-        layer.enableOffsetServer(false);
         super.actionPerformed(e);
     }
 
     class ImageryOffsetDialog extends ExtendedDialog implements FocusListener {
-        public final JTextField tOffset = new JTextField();
-        JTextField tBookmarkName = new JTextField();
+        public final JosmTextField tOffset = new JosmTextField();
+        JosmTextField tBookmarkName = new JosmTextField();
         private boolean ignoreListener;
         public ImageryOffsetDialog() {
             super(Main.parent,
@@ -237,7 +246,7 @@ public class ImageryAdjustAction extends MapMode implements MouseListener, Mouse
 
         @Override
         protected void buttonAction(int buttonIndex, ActionEvent evt) {
-            if (buttonIndex == 0 && tBookmarkName.getText() != null && !"".equals(tBookmarkName.getText()) &&
+            if (buttonIndex == 0 && tBookmarkName.getText() != null && !tBookmarkName.getText().isEmpty() &&
                     OffsetBookmark.getBookmarkByName(layer, tBookmarkName.getText()) != null) {
                 if (!confirmOverwriteBookmark()) return;
             }
@@ -251,7 +260,7 @@ public class ImageryAdjustAction extends MapMode implements MouseListener, Mouse
             offsetDialog = null;
             if (getValue() != 1) {
                 layer.setOffset(oldDx, oldDy);
-            } else if (tBookmarkName.getText() != null && !"".equals(tBookmarkName.getText())) {
+            } else if (tBookmarkName.getText() != null && !tBookmarkName.getText().isEmpty()) {
                 OffsetBookmark.bookmarkOffset(tBookmarkName.getText(), layer);
             }
             Main.main.menu.imageryMenu.refreshOffsetMenu();
@@ -263,5 +272,13 @@ public class ImageryAdjustAction extends MapMode implements MouseListener, Mouse
                 Main.map.selectSelectTool(false);
             }
         }
+    }
+
+    @Override
+    public void destroy() {
+        super.destroy();
+        removeListeners();
+        this.layer = null;
+        this.oldMapMode = null;
     }
 }

@@ -44,7 +44,7 @@ public class PluginListPanel extends VerticallyScrollablePanel{
 
     protected String formatPluginRemoteVersion(PluginInformation pi) {
         StringBuilder sb = new StringBuilder();
-        if (pi.version == null || pi.version.trim().equals("")) {
+        if (pi.version == null || pi.version.trim().isEmpty()) {
             sb.append(tr("unknown"));
         } else {
             sb.append(pi.version);
@@ -57,7 +57,7 @@ public class PluginListPanel extends VerticallyScrollablePanel{
 
     protected String formatPluginLocalVersion(PluginInformation pi) {
         if (pi == null) return tr("unknown");
-        if (pi.localversion == null || pi.localversion.trim().equals(""))
+        if (pi.localversion == null || pi.localversion.trim().isEmpty())
             return tr("unknown");
         return pi.localversion;
     }
@@ -87,7 +87,7 @@ public class PluginListPanel extends VerticallyScrollablePanel{
         );
         add(hint, gbc);
     }
-    
+
     /**
      * A plugin checkbox.
      *
@@ -101,7 +101,7 @@ public class PluginListPanel extends VerticallyScrollablePanel{
             addActionListener(new PluginCbActionListener(this));
         }
     }
-    
+
     /**
      * Listener called when the user selects/unselects a plugin checkbox.
      *
@@ -111,26 +111,35 @@ public class PluginListPanel extends VerticallyScrollablePanel{
         public PluginCbActionListener(JPluginCheckBox cb) {
             this.cb = cb;
         }
+        protected void selectRequiredPlugins(PluginInformation info) {
+            if (info != null && info.requires != null) {
+                for (String s : info.getRequiredPlugins()) {
+                    if (!model.isSelectedPlugin(s)) {
+                        model.setPluginSelected(s, true);
+                        selectRequiredPlugins(model.getPluginInformation(s));
+                    }
+                }
+            }
+        }
+        @Override
         public void actionPerformed(ActionEvent e) {
             // Select/unselect corresponding plugin in the model
             model.setPluginSelected(cb.pi.getName(), cb.isSelected());
             // Does the newly selected plugin require other plugins ?
             if (cb.isSelected() && cb.pi.requires != null) {
                 // Select required plugins
-                for (String s : cb.pi.requires.split(";")) {
-                    model.setPluginSelected(s.trim(), true);
-                }
+                selectRequiredPlugins(cb.pi);
                 // Alert user if plugin requirements are not met
-                PluginHandler.checkRequiredPluginsPreconditions(PluginListPanel.this, model.getAvailablePlugins(), cb.pi);
+                PluginHandler.checkRequiredPluginsPreconditions(PluginListPanel.this, model.getAvailablePlugins(), cb.pi, false);
             }
             // If the plugin has been unselected, was it required by other plugins still selected ?
             else if (!cb.isSelected()) {
                 Set<String> otherPlugins = new HashSet<String>();
                 for (PluginInformation pi : model.getAvailablePlugins()) {
                     if (!pi.equals(cb.pi) && pi.requires != null && model.isSelectedPlugin(pi.getName())) {
-                        for (String s : pi.requires.split(";")) {
-                            if (s.trim().equals(cb.pi.getName())) {
-                                otherPlugins.add(pi.getName()); 
+                        for (String s : pi.getRequiredPlugins()) {
+                            if (s.equals(cb.pi.getName())) {
+                                otherPlugins.add(pi.getName());
                                 break;
                             }
                         }
@@ -141,8 +150,8 @@ public class PluginListPanel extends VerticallyScrollablePanel{
                 }
             }
         }
-    };
-    
+    }
+
 
     /**
      * Alerts the user if an unselected plugin is still required by another plugins
@@ -219,6 +228,7 @@ public class PluginListPanel extends VerticallyScrollablePanel{
             HtmlPanel description = new HtmlPanel();
             description.setText(pi.getDescriptionAsHtml());
             description.getEditorPane().addHyperlinkListener(new HyperlinkListener() {
+                @Override
                 public void hyperlinkUpdate(HyperlinkEvent e) {
                     if(e.getEventType() == EventType.ACTIVATED) {
                         OpenBrowser.displayUrl(e.getURL().toString());

@@ -68,7 +68,7 @@ import com.drew.lang.Rational;
 import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.MetadataException;
-import com.drew.metadata.exif.ExifDirectory;
+import com.drew.metadata.exif.ExifIFD0Directory;
 import com.drew.metadata.exif.GpsDirectory;
 
 public class GeoImageLayer extends Layer implements PropertyChangeListener, JumpToMarkerLayer {
@@ -238,7 +238,7 @@ public class GeoImageLayer extends Layer implements PropertyChangeListener, Jump
             if (layer != null) {
                 Main.main.addLayer(layer);
 
-                if (! canceled && layer.data.size() > 0) {
+                if (!canceled && !layer.data.isEmpty()) {
                     boolean noGeotagFound = true;
                     for (ImageEntry e : layer.data) {
                         if (e.getPos() != null) {
@@ -300,7 +300,7 @@ public class GeoImageLayer extends Layer implements PropertyChangeListener, Jump
         entries.add(SeparatorLayerAction.INSTANCE);
         entries.add(new LayerListPopup.InfoAction(this));
 
-        return entries.toArray(new Action[0]);
+        return entries.toArray(new Action[entries.size()]);
 
     }
 
@@ -393,8 +393,8 @@ public class GeoImageLayer extends Layer implements PropertyChangeListener, Jump
 
     @Override
     public void paint(Graphics2D g, MapView mv, Bounds bounds) {
-        int width = Main.map.mapView.getWidth();
-        int height = Main.map.mapView.getHeight();
+        int width = mv.getWidth();
+        int height = mv.getHeight();
         Rectangle clip = g.getClipBounds();
         if (useThumbs) {
             if (null == offscreenBuffer || offscreenBuffer.getWidth() != width  // reuse the old buffer if possible
@@ -510,23 +510,34 @@ public class GeoImageLayer extends Layer implements PropertyChangeListener, Jump
         double deg;
         double min, sec;
         double lon, lat;
-        Metadata metadata = null;
-        Directory dirExif = null, dirGps = null;
+        Metadata metadata;
+        Directory dirExif;
+        GpsDirectory dirGps;
 
         try {
             metadata = JpegMetadataReader.readMetadata(e.getFile());
-            dirExif = metadata.getDirectory(ExifDirectory.class);
+            dirExif = metadata.getDirectory(ExifIFD0Directory.class);
             dirGps = metadata.getDirectory(GpsDirectory.class);
         } catch (CompoundException p) {
+            e.setExifCoor(null);
+            e.setPos(null);
+            return;
+        } catch (IOException p) {
             e.setExifCoor(null);
             e.setPos(null);
             return;
         }
 
         try {
-            int orientation = dirExif.getInt(ExifDirectory.TAG_ORIENTATION);
+            int orientation = dirExif.getInt(ExifIFD0Directory.TAG_ORIENTATION);
             e.setExifOrientation(orientation);
         } catch (MetadataException ex) {
+        }
+
+        if (dirGps == null) {
+            e.setExifCoor(null);
+            e.setPos(null);
+            return;
         }
 
         try {
@@ -543,38 +554,45 @@ public class GeoImageLayer extends Layer implements PropertyChangeListener, Jump
             // longitude
 
             Rational[] components = dirGps.getRationalArray(GpsDirectory.TAG_GPS_LONGITUDE);
+            if (components != null) {
+                deg = components[0].doubleValue();
+                min = components[1].doubleValue();
+                sec = components[2].doubleValue();
 
-            deg = components[0].doubleValue();
-            min = components[1].doubleValue();
-            sec = components[2].doubleValue();
+                if (Double.isNaN(deg) && Double.isNaN(min) && Double.isNaN(sec))
+                    throw new IllegalArgumentException();
 
-            if (Double.isNaN(deg) && Double.isNaN(min) && Double.isNaN(sec))
-                throw new IllegalArgumentException();
+                lon = (Double.isNaN(deg) ? 0 : deg + (Double.isNaN(min) ? 0 : (min / 60)) + (Double.isNaN(sec) ? 0 : (sec / 3600)));
 
-            lon = (Double.isNaN(deg) ? 0 : deg + (Double.isNaN(min) ? 0 : (min / 60)) + (Double.isNaN(sec) ? 0 : (sec / 3600)));
-
-            if (dirGps.getString(GpsDirectory.TAG_GPS_LONGITUDE_REF).charAt(0) == 'W') {
-                lon = -lon;
+                if (dirGps.getString(GpsDirectory.TAG_GPS_LONGITUDE_REF).charAt(0) == 'W') {
+                    lon = -lon;
+                }
+            } else {
+                // Try to read lon/lat as double value (Nonstandard, created by some cameras -> #5220)
+                lon = dirGps.getDouble(GpsDirectory.TAG_GPS_LONGITUDE);
             }
 
             // latitude
 
             components = dirGps.getRationalArray(GpsDirectory.TAG_GPS_LATITUDE);
+            if (components != null) {
+                deg = components[0].doubleValue();
+                min = components[1].doubleValue();
+                sec = components[2].doubleValue();
 
-            deg = components[0].doubleValue();
-            min = components[1].doubleValue();
-            sec = components[2].doubleValue();
+                if (Double.isNaN(deg) && Double.isNaN(min) && Double.isNaN(sec))
+                    throw new IllegalArgumentException();
 
-            if (Double.isNaN(deg) && Double.isNaN(min) && Double.isNaN(sec))
-                throw new IllegalArgumentException();
+                lat = (Double.isNaN(deg) ? 0 : deg + (Double.isNaN(min) ? 0 : (min / 60)) + (Double.isNaN(sec) ? 0 : (sec / 3600)));
 
-            lat = (Double.isNaN(deg) ? 0 : deg + (Double.isNaN(min) ? 0 : (min / 60)) + (Double.isNaN(sec) ? 0 : (sec / 3600)));
+                if (Double.isNaN(lat))
+                    throw new IllegalArgumentException();
 
-            if (Double.isNaN(lat))
-                throw new IllegalArgumentException();
-
-            if (dirGps.getString(GpsDirectory.TAG_GPS_LATITUDE_REF).charAt(0) == 'S') {
-                lat = -lat;
+                if (dirGps.getString(GpsDirectory.TAG_GPS_LATITUDE_REF).charAt(0) == 'S') {
+                    lat = -lat;
+                }
+            } else {
+                lat = dirGps.getDouble(GpsDirectory.TAG_GPS_LATITUDE);
             }
 
             // Store values
@@ -582,22 +600,6 @@ public class GeoImageLayer extends Layer implements PropertyChangeListener, Jump
             e.setExifCoor(new LatLon(lat, lon));
             e.setPos(e.getExifCoor());
 
-        } catch (CompoundException p) {
-            // Try to read lon/lat as double value (Nonstandard, created by some cameras -> #5220)
-            try {
-                Double longitude = dirGps.getDouble(GpsDirectory.TAG_GPS_LONGITUDE);
-                Double latitude = dirGps.getDouble(GpsDirectory.TAG_GPS_LATITUDE);
-                if (longitude == null || latitude == null)
-                    throw new CompoundException("");
-
-                // Store values
-
-                e.setExifCoor(new LatLon(latitude, longitude));
-                e.setPos(e.getExifCoor());
-            } catch (CompoundException ex) {
-                e.setExifCoor(null);
-                e.setPos(null);
-            }
         } catch (Exception ex) { // (other exceptions, e.g. #5271)
             System.err.println("Error reading EXIF from file: "+ex);
             e.setExifCoor(null);
@@ -632,7 +634,7 @@ public class GeoImageLayer extends Layer implements PropertyChangeListener, Jump
     }
 
     public void showPreviousPhoto() {
-        if (data != null && data.size() > 0) {
+        if (data != null && !data.isEmpty()) {
             currentPhoto--;
             if (currentPhoto < 0) {
                 currentPhoto = 0;
@@ -763,6 +765,7 @@ public class GeoImageLayer extends Layer implements PropertyChangeListener, Jump
         };
 
         mapModeListener = new MapModeChangeListener() {
+            @Override
             public void mapModeChange(MapMode oldMapMode, MapMode newMapMode) {
                 if (newMapMode == null || (newMapMode instanceof org.openstreetmap.josm.actions.mapmode.SelectAction)) {
                     Main.map.mapView.addMouseListener(mouseAdapter);
@@ -776,6 +779,7 @@ public class GeoImageLayer extends Layer implements PropertyChangeListener, Jump
         mapModeListener.mapModeChange(null, Main.map.mapMode);
 
         MapView.addLayerChangeListener(new LayerChangeListener() {
+            @Override
             public void activeLayerChange(Layer oldLayer, Layer newLayer) {
                 if (newLayer == GeoImageLayer.this) {
                     // only in select mode it is possible to click the images
@@ -783,9 +787,11 @@ public class GeoImageLayer extends Layer implements PropertyChangeListener, Jump
                 }
             }
 
+            @Override
             public void layerAdded(Layer newLayer) {
             }
 
+            @Override
             public void layerRemoved(Layer oldLayer) {
                 if (oldLayer == GeoImageLayer.this) {
                     if (thumbsloader != null) {
@@ -809,6 +815,7 @@ public class GeoImageLayer extends Layer implements PropertyChangeListener, Jump
         }
     }
 
+    @Override
     public void propertyChange(PropertyChangeEvent evt) {
         if (NavigatableComponent.PROPNAME_CENTER.equals(evt.getPropertyName()) || NavigatableComponent.PROPNAME_SCALE.equals(evt.getPropertyName())) {
             updateOffscreenBuffer = true;
@@ -831,7 +838,7 @@ public class GeoImageLayer extends Layer implements PropertyChangeListener, Jump
     }
 
     public List<ImageEntry> getImages() {
-        List<ImageEntry> copy = new ArrayList<ImageEntry>();
+        List<ImageEntry> copy = new ArrayList<ImageEntry>(data.size());
         for (ImageEntry ie : data) {
             copy.add(ie.clone());
         }
@@ -842,10 +849,12 @@ public class GeoImageLayer extends Layer implements PropertyChangeListener, Jump
         return gpxLayer;
     }
 
+    @Override
     public void jumpToNextMarker() {
         showNextPhoto();
     }
 
+    @Override
     public void jumpToPreviousMarker() {
         showPreviousPhoto();
     }

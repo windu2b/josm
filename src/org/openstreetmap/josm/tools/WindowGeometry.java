@@ -5,7 +5,6 @@ import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Point;
@@ -110,7 +109,7 @@ public class WindowGeometry {
 
     /**
      * Creates a window geometry from a rectangle
-     * 
+     *
      * @param rect the position
      */
     public WindowGeometry(Rectangle rect) {
@@ -163,7 +162,7 @@ public class WindowGeometry {
 
     protected void initFromPreferences(String preferenceKey) throws WindowGeometryException {
         String value = Main.pref.get(preferenceKey);
-        if (value == null || value.equals(""))
+        if (value == null || value.isEmpty())
             throw new WindowGeometryException(tr("Preference with key ''{0}'' does not exist. Cannot restore window geometry from preferences.", preferenceKey));
         topLeft = new Point();
         extent = new Dimension();
@@ -286,7 +285,7 @@ public class WindowGeometry {
     /**
      * Applies this geometry to a window. Makes sure that the window is not
      * placed outside of the coordinate range of all available screens.
-     * 
+     *
      * @param window the window
      */
     public void applySafe(Window window) {
@@ -296,8 +295,7 @@ public class WindowGeometry {
         GraphicsEnvironment ge = GraphicsEnvironment
                 .getLocalGraphicsEnvironment();
         GraphicsDevice[] gs = ge.getScreenDevices();
-        for (int j = 0; j < gs.length; j++) {
-            GraphicsDevice gd = gs[j];
+        for (GraphicsDevice gd : gs) {
             if (gd.getType() == GraphicsDevice.TYPE_RASTER_SCREEN) {
                 virtualBounds = virtualBounds.union(gd.getDefaultConfiguration().getBounds());
             }
@@ -322,7 +320,7 @@ public class WindowGeometry {
     /**
      * Find the size and position of the screen for given coordinates. Use first screen,
      * when no coordinates are stored or null is passed.
-     * 
+     *
      * @param preferenceKey the key to get size and position from
      * @return bounds of the screen
      */
@@ -336,7 +334,7 @@ public class WindowGeometry {
     /**
      * Find the size and position of the screen for given coordinates. Use first screen,
      * when no coordinates are stored or null is passed.
-     * 
+     *
      * @param g coordinates to check
      * @return bounds of the screen
      */
@@ -346,33 +344,29 @@ public class WindowGeometry {
         GraphicsDevice[] gs = ge.getScreenDevices();
         int intersect = 0;
         Rectangle bounds = null;
-        for (int j = 0; j < gs.length; j++) {
-            GraphicsDevice gd = gs[j];
+        for (GraphicsDevice gd : gs) {
             if (gd.getType() == GraphicsDevice.TYPE_RASTER_SCREEN) {
                 Rectangle b = gd.getDefaultConfiguration().getBounds();
-                if (b.height > 0 && b.width/b.height >= 3) /* multiscreen with wrong definition */
-                {
+                if (b.height > 0 && b.width / b.height >= 3) /* multiscreen with wrong definition */ {
                     b.width /= 2;
                     Rectangle is = b.intersection(g);
-                    int s = is.width*is.height;
-                    if(bounds == null || intersect < s) {
+                    int s = is.width * is.height;
+                    if (bounds == null || intersect < s) {
                         intersect = s;
                         bounds = b;
                     }
                     b = new Rectangle(b);
                     b.x += b.width;
                     is = b.intersection(g);
-                    s = is.width*is.height;
-                    if(bounds == null || intersect < s) {
+                    s = is.width * is.height;
+                    if (bounds == null || intersect < s) {
                         intersect = s;
                         bounds = b;
                     }
-                }
-                else
-                {
+                } else {
                     Rectangle is = b.intersection(g);
-                    int s = is.width*is.height;
-                    if(bounds == null || intersect < s) {
+                    int s = is.width * is.height;
+                    if (bounds == null || intersect < s) {
                         intersect = s;
                         bounds = b;
                     }

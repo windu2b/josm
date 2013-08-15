@@ -34,6 +34,10 @@ import org.openstreetmap.josm.tools.MultiMap;
 public class DuplicateWay extends Test
 {
 
+    /**
+      * Class to store a way reduced to coordinates and keys. Essentially this is used to call the
+      * <code>equals{}</code> function.
+      */
     private static class WayPair {
         public List<LatLon> coor;
         public Map<String, String> keys;
@@ -56,6 +60,10 @@ public class DuplicateWay extends Test
         }
     }
 
+    /**
+      * Class to store a way reduced to coordinates. Essentially this is used to call the
+      * <code>equals{}</code> function.
+      */
     private static class WayPairNoTags {
         public List<LatLon> coor;
         public WayPairNoTags(List<LatLon> _coor) {
@@ -73,7 +81,9 @@ public class DuplicateWay extends Test
         }
     }
 
+    /** Test identification for exactly identical ways (coordinates and tags). */
     protected static final int DUPLICATE_WAY = 1401;
+    /** Test identification for identical ways (coordinates only). */
     protected static final int SAME_WAY = 1402;
 
     /** Bag of all ways */
@@ -81,7 +91,7 @@ public class DuplicateWay extends Test
 
     /** Bag of all ways, regardless of tags */
     private MultiMap<WayPairNoTags, OsmPrimitive> waysNoTags;
-    
+
     /** Set of known hashcodes for list of coordinates **/
     private Set<Integer> knownHashCodes;
 
@@ -92,7 +102,6 @@ public class DuplicateWay extends Test
         super(tr("Duplicated ways"),
                 tr("This test checks that there are no ways with same node coordinates and optionally also same tags."));
     }
-
 
     @Override
     public void startTest(ProgressMonitor monitor) {
@@ -144,11 +153,13 @@ public class DuplicateWay extends Test
     }
 
     /**
-     * Remove uninteresting keys, like created_by to normalize the tags
+     * Remove uninteresting discardable keys to normalize the tags
      * @param wkeys The tags of the way, obtained by {@code Way#getKeys}
      */
     public void removeUninterestingKeys(Map<String, String> wkeys) {
-        wkeys.remove("created_by");
+        for(String key : OsmPrimitive.getDiscardableKeys()) {
+            wkeys.remove(key);
+        }
     }
 
     @Override
@@ -181,8 +192,8 @@ public class DuplicateWay extends Test
         }
         // Build the list of lat/lon
         List<LatLon> wLat = new ArrayList<LatLon>(wNodesToUse.size());
-        for (int i=0; i<wNodesToUse.size(); i++) {
-            wLat.add(wNodesToUse.get(i).getCoor());
+        for (Node node : wNodesToUse) {
+            wLat.add(node.getCoor());
         }
         // If this way has not direction-dependant keys, make sure the list is ordered the same for all ways (fix #8015)
         if (!w.hasDirectionKeys()) {
@@ -217,7 +228,7 @@ public class DuplicateWay extends Test
         HashSet<Way> ways = new HashSet<Way>();
 
         for (OsmPrimitive osm : sel) {
-            if (osm instanceof Way) {
+            if (osm instanceof Way && !osm.isDeleted()) {
                 ways.add((Way)osm);
             }
         }

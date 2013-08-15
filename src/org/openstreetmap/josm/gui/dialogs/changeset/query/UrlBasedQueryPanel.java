@@ -15,7 +15,6 @@ import java.net.URL;
 import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JTextField;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.HyperlinkEvent;
@@ -26,11 +25,12 @@ import org.openstreetmap.josm.io.ChangesetQuery;
 import org.openstreetmap.josm.io.OsmApi;
 import org.openstreetmap.josm.io.ChangesetQuery.ChangesetQueryUrlException;
 import org.openstreetmap.josm.tools.ImageProvider;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 
 
 public class UrlBasedQueryPanel extends JPanel {
 
-    private JTextField tfUrl;
+    private JosmTextField tfUrl;
     private JLabel lblValid;
 
     protected JPanel buildURLPanel() {
@@ -44,7 +44,7 @@ public class UrlBasedQueryPanel extends JPanel {
         gc.gridx = 1;
         gc.weightx = 1.0;
         gc.fill = GridBagConstraints.HORIZONTAL;
-        pnl.add(tfUrl = new JTextField(), gc);
+        pnl.add(tfUrl = new JosmTextField(), gc);
         tfUrl.getDocument().addDocumentListener(new ChangetQueryUrlValidator());
         tfUrl.addFocusListener(
                 new FocusAdapter() {
@@ -79,6 +79,7 @@ public class UrlBasedQueryPanel extends JPanel {
         );
         pnl.getEditorPane().addHyperlinkListener(
                 new HyperlinkListener() {
+                    @Override
                     public void hyperlinkUpdate(HyperlinkEvent e) {
                         if (e.getEventType().equals(HyperlinkEvent.EventType.ACTIVATED)) {
                             tfUrl.setText(e.getDescription());
@@ -182,7 +183,7 @@ public class UrlBasedQueryPanel extends JPanel {
 
         protected void validate() {
             String value = tfUrl.getText();
-            if (value.trim().equals("")) {
+            if (value.trim().isEmpty()) {
                 feedbackNone();
                 return;
             }
@@ -193,14 +194,17 @@ public class UrlBasedQueryPanel extends JPanel {
                 feedbackInvalid();
             }
         }
+        @Override
         public void changedUpdate(DocumentEvent e) {
             validate();
         }
 
+        @Override
         public void insertUpdate(DocumentEvent e) {
             validate();
         }
 
+        @Override
         public void removeUpdate(DocumentEvent e) {
             validate();
         }

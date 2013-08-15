@@ -33,14 +33,14 @@ abstract public class Instruction implements StyleKeys {
 
         public AssignmentInstruction(String key, Object val) {
             this.key = key;
-            if (val instanceof Expression.LiteralExpression) {
-                Object litValue = ((Expression.LiteralExpression) val).evaluate(null);
+            if (val instanceof LiteralExpression) {
+                Object litValue = ((LiteralExpression) val).evaluate(null);
                 if (key.equals(TEXT)) {
                     /* Special case for declaration 'text: ...'
-                     * 
+                     *
                      * - Treat the value 'auto' as keyword.
                      * - Treat any other literal value 'litval' as as reference to tag with key 'litval'
-                     * 
+                     *
                      * - Accept function expressions as is. This allows for
                      *     tag(a_tag_name)                 value of a tag
                      *     eval("a static text")           a static text
@@ -72,7 +72,7 @@ abstract public class Instruction implements StyleKeys {
             } else {
                 value = val;
             }
-            if (key.equals(ICON_IMAGE) || key.equals(FILL_IMAGE) || key.equals("pattern-image")) {
+            if (key.equals(ICON_IMAGE) || key.equals(FILL_IMAGE) || key.equals("pattern-image") || key.equals(REPEAT_IMAGE)) {
                 if (value instanceof String) {
                     value = new IconReference((String) value, env.source);
                 }

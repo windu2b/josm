@@ -35,7 +35,8 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
         TMS("tms"),
         HTML("html"),
         BING("bing"),
-        SCANEX("scanex");
+        SCANEX("scanex"),
+        WMS_ENDPOINT("wms_endpoint");
 
         private String urlString;
 
@@ -46,7 +47,7 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
         public String getUrlString() {
             return urlString;
         }
-        
+
         public static ImageryType fromUrlString(String s) {
             for (ImageryType type : ImageryType.values()) {
                 if (type.getUrlString().equals(s)) {

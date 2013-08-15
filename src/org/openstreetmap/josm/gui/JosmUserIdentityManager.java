@@ -101,7 +101,7 @@ public class JosmUserIdentityManager implements PreferenceChangedListener{
      */
     public void setPartiallyIdentified(String userName) throws IllegalArgumentException {
         CheckParameterUtil.ensureParameterNotNull(userName, "userName");
-        if (userName.trim().equals(""))
+        if (userName.trim().isEmpty())
             throw new IllegalArgumentException(MessageFormat.format("Expected non-empty value for parameter ''{0}'', got ''{1}''", "userName", userName));
         this.userName = userName;
         userInfo = null;
@@ -111,7 +111,7 @@ public class JosmUserIdentityManager implements PreferenceChangedListener{
      * Remembers the fact that the current JOSM user is fully identified with a
      * verified pair of user name and user id.
      *
-     * @param userName the user name. Must not be null. Must not be empty.
+     * @param username the user name. Must not be null. Must not be empty.
      * @param userinfo additional information about the user, retrieved from the OSM server and including the user id
      * @throws IllegalArgumentException thrown if userName is null
      * @throws IllegalArgumentException thrown if userName is empty
@@ -119,7 +119,7 @@ public class JosmUserIdentityManager implements PreferenceChangedListener{
      */
     public void setFullyIdentified(String username, UserInfo userinfo) throws IllegalArgumentException {
         CheckParameterUtil.ensureParameterNotNull(username, "username");
-        if (username.trim().equals(""))
+        if (username.trim().isEmpty())
             throw new IllegalArgumentException(tr("Expected non-empty value for parameter ''{0}'', got ''{1}''", "userName", userName));
         CheckParameterUtil.ensureParameterNotNull(userinfo, "userinfo");
         this.userName = username;
@@ -129,7 +129,7 @@ public class JosmUserIdentityManager implements PreferenceChangedListener{
     /**
      * Replies true if the current JOSM user is anonymous.
      *
-     * @return true if the current user is anonymous.
+     * @return {@code true} if the current user is anonymous.
      */
     public boolean isAnonymous() {
         return userName == null && userInfo == null;
@@ -182,7 +182,7 @@ public class JosmUserIdentityManager implements PreferenceChangedListener{
     public UserInfo getUserInfo() {
         return userInfo;
     }
-    
+
     /**
      * Initializes the user identity manager from Basic Authentication values in the {@link org.openstreetmap.josm.data.Preferences}
      * This method should be called if {@code osm-server.auth-method} is set to {@code basic}.
@@ -191,7 +191,7 @@ public class JosmUserIdentityManager implements PreferenceChangedListener{
     public void initFromPreferences() {
         String userName = CredentialsManager.getInstance().getUsername();
         if (isAnonymous()) {
-            if (userName != null && ! userName.trim().equals("")) {
+            if (userName != null && !userName.trim().isEmpty()) {
                 setPartiallyIdentified(userName);
             }
         } else {
@@ -238,6 +238,7 @@ public class JosmUserIdentityManager implements PreferenceChangedListener{
     /* ------------------------------------------------------------------- */
     /* interface PreferenceChangeListener                                  */
     /* ------------------------------------------------------------------- */
+    @Override
     public void preferenceChanged(PreferenceChangeEvent evt) {
         if (evt.getKey().equals("osm-server.username")) {
             if (!(evt.getNewValue() instanceof StringSetting)) return;
@@ -250,23 +251,23 @@ public class JosmUserIdentityManager implements PreferenceChangedListener{
                 }
             }
             return;
-            
+
         } else if (evt.getKey().equals("osm-server.url")) {
             if (!(evt.getNewValue() instanceof StringSetting)) return;
             String newValue = ((StringSetting) evt.getNewValue()).getValue();
-            if (newValue == null || newValue.trim().equals("")) {
+            if (newValue == null || newValue.trim().isEmpty()) {
                 setAnonymous();
             } else if (isFullyIdentified()) {
                 setPartiallyIdentified(getUserName());
             }
-            
+
         } else if (evt.getKey().equals("oauth.access-token.key")) {
             accessTokenKeyChanged = true;
-            
+
         } else if (evt.getKey().equals("oauth.access-token.secret")) {
             accessTokenSecretChanged = true;
         }
-        
+
         if (accessTokenKeyChanged && accessTokenSecretChanged) {
             accessTokenKeyChanged = false;
             accessTokenSecretChanged = false;

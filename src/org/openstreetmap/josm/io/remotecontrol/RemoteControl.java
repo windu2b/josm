@@ -24,7 +24,7 @@ public class RemoteControl
      * changes.
      */
     static final int protocolMajorVersion = 1;
-    static final int protocolMinorVersion = 4;
+    static final int protocolMinorVersion = 5;
 
     /**
      * Starts the remote control server
@@ -34,9 +34,17 @@ public class RemoteControl
     }
 
     /**
+     * Stops the remote control server
+     * @since 5861
+     */
+    public static void stop() {
+        RemoteControlHttpServer.stopRemoteControlHttpServer();
+    }
+
+    /**
      * Adds external request handler.
      * Can be used by plugins that want to use remote control.
-     * 
+     *
      * @param command The command name.
      * @param handlerClass The additional request handler.
      */

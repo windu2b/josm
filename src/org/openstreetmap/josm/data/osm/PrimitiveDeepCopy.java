@@ -48,11 +48,13 @@ public class PrimitiveDeepCopy {
         new AbstractVisitor() {
             boolean firstIteration;
 
+            @Override
             public void visit(Node n) {
                 if (!visitedNodeIds.add(n.getUniqueId()))
                     return;
                 (firstIteration ? directlyAdded : referenced).add(n.save());
             }
+            @Override
             public void visit(Way w) {
                 if (!visitedWayIds.add(w.getUniqueId()))
                     return;
@@ -62,20 +64,21 @@ public class PrimitiveDeepCopy {
                     visit(n);
                 }
             }
+            @Override
             public void visit(Relation r) {
                 if (!visitedRelationIds.add(r.getUniqueId()))
                     return;
                 (firstIteration ? directlyAdded : referenced).add(r.save());
                 firstIteration = false;
                 for (RelationMember m : r.getMembers()) {
-                    m.getMember().visit(this);
+                    m.getMember().accept(this);
                 }
             }
 
             public void visitAll() {
                 for (OsmPrimitive osm : primitives) {
                     firstIteration = true;
-                    osm.visit(this);
+                    osm.accept(this);
                 }
             }
         }.visitAll();

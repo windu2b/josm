@@ -28,6 +28,7 @@ import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.Version;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.LanguageInfo;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * Encapsulate general information about a plugin. This information is available
@@ -43,6 +44,7 @@ public class PluginInformation {
     public String className = null;
     public boolean oldmode = false;
     public String requires = null;
+    public String localrequires = null;
     public String link = null;
     public String description = null;
     public boolean early = false;
@@ -55,7 +57,7 @@ public class PluginInformation {
     public ImageIcon icon;
     public List<URL> libraries = new LinkedList<URL>();
     public final Map<String, String> attr = new TreeMap<String, String>();
-    
+
     private static final ImageIcon emptyIcon = new ImageIcon(new BufferedImage(24, 24, BufferedImage.TYPE_INT_ARGB));
 
     /**
@@ -73,13 +75,16 @@ public class PluginInformation {
 
     /**
      * Creates a plugin information object for the plugin with name {@code name}.
-     * Information about the plugin is extracted from the maifest file in the plugin jar
+     * Information about the plugin is extracted from the manifest file in the plugin jar
      * {@code file}.
      * @param file the plugin jar
      * @param name the plugin name
      * @throws PluginException thrown if reading the manifest file fails
      */
-    public PluginInformation(File file, String name) throws PluginException{
+    public PluginInformation(File file, String name) throws PluginException {
+        if (!PluginHandler.isValidJar(file)) {
+            throw new PluginException(name, tr("Invalid jar file ''{0}''", file));
+        }
         this.name = name;
         this.file = file;
         FileInputStream fis = null;
@@ -95,16 +100,8 @@ public class PluginInformation {
         } catch (IOException e) {
             throw new PluginException(name, e);
         } finally {
-            if (jar != null) {
-                try {
-                    jar.close();
-                } catch(IOException e) { /* ignore */ }
-            }
-            if (fis != null) {
-                try {
-                    fis.close();
-                } catch(IOException e) { /* ignore */ }
-            }
+            Utils.close(jar);
+            Utils.close(fis);
         }
     }
 
@@ -157,6 +154,25 @@ public class PluginInformation {
         this.attr.putAll(other.attr);
     }
 
+    /**
+     * Updates the plugin information of this plugin information object with the
+     * plugin information in a plugin information object retrieved from a plugin
+     * jar.
+     *
+     * @param other the plugin information object retrieved from the jar file
+     * @since 5601
+     */
+    public void updateFromJar(PluginInformation other) {
+        updateLocalInfo(other);
+        if (other.icon != null) {
+            this.icon = other.icon;
+        }
+        this.early = other.early;
+        this.className = other.className;
+        this.libraries = other.libraries;
+        this.stage = other.stage;
+    }
+
     private void scanManifest(Manifest manifest, boolean oldcheck){
         String lang = LanguageInfo.getLanguageCodeManifest();
         Attributes attr = manifest.getMainAttributes();
@@ -180,7 +196,11 @@ public class PluginInformation {
         {
             s = attr.getValue("Plugin-Description");
             if(s != null) {
-                s = tr(s);
+                try {
+                    s = tr(s);
+                } catch (IllegalArgumentException e) {
+                    System.out.println(tr("Invalid plugin description ''{0}'' in plugin {1}", s, name));
+                }
             }
         }
         description = s;
@@ -209,7 +229,7 @@ public class PluginInformation {
                         if(mv <= myv && (mv > mainversion || mainversion > myv))
                         {
                             String v = (String)entry.getValue();
-                            int i = v.indexOf(";");
+                            int i = v.indexOf(';');
                             if(i > 0)
                             {
                                 downloadlink = v.substring(i+1);
@@ -266,7 +286,7 @@ public class PluginInformation {
     /**
      * Load and instantiate the plugin
      *
-     * @param the plugin class
+     * @param klass the plugin class
      * @return the instantiated and initialized plugin
      */
     public PluginProxy load(Class<?> klass) throws PluginException{
@@ -299,7 +319,7 @@ public class PluginInformation {
             return realClass;
         } catch (ClassNotFoundException e) {
             throw new PluginException(name, e);
-        } catch(ClassCastException e) {
+        } catch (ClassCastException e) {
             throw new PluginException(name, e);
         }
     }
@@ -421,7 +441,7 @@ public class PluginInformation {
      */
     public boolean matches(String filter) {
         if (filter == null) return true;
-        String words[] = filter.split("\\s+");
+        String[] words = filter.split("\\s+");
         for (String word: words) {
             if (matches(word, name)
                     || matches(word, description)
@@ -447,9 +467,64 @@ public class PluginInformation {
         this.name = name;
     }
 
+    /**
+     * Replies the plugin icon, scaled to 24x24 pixels.
+     * @return the plugin icon, scaled to 24x24 pixels.
+     */
     public ImageIcon getScaledIcon() {
         if (icon == null)
             return emptyIcon;
         return new ImageIcon(icon.getImage().getScaledInstance(24, 24, Image.SCALE_SMOOTH));
+    }
+
+    @Override
+    public String toString() {
+        return getName();
+    }
+
+    private static List<String> getRequiredPlugins(String pluginList) {
+        List<String> requiredPlugins = new ArrayList<String>();
+        if (pluginList != null) {
+            for (String s : pluginList.split(";")) {
+                String plugin = s.trim();
+                if (!plugin.isEmpty()) {
+                    requiredPlugins.add(plugin);
+                }
+            }
+        }
+        return requiredPlugins;
+    }
+
+    /**
+     * Replies the list of plugins required by the up-to-date version of this plugin.
+     * @return List of plugins required. Empty if no plugin is required.
+     * @since 5601
+     */
+    public List<String> getRequiredPlugins() {
+        return getRequiredPlugins(requires);
+    }
+
+    /**
+     * Replies the list of plugins required by the local instance of this plugin.
+     * @return List of plugins required. Empty if no plugin is required.
+     * @since 5601
+     */
+    public List<String> getLocalRequiredPlugins() {
+        return getRequiredPlugins(localrequires);
+    }
+
+    /**
+     * Updates the local fields ({@link #localversion}, {@link #localmainversion}, {@link #localrequires})
+     * to values contained in the up-to-date fields ({@link #version}, {@link #mainversion}, {@link #requires})
+     * of the given PluginInformation.
+     * @param info The plugin information to get the data from.
+     * @since 5601
+     */
+    public void updateLocalInfo(PluginInformation info) {
+        if (info != null) {
+            this.localversion = info.version;
+            this.localmainversion = info.mainversion;
+            this.localrequires = info.requires;
+        }
     }
 }

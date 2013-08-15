@@ -17,10 +17,11 @@ import org.openstreetmap.josm.data.osm.Way;
 import org.openstreetmap.josm.gui.progress.NullProgressMonitor;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * OsmServerBackreferenceReader fetches the primitives from the OSM server which
- * refer to a specific primitive. For a {@link Node}, ways and relations are retrieved
+ * refer to a specific primitive. For a {@link org.openstreetmap.josm.data.osm.Node Node}, ways and relations are retrieved
  * which refer to the node. For a {@link Way} or a {@link Relation}, only relations are
  * read.
  *
@@ -77,10 +78,10 @@ public class OsmServerBackreferenceReader extends OsmServerReader {
     }
 
     /**
-     * constructor
+     * Creates a back reference reader for given primitive
      *
-     * @param id  the id of the primitive. > 0 expected
-     * @param readFull true, if referers should be read fully (i.e. including their immediate children)
+     * @param primitive the primitive
+     * @param readFull <code>true</code>, if referers should be read fully (i.e. including their immediate children)
      *
      */
     public OsmServerBackreferenceReader(OsmPrimitive primitive, boolean readFull) {
@@ -89,9 +90,10 @@ public class OsmServerBackreferenceReader extends OsmServerReader {
     }
 
     /**
-     * constructor
+     * Creates a back reference reader for given primitive id
      *
-     * @param primitive the primitive whose referers are to be read
+     * @param id the id of the primitive whose referers are to be read
+     * @param type the type of the primitive
      * @param readFull true, if referers should be read fully (i.e. including their immediate children)
      *
      * @exception IllegalArgumentException thrown if id <= 0
@@ -149,12 +151,8 @@ public class OsmServerBackreferenceReader extends OsmServerReader {
             throw new OsmTransferException(e);
         } finally {
             progressMonitor.finishTask();
-            if (in != null) {
-                try {
-                    in.close();
-                } catch(Exception e) {}
-                activeConnection = null;
-            }
+            Utils.close(in);
+            activeConnection = null;
         }
     }
 
@@ -187,12 +185,8 @@ public class OsmServerBackreferenceReader extends OsmServerReader {
             throw new OsmTransferException(e);
         } finally {
             progressMonitor.finishTask();
-            if (in != null) {
-                try {
-                    in.close();
-                } catch(Exception e) {}
-                activeConnection = null;
-            }
+            Utils.close(in);
+            activeConnection = null;
         }
     }
 
@@ -202,7 +196,7 @@ public class OsmServerBackreferenceReader extends OsmServerReader {
      * request.
      *
      * <ul>
-     *   <li>if this reader reads referers for a {@link Node}, referring ways are always
+     *   <li>if this reader reads referers for a {@link org.openstreetmap.josm.data.osm.Node}, referring ways are always
      *     read individually from the server</li>
      *   <li>if this reader reads referers for an {@link Way} or a {@link Relation}, referring relations
      *    are only read fully if {@link #setReadFull(boolean)} is set to true.</li>

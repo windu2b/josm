@@ -19,14 +19,14 @@ import java.util.Set;
  */
 public class MultiMap<A, B> {
 
-    private final Map<A, LinkedHashSet<B>> map;
+    private final Map<A, Set<B>> map;
 
     public MultiMap() {
-        map = new HashMap<A, LinkedHashSet<B>>();
+        map = new HashMap<A, Set<B>>();
     }
 
     public MultiMap(int capacity) {
-        map = new HashMap<A, LinkedHashSet<B>>(capacity);
+        map = new HashMap<A, Set<B>>(capacity);
     }
 
     /**
@@ -35,7 +35,7 @@ public class MultiMap<A, B> {
      * Can be called multiple times with the same key, but different value.
      */
     public void put(A key, B value) {
-        LinkedHashSet<B> vals = map.get(key);
+        Set<B> vals = map.get(key);
         if (vals == null) {
             vals = new LinkedHashSet<B>();
             map.put(key, vals);
@@ -61,7 +61,7 @@ public class MultiMap<A, B> {
      * Adds to the mappings that are already there.
      */
     public void putAll(A key, Collection<B> values) {
-        LinkedHashSet<B> vals = map.get(key);
+        Set<B> vals = map.get(key);
         if (vals == null) {
             vals = new LinkedHashSet<B>(values);
             map.put(key, vals);
@@ -90,7 +90,7 @@ public class MultiMap<A, B> {
     /**
      * Like get, but returns an empty Set if nothing has been mapped to the key.
      */
-    public LinkedHashSet<B> getValues(A key) {
+    public Set<B> getValues(A key) {
         if (!map.containsKey(key))
             return new LinkedHashSet<B>();
         return map.get(key);
@@ -120,7 +120,7 @@ public class MultiMap<A, B> {
         map.clear();
     }
 
-    public Set<Entry<A, LinkedHashSet<B>>> entrySet() {
+    public Set<Entry<A, Set<B>>> entrySet() {
         return map.entrySet();
     }
 
@@ -134,7 +134,7 @@ public class MultiMap<A, B> {
     /**
      * Returns a collection of all value sets.
      */
-    public Collection<LinkedHashSet<B>> values() {
+    public Collection<Set<B>> values() {
         return map.values();
     }
 
@@ -154,10 +154,11 @@ public class MultiMap<A, B> {
     /**
      * Removes all mappings for a certain key.
      */
-    public LinkedHashSet<B> remove(A key) {
+    public Set<B> remove(A key) {
         return map.remove(key);
     }
 
+    @Override
     public String toString() {
         List<String> entries = new ArrayList<String>(map.size());
         for (A key : map.keySet()) {

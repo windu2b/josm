@@ -100,14 +100,6 @@ public class WmsCache {
         if (!(new File(cPath).isAbsolute())) {
             cPath = Main.pref.getCacheDirectory() + File.separator + cPath;
         }
-        // Migrate to new cache directory. Remove 2012-06
-        {
-            File oldPath = new File(Main.pref.getPreferencesDirFile(), "wms-cache");
-            File newPath = new File(cPath);
-            if (oldPath.exists() && !newPath.exists()) {
-                oldPath.renameTo(newPath);
-            }
-        }
         return cPath;
     }
 
@@ -163,16 +155,8 @@ public class WmsCache {
                 }
             }
         } finally {
-            try {
-                if (fis != null) {
-                    fis.close();
-                }
-                if (fos != null) {
-                    fos.close();
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            Utils.close(fos);
+            Utils.close(fis);
         }
 
         return cacheDirName;
@@ -284,7 +268,7 @@ public class WmsCache {
         index.setTileSize(tileSize);
         index.setTotalFileSize(totalFileSize);
         for (ProjectionEntries projectionEntries: entries.values()) {
-            if (projectionEntries.entries.size() > 0) {
+            if (!projectionEntries.entries.isEmpty()) {
                 ProjectionType projectionType = new ProjectionType();
                 projectionType.setName(projectionEntries.projection);
                 projectionType.setCacheDirectory(projectionEntries.cacheDirectory);
@@ -539,7 +523,7 @@ public class WmsCache {
             try {
                 totalFileSize += Utils.copyStream(imageData, os);
             } finally {
-                os.close();
+                Utils.close(os);
             }
         }
     }

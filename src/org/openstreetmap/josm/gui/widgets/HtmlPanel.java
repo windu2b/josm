@@ -8,24 +8,23 @@ import java.text.MessageFormat;
 import javax.swing.JEditorPane;
 import javax.swing.JPanel;
 import javax.swing.UIManager;
-import javax.swing.text.html.HTMLEditorKit;
 import javax.swing.text.html.StyleSheet;
 
 /**
  * This panel can be used to display larger sections of formatted text in
  * HTML.
  *
- * It displays HTML text in the same font as {@link JLabel}. Hyperlinks are rendered in
+ * It displays HTML text in the same font as {@link javax.swing.JLabel}. Hyperlinks are rendered in
  * blue and they are underlined. There is also a CSS rule for the HTML tag &lt;strong&gt;
  * configured.
- *
+ * @since 2688
  */
 public class HtmlPanel extends JPanel {
-    private JEditorPane jepMessage;
+    private JosmEditorPane jepMessage;
 
     protected void build() {
         setLayout(new BorderLayout());
-        jepMessage = new JEditorPane("text/html", "");
+        jepMessage = new JosmEditorPane("text/html", "");
         jepMessage.setOpaque(false);
         jepMessage.setEditable(false);
         Font f = UIManager.getFont("Label.font");
@@ -49,17 +48,24 @@ public class HtmlPanel extends JPanel {
         ss.addRule(rule);
         ss.addRule("a {text-decoration: underline; color: blue}");
         ss.addRule("ul {margin-left: 1cm; list-style-type: disc}");
-        HTMLEditorKit kit = new HTMLEditorKit();
+        JosmHTMLEditorKit kit = new JosmHTMLEditorKit();
         kit.setStyleSheet(ss);
         jepMessage.setEditorKit(kit);
 
         add(jepMessage, BorderLayout.CENTER);
     }
 
+    /**
+     * Constructs a new {@code HtmlPanel}.
+     */
     public HtmlPanel() {
         build();
     }
 
+    /**
+     * Constructs a new {@code HtmlPanel} with the given HTML text.
+     * @param text the text to display
+     */
     public HtmlPanel(String text) {
         this();
         setText(text);

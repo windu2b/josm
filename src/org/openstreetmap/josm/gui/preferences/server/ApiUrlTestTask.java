@@ -13,12 +13,12 @@ import java.net.URL;
 
 import javax.swing.JOptionPane;
 
-import org.openstreetmap.josm.data.Version;
 import org.openstreetmap.josm.gui.HelpAwareOptionPane;
 import org.openstreetmap.josm.gui.PleaseWaitRunnable;
 import org.openstreetmap.josm.gui.help.HelpUtil;
 import org.openstreetmap.josm.io.OsmTransferException;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
+import org.openstreetmap.josm.tools.Utils;
 import org.xml.sax.SAXException;
 
 /**
@@ -156,7 +156,7 @@ public class ApiUrlTestTask extends PleaseWaitRunnable{
     protected String getNormalizedApiUrl() {
         String apiUrl = url.trim();
         while(apiUrl.endsWith("/")) {
-            apiUrl = apiUrl.substring(0, apiUrl.lastIndexOf("/"));
+            apiUrl = apiUrl.substring(0, apiUrl.lastIndexOf('/'));
         }
         return apiUrl;
     }
@@ -181,13 +181,11 @@ public class ApiUrlTestTask extends PleaseWaitRunnable{
             }
 
             synchronized(this) {
-                connection = (HttpURLConnection)capabilitiesUrl.openConnection();
+                connection = Utils.openHttpConnection(capabilitiesUrl);
             }
             connection.setDoInput(true);
             connection.setDoOutput(false);
             connection.setRequestMethod("GET");
-            connection.setRequestProperty("User-Agent", Version.getInstance().getAgentString());
-            connection.setRequestProperty("Host", connection.getURL().getHost());
             connection.connect();
 
             if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
@@ -216,11 +214,7 @@ public class ApiUrlTestTask extends PleaseWaitRunnable{
             alertConnectionFailed();
             return;
         } finally {
-            if (bin != null) {
-                try {
-                    bin.close();
-                } catch(IOException e){/* ignore */}
-            }
+            Utils.close(bin);
         }
     }
 

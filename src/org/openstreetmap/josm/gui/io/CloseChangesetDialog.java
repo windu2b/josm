@@ -102,7 +102,7 @@ public class CloseChangesetDialog extends JDialog {
                     getClass().getName() + ".geometry",
                     WindowGeometry.centerInWindow(Main.parent, new Dimension(300,300))
             ).applySafe(this);
-        } else {
+        } else if (isShowing()) { // Avoid IllegalComponentStateException like in #8775
             new WindowGeometry(this).remember(getClass().getName() + ".geometry");
         }
         super.setVisible(visible);
@@ -121,6 +121,7 @@ public class CloseChangesetDialog extends JDialog {
             refreshEnabledState();
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             setCanceled(false);
             setVisible(false);
@@ -130,6 +131,7 @@ public class CloseChangesetDialog extends JDialog {
             setEnabled(lstOpenChangesets.getSelectedValues() != null && lstOpenChangesets.getSelectedValues().length > 0);
         }
 
+        @Override
         public void valueChanged(ListSelectionEvent e) {
             refreshEnabledState();
         }
@@ -148,6 +150,7 @@ public class CloseChangesetDialog extends JDialog {
             setVisible(false);
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             cancel();
         }
@@ -210,7 +213,7 @@ public class CloseChangesetDialog extends JDialog {
      */
     public Collection<Changeset> getSelectedChangesets() {
         Object [] sel = lstOpenChangesets.getSelectedValues();
-        ArrayList<Changeset> ret = new ArrayList<Changeset>();
+        ArrayList<Changeset> ret = new ArrayList<Changeset>(sel.length);
         for (Object o: sel) {
             ret.add((Changeset)o);
         }

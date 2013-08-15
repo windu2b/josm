@@ -5,6 +5,7 @@ import static org.openstreetmap.josm.gui.help.HelpUtil.ht;
 import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
@@ -31,6 +32,7 @@ import org.openstreetmap.josm.io.OsmServerBackreferenceReader;
 import org.openstreetmap.josm.io.OsmTransferException;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
 import org.openstreetmap.josm.tools.ExceptionUtil;
+import org.openstreetmap.josm.tools.Shortcut;
 import org.xml.sax.SAXException;
 
 /**
@@ -43,7 +45,7 @@ public class UploadSelectionAction extends JosmAction{
                 tr("Upload selection"),
                 "uploadselection",
                 tr("Upload all changes in the current selection to the OSM server."),
-                null, /* no shortcut */
+                Shortcut.registerShortcut("file:uploadSelection", tr("File: {0}", tr("Upload selection")), KeyEvent.VK_U, Shortcut.ALT_CTRL_SHIFT),
                 true);
         putValue("help", ht("/Action/UploadSelection"));
     }
@@ -84,6 +86,7 @@ public class UploadSelectionAction extends JosmAction{
         return ret;
     }
 
+    @Override
     public void actionPerformed(ActionEvent e) {
         if (!isEnabled())
             return;
@@ -187,6 +190,7 @@ public class UploadSelectionAction extends JosmAction{
             hull = new HashSet<OsmPrimitive>();
         }
 
+        @Override
         public void visit(Node n) {
             if (n.isNewOrUndeleted() || n.isModified() || n.isDeleted()) {
                 // upload new nodes as well as modified and deleted ones
@@ -194,6 +198,7 @@ public class UploadSelectionAction extends JosmAction{
             }
         }
 
+        @Override
         public void visit(Way w) {
             if (w.isNewOrUndeleted() || w.isModified() || w.isDeleted()) {
                 // upload new ways as well as modified and deleted ones
@@ -201,11 +206,12 @@ public class UploadSelectionAction extends JosmAction{
                 for (Node n: w.getNodes()) {
                     // we upload modified nodes even if they aren't in the current
                     // selection.
-                    n.visit(this);
+                    n.accept(this);
                 }
             }
         }
 
+        @Override
         public void visit(Relation r) {
             if (r.isNewOrUndeleted() || r.isModified() || r.isDeleted()) {
                 hull.add(r);
@@ -215,12 +221,13 @@ public class UploadSelectionAction extends JosmAction{
                     // so wont check here for deleted primitives here
                     //
                     if (p.isNewOrUndeleted()) {
-                        p.visit(this);
+                        p.accept(this);
                     }
                 }
             }
         }
 
+        @Override
         public void visit(Changeset cs) {
             // do nothing
         }
@@ -237,7 +244,7 @@ public class UploadSelectionAction extends JosmAction{
             CheckParameterUtil.ensureParameterNotNull(base, "base");
             hull = new HashSet<OsmPrimitive>();
             for (OsmPrimitive p: base) {
-                p.visit(this);
+                p.accept(this);
             }
             return hull;
         }
@@ -280,6 +287,7 @@ public class UploadSelectionAction extends JosmAction{
                 return;
             }
             Runnable r = new Runnable() {
+                @Override
                 public void run() {
                     processPostParentChecker(layer, toUpload);
                 }
@@ -291,7 +299,7 @@ public class UploadSelectionAction extends JosmAction{
          * Replies the collection of deleted OSM primitives for which we have to check whether
          * there are dangling references on the server.
          *
-         * @return
+         * @return primitives to check
          */
         protected Set<OsmPrimitive> getPrimitivesToCheckForParents() {
             HashSet<OsmPrimitive> ret = new HashSet<OsmPrimitive>();

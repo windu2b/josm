@@ -31,6 +31,8 @@ import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.actions.RenameLayerAction;
 import org.openstreetmap.josm.data.Bounds;
 import org.openstreetmap.josm.data.coor.LatLon;
+import org.openstreetmap.josm.data.gpx.Extensions;
+import org.openstreetmap.josm.data.gpx.GpxConstants;
 import org.openstreetmap.josm.data.gpx.GpxData;
 import org.openstreetmap.josm.data.gpx.GpxLink;
 import org.openstreetmap.josm.data.gpx.WayPoint;
@@ -68,11 +70,6 @@ public class MarkerLayer extends Layer implements JumpToMarkerLayer {
     public GpxLayer fromLayer = null;
     private Marker currentMarker;
 
-    @Deprecated
-    public MarkerLayer(GpxData indata, String name, File associatedFile, GpxLayer fromLayer, boolean addMouseHandlerInConstructor) {
-        this(indata, name, associatedFile, fromLayer);
-    }
-
     public MarkerLayer(GpxData indata, String name, File associatedFile, GpxLayer fromLayer) {
         super(name);
         this.setAssociatedFile(associatedFile);
@@ -84,10 +81,10 @@ public class MarkerLayer extends Layer implements JumpToMarkerLayer {
         for (WayPoint wpt : indata.waypoints) {
             /* calculate time differences in waypoints */
             double time = wpt.time;
-            boolean wpt_has_link = wpt.attr.containsKey(GpxData.META_LINKS);
+            boolean wpt_has_link = wpt.attr.containsKey(GpxConstants.META_LINKS);
             if (firstTime < 0 && wpt_has_link) {
                 firstTime = time;
-                for (Object oneLink : wpt.getCollection(GpxData.META_LINKS)) {
+                for (Object oneLink : wpt.getCollection(GpxConstants.META_LINKS)) {
                     if (oneLink instanceof GpxLink) {
                         lastLinkedFile = ((GpxLink)oneLink).uri;
                         break;
@@ -95,7 +92,7 @@ public class MarkerLayer extends Layer implements JumpToMarkerLayer {
                 }
             }
             if (wpt_has_link) {
-                for (Object oneLink : wpt.getCollection(GpxData.META_LINKS)) {
+                for (Object oneLink : wpt.getCollection(GpxConstants.META_LINKS)) {
                     if (oneLink instanceof GpxLink) {
                         String uri = ((GpxLink)oneLink).uri;
                         if (!uri.equals(lastLinkedFile)) {
@@ -106,7 +103,22 @@ public class MarkerLayer extends Layer implements JumpToMarkerLayer {
                     }
                 }
             }
-            Marker m = Marker.createMarker(wpt, indata.storageFile, this, time, time - firstTime);
+            Double offset = null;
+            // If we have an explicit offset, take it.
+            // Otherwise, for a group of markers with the same Link-URI (e.g. an
+            // audio file) calculate the offset relative to the first marker of
+            // that group. This way the user can jump to the corresponding
+            // playback positions in a long audio track.
+            Extensions exts = (Extensions) wpt.get(GpxConstants.META_EXTENSIONS);
+            if (exts != null && exts.containsKey("offset")) {
+                try {
+                    offset = Double.parseDouble(exts.get("offset"));
+                } catch (NumberFormatException nfe) {}
+            }
+            if (offset == null) {
+                offset = time - firstTime;
+            }
+            Marker m = Marker.createMarker(wpt, indata.storageFile, this, time, offset);
             if (m != null) {
                 data.add(m);
             }
@@ -239,7 +251,7 @@ public class MarkerLayer extends Layer implements JumpToMarkerLayer {
         components.add(new RenameLayerAction(getAssociatedFile(), this));
         components.add(SeparatorLayerAction.INSTANCE);
         components.add(new LayerListPopup.InfoAction(this));
-        return components.toArray(new Action[0]);
+        return components.toArray(new Action[components.size()]);
     }
 
     public boolean synchronizeAudioMarkers(AudioMarker startMarker) {
@@ -330,6 +342,7 @@ public class MarkerLayer extends Layer implements JumpToMarkerLayer {
         return ret;
     }
 
+    @Override
     public void jumpToNextMarker() {
         if (currentMarker == null) {
             currentMarker = data.get(0);
@@ -347,6 +360,7 @@ public class MarkerLayer extends Layer implements JumpToMarkerLayer {
         Main.map.mapView.zoomTo(currentMarker.getEastNorth());
     }
 
+    @Override
     public void jumpToPreviousMarker() {
         if (currentMarker == null) {
             currentMarker = data.get(data.size() - 1);
@@ -449,6 +463,7 @@ public class MarkerLayer extends Layer implements JumpToMarkerLayer {
         }
 
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             Main.pref.put("marker.show "+layer.getName(), layer.isTextOrIconShown() ? "hide" : "show");
             Main.map.mapView.repaint();

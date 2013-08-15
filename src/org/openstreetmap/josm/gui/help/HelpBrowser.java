@@ -23,7 +23,6 @@ import javax.swing.AbstractAction;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
-import javax.swing.JEditorPane;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -39,17 +38,20 @@ import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 import javax.swing.text.Element;
 import javax.swing.text.SimpleAttributeSet;
-import javax.swing.text.html.HTMLDocument;
-import javax.swing.text.html.HTMLEditorKit;
-import javax.swing.text.html.StyleSheet;
 import javax.swing.text.html.HTML.Tag;
+import javax.swing.text.html.HTMLDocument;
+import javax.swing.text.html.StyleSheet;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.actions.JosmAction;
 import org.openstreetmap.josm.gui.HelpAwareOptionPane;
 import org.openstreetmap.josm.gui.MainMenu;
+import org.openstreetmap.josm.gui.widgets.JosmEditorPane;
+import org.openstreetmap.josm.gui.widgets.JosmHTMLEditorKit;
 import org.openstreetmap.josm.tools.ImageProvider;
+import org.openstreetmap.josm.tools.LanguageInfo.LocaleType;
 import org.openstreetmap.josm.tools.OpenBrowser;
+import org.openstreetmap.josm.tools.Utils;
 import org.openstreetmap.josm.tools.WindowGeometry;
 
 public class HelpBrowser extends JDialog {
@@ -81,6 +83,7 @@ public class HelpBrowser extends JDialog {
     public static void setUrlForHelpTopic(final String helpTopic) {
         final HelpBrowser browser = getInstance();
         Runnable r = new Runnable() {
+            @Override
             public void run() {
                 browser.openHelpTopic(helpTopic);
                 browser.setVisible(true);
@@ -104,7 +107,7 @@ public class HelpBrowser extends JDialog {
     }
 
     /** the help browser */
-    private JEditorPane help;
+    private JosmEditorPane help;
 
     /** the help browser history */
     private HelpBrowserHistory history;
@@ -140,11 +143,12 @@ public class HelpBrowser extends JDialog {
                 css.append(line);
                 css.append("\n");
             }
-            reader.close();
         } catch(Exception e) {
             System.err.println(tr("Failed to read CSS file ''help-browser.css''. Exception is: {0}", e.toString()));
             e.printStackTrace();
             return ss;
+        } finally {
+            Utils.close(reader);
         }
         ss.addRule(css.toString());
         return ss;
@@ -163,8 +167,8 @@ public class HelpBrowser extends JDialog {
     }
 
     protected void build() {
-        help = new JEditorPane();
-        HTMLEditorKit kit = new HTMLEditorKit();
+        help = new JosmEditorPane();
+        JosmHTMLEditorKit kit = new JosmHTMLEditorKit();
         kit.setStyleSheet(buildStyleSheet());
         help.setEditorKit(kit);
         help.setEditable(false);
@@ -186,6 +190,7 @@ public class HelpBrowser extends JDialog {
         p.add(buildToolBar(), BorderLayout.NORTH);
         help.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "Close");
         help.getActionMap().put("Close", new AbstractAction(){
+            @Override
             public void actionPerformed(ActionEvent e) {
                 setVisible(false);
             }
@@ -205,7 +210,7 @@ public class HelpBrowser extends JDialog {
                             new Dimension(600,400)
                     )
             ).applySafe(this);
-        } else if (!visible && isShowing()){
+        } else if (isShowing()) { // Avoid IllegalComponentStateException like in #8775
             new WindowGeometry(this).remember(getClass().getName() + ".geometry");
         }
         if(windowMenuItem != null && !visible) {
@@ -218,6 +223,9 @@ public class HelpBrowser extends JDialog {
         super.setVisible(visible);
     }
 
+    /**
+     * Constructs a new {@code HelpBrowser}.
+     */
     public HelpBrowser() {
         reader = new HelpContentReader(HelpUtil.getWikiBaseUrl());
         build();
@@ -238,7 +246,6 @@ public class HelpBrowser extends JDialog {
      *
      * @return the current URL
      */
-
     public String getUrl() {
         return url;
     }
@@ -259,8 +266,8 @@ public class HelpBrowser extends JDialog {
                 + "</p></html>",
                 relativeHelpTopic,
                 Locale.getDefault().getDisplayName(),
-                getHelpTopicEditUrl(buildAbsoluteHelpTopic(relativeHelpTopic)),
-                getHelpTopicEditUrl(buildAbsoluteHelpTopic(relativeHelpTopic, Locale.ENGLISH))
+                getHelpTopicEditUrl(buildAbsoluteHelpTopic(relativeHelpTopic, LocaleType.DEFAULT)),
+                getHelpTopicEditUrl(buildAbsoluteHelpTopic(relativeHelpTopic, LocaleType.ENGLISH))
         );
         loadTopic(message);
     }
@@ -292,21 +299,30 @@ public class HelpBrowser extends JDialog {
      * @param relativeHelpTopic the relative help topic
      */
     protected void loadRelativeHelpTopic(String relativeHelpTopic) {
-        String url = HelpUtil.getHelpTopicUrl(HelpUtil.buildAbsoluteHelpTopic(relativeHelpTopic));
+        String url = HelpUtil.getHelpTopicUrl(HelpUtil.buildAbsoluteHelpTopic(relativeHelpTopic, LocaleType.DEFAULTNOTENGLISH));
         String content = null;
         try {
             content = reader.fetchHelpTopicContent(url, true);
         } catch(MissingHelpContentException e) {
-            url = HelpUtil.getHelpTopicUrl(HelpUtil.buildAbsoluteHelpTopic(relativeHelpTopic, Locale.ENGLISH));
+            url = HelpUtil.getHelpTopicUrl(HelpUtil.buildAbsoluteHelpTopic(relativeHelpTopic, LocaleType.BASELANGUAGE));
             try {
                 content = reader.fetchHelpTopicContent(url, true);
             } catch(MissingHelpContentException e1) {
-                this.url = url;
-                handleMissingHelpContent(relativeHelpTopic);
-                return;
+                url = HelpUtil.getHelpTopicUrl(HelpUtil.buildAbsoluteHelpTopic(relativeHelpTopic, LocaleType.ENGLISH));
+                try {
+                    content = reader.fetchHelpTopicContent(url, true);
+                } catch(MissingHelpContentException e2) {
+                    this.url = url;
+                    handleMissingHelpContent(relativeHelpTopic);
+                    return;
+                } catch(HelpContentReaderException e2) {
+                    e2.printStackTrace();
+                    handleHelpContentReaderException(relativeHelpTopic, e2);
+                    return;
+                }
             } catch(HelpContentReaderException e1) {
                 e1.printStackTrace();
-                handleHelpContentReaderException(relativeHelpTopic,e1);
+                handleHelpContentReaderException(relativeHelpTopic, e1);
                 return;
             }
         } catch(HelpContentReaderException e) {
@@ -374,7 +390,7 @@ public class HelpBrowser extends JDialog {
                                 "<html>Failed to open help page for url {0}.<br>"
                                 + "This is most likely due to a network problem, please check<br>"
                                 + "your internet connection</html>",
-                                url.toString()
+                                url
                         ),
                         tr("Failed to open URL"),
                         JOptionPane.ERROR_MESSAGE,
@@ -413,6 +429,7 @@ public class HelpBrowser extends JDialog {
             putValue(SMALL_ICON, ImageProvider.get("help", "internet"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             OpenBrowser.displayUrl(getUrl());
         }
@@ -425,6 +442,7 @@ public class HelpBrowser extends JDialog {
             putValue(SMALL_ICON,ImageProvider.get("dialogs", "edit"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             String url = getUrl();
             if(url == null)
@@ -457,6 +475,7 @@ public class HelpBrowser extends JDialog {
             putValue(SMALL_ICON, ImageProvider.get("dialogs", "refresh"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             openUrl(getUrl());
         }
@@ -473,9 +492,11 @@ public class HelpBrowser extends JDialog {
             setEnabled(history.canGoBack());
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             history.back();
         }
+        @Override
         public void update(Observable o, Object arg) {
             //System.out.println("BackAction: canGoBoack=" + history.canGoBack() );
             setEnabled(history.canGoBack());
@@ -493,9 +514,11 @@ public class HelpBrowser extends JDialog {
             setEnabled(history.canGoForward());
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             history.forward();
         }
+        @Override
         public void update(Observable o, Object arg) {
             setEnabled(history.canGoForward());
         }
@@ -508,6 +531,7 @@ public class HelpBrowser extends JDialog {
             putValue(SMALL_ICON, ImageProvider.get("help", "home"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             openHelpTopic("/");
         }
@@ -543,20 +567,20 @@ public class HelpBrowser extends JDialog {
         }
 
         /**
-         * Checks whether the hyperlink event originated on a <a ...> element with
+         * Checks whether the hyperlink event originated on a &lt;a ...&gt; element with
          * a relative href consisting of a URL fragment only, i.e.
-         * <a href="#thisIsALocalFragment">. If so, replies the fragment, i.e.
+         * &lt;a href="#thisIsALocalFragment"&gt;. If so, replies the fragment, i.e.
          * "thisIsALocalFragment".
          *
-         * Otherwise, replies null
+         * Otherwise, replies <code>null</code>
          *
          * @param e the hyperlink event
-         * @return the local fragment
+         * @return the local fragment or <code>null</code>
          */
         protected String getUrlFragment(HyperlinkEvent e) {
             AttributeSet set = e.getSourceElement().getAttributes();
             Object value = set.getAttribute(Tag.A);
-            if (value == null || ! (value instanceof SimpleAttributeSet)) return null;
+            if (!(value instanceof SimpleAttributeSet)) return null;
             SimpleAttributeSet atts = (SimpleAttributeSet)value;
             value = atts.getAttribute(javax.swing.text.html.HTML.Attribute.HREF);
             if (value == null) return null;
@@ -566,10 +590,11 @@ public class HelpBrowser extends JDialog {
             return null;
         }
 
+        @Override
         public void hyperlinkUpdate(HyperlinkEvent e) {
             if (e.getEventType() != HyperlinkEvent.EventType.ACTIVATED)
                 return;
-            if (e.getURL() == null) {
+            if (e.getURL() == null || e.getURL().toString().startsWith(url+"#")) {
                 // Probably hyperlink event on a an A-element with a href consisting of
                 // a fragment only, i.e. "#ALocalFragment".
                 //

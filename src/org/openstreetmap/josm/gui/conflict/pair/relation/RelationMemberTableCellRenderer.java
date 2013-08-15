@@ -134,7 +134,6 @@ public  class RelationMemberTableCellRenderer extends JLabel implements TableCel
     /**
      * render the row id
      * @param row the row index
-     * @param isSelected
      */
     protected  void renderRowId(int row) {
         setBorder(rowNumberBorder);
@@ -147,6 +146,7 @@ public  class RelationMemberTableCellRenderer extends JLabel implements TableCel
         setText("");
     }
 
+    @Override
     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
             int row, int column) {
 

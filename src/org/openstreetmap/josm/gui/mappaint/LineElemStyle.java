@@ -11,8 +11,8 @@ import org.openstreetmap.josm.data.osm.Node;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.osm.Way;
 import org.openstreetmap.josm.data.osm.visitor.paint.MapPaintSettings;
-import org.openstreetmap.josm.data.osm.visitor.paint.MapPainter;
 import org.openstreetmap.josm.data.osm.visitor.paint.PaintColors;
+import org.openstreetmap.josm.data.osm.visitor.paint.StyledMapRenderer;
 import org.openstreetmap.josm.gui.mappaint.mapcss.Instruction.RelativeFloat;
 import org.openstreetmap.josm.tools.Utils;
 
@@ -183,7 +183,7 @@ public class LineElemStyle extends ElemStyle {
         }
 
         int alpha = 255;
-        Integer pAlpha = Utils.color_float2int(c.get(OPACITY, null, Float.class));
+        Integer pAlpha = Utils.color_float2int(c.get(type.prefix + OPACITY, null, Float.class));
         if (pAlpha != null) {
             alpha = pAlpha;
         }
@@ -265,7 +265,7 @@ public class LineElemStyle extends ElemStyle {
     }
 
     @Override
-    public void paintPrimitive(OsmPrimitive primitive, MapPaintSettings paintSettings, MapPainter painter, boolean selected, boolean member) {
+    public void paintPrimitive(OsmPrimitive primitive, MapPaintSettings paintSettings, StyledMapRenderer painter, boolean selected, boolean member) {
         Way w = (Way)primitive;
         /* show direction arrows, if draw.segment.relevant_directions_only is not set,
         the way is tagged with a direction key

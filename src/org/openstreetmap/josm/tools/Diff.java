@@ -1,3 +1,4 @@
+// License: GPL.
 package org.openstreetmap.josm.tools;
 
 //// Taken from http://www.bmsi.com/java/#diff
@@ -405,6 +406,7 @@ public class Diff {
      producing an edit script in reverse order.  */
 
     static class ReverseScript implements ScriptBuilder {
+        @Override
         public  change build_script(
                 final boolean[] changed0,int len0,
                 final boolean[] changed1,int len1)
@@ -438,6 +440,7 @@ public class Diff {
     static class ForwardScript implements ScriptBuilder {
         /** Scan the tables of which lines are inserted and deleted,
        producing an edit script in forward order.  */
+        @Override
         public change build_script(
                 final boolean[] changed0,int len0,
                 final boolean[] changed1,int len1)
@@ -625,14 +628,14 @@ public class Diff {
             discard(discarded);
         }
 
-        /** Mark to be discarded each line that matches no line of another file.
-       If a line matches many lines, mark it as provisionally discardable.
-       @see equivCount()
-       @param counts The count of each equivalence number for the other file.
-       @return 0=nondiscardable, 1=discardable or 2=provisionally discardable
-        for each line
+        /**
+         * Mark to be discarded each line that matches no line of another file.
+         * If a line matches many lines, mark it as provisionally discardable.
+         * @see #equivCount()
+         * @param counts The count of each equivalence number for the other file.
+         * @return 0=nondiscardable, 1=discardable or 2=provisionally discardable
+         *  for each line
          */
-
         private byte[] discardable(final int[] counts) {
             final int end = buffered_lines;
             final byte[] discards = new byte[end];
@@ -641,7 +644,7 @@ public class Diff {
             int tem = end / 64;
 
             /* Multiply MANY by approximate square root of number of lines.
-     That is the threshold for provisionally discardable lines.  */
+               That is the threshold for provisionally discardable lines.  */
             while ((tem = tem >> 2) > 0) {
                 many *= 2;
             }
@@ -662,10 +665,11 @@ public class Diff {
             return discards;
         }
 
-        /** Don't really discard the provisional lines except when they occur
-       in a run of discardables, with nonprovisionals at the beginning
-       and end.  */
-
+        /**
+         * Don't really discard the provisional lines except when they occur
+         * in a run of discardables, with nonprovisionals at the beginning
+         * and end.
+         */
         private void filterDiscards(final byte[] discards) {
             final int end = buffered_lines;
 
@@ -811,7 +815,7 @@ public class Diff {
             realindexes = new int[buffered_lines];
 
             for (int i = 0; i < data.length; ++i) {
-                Integer ir = (Integer)h.get(data[i]);
+                Integer ir = h.get(data[i]);
                 if (ir == null) {
                     h.put(data[i],new Integer(equivs[i] = equiv_max++));
                 } else {

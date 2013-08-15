@@ -11,23 +11,24 @@ import java.beans.PropertyChangeListener;
 import java.text.MessageFormat;
 
 import javax.swing.BorderFactory;
-import javax.swing.JEditorPane;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.UIManager;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.event.HyperlinkListener;
-import javax.swing.text.html.HTMLEditorKit;
 import javax.swing.text.html.StyleSheet;
 
 import org.openstreetmap.josm.data.osm.Changeset;
+import org.openstreetmap.josm.gui.widgets.JosmEditorPane;
+import org.openstreetmap.josm.gui.widgets.JosmHTMLEditorKit;
 import org.openstreetmap.josm.io.OsmApi;
 import org.openstreetmap.josm.tools.ImageProvider;
 
+// FIXME this class should extend HtmlPanel instead (duplicated code in here)
 public class UploadParameterSummaryPanel extends JPanel implements HyperlinkListener, PropertyChangeListener{
     private UploadStrategySpecification spec = new UploadStrategySpecification();
     private int numObjects;
-    private JEditorPane jepMessage;
+    private JosmEditorPane jepMessage;
     private JLabel lblWarning;
 
     private Changeset selectedChangeset;
@@ -102,7 +103,7 @@ public class UploadParameterSummaryPanel extends JPanel implements HyperlinkList
     }
 
     protected void build() {
-        jepMessage = new JEditorPane("text/html", "");
+        jepMessage = new JosmEditorPane("text/html", "");
         jepMessage.setOpaque(false);
         jepMessage.setEditable(false);
         jepMessage.addHyperlinkListener(this);
@@ -126,7 +127,7 @@ public class UploadParameterSummaryPanel extends JPanel implements HyperlinkList
         rule = "strong {" + rule + "}";
         ss.addRule(rule);
         ss.addRule("a {text-decoration: underline; color: blue}");
-        HTMLEditorKit kit = new HTMLEditorKit();
+        JosmHTMLEditorKit kit = new JosmHTMLEditorKit();
         kit.setStyleSheet(ss);
         jepMessage.setEditorKit(kit);
 
@@ -141,6 +142,9 @@ public class UploadParameterSummaryPanel extends JPanel implements HyperlinkList
         add(pnl, BorderLayout.WEST);
     }
 
+    /**
+     * Constructs a new {@code UploadParameterSummaryPanel}.
+     */
     public UploadParameterSummaryPanel() {
         build();
         updateSummary();
@@ -178,6 +182,7 @@ public class UploadParameterSummaryPanel extends JPanel implements HyperlinkList
     /* --------------------------------------------------------------------- */
     /* Interface HyperlinkListener
     /* --------------------------------------------------------------------- */
+    @Override
     public void hyperlinkUpdate(HyperlinkEvent e) {
         if (HyperlinkEvent.EventType.ACTIVATED.equals(e.getEventType())) {
             if (e.getDescription() == null || configHandler == null)
@@ -193,6 +198,7 @@ public class UploadParameterSummaryPanel extends JPanel implements HyperlinkList
     /* --------------------------------------------------------------------- */
     /* Interface PropertyChangeListener
     /* --------------------------------------------------------------------- */
+    @Override
     public void propertyChange(PropertyChangeEvent evt) {
         if (evt.getPropertyName().equals(ChangesetManagementPanel.SELECTED_CHANGESET_PROP)) {
             selectedChangeset = (Changeset)evt.getNewValue();

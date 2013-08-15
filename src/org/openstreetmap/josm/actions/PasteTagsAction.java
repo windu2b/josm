@@ -20,12 +20,12 @@ import org.openstreetmap.josm.command.SequenceCommand;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.osm.OsmPrimitiveType;
 import org.openstreetmap.josm.data.osm.PrimitiveData;
-import org.openstreetmap.josm.data.osm.PrimitiveDeepCopy;
-import org.openstreetmap.josm.data.osm.PrimitiveDeepCopy.PasteBufferChangedListener;
 import org.openstreetmap.josm.data.osm.Tag;
 import org.openstreetmap.josm.data.osm.TagCollection;
 import org.openstreetmap.josm.gui.conflict.tags.PasteTagsConflictResolverDialog;
 import org.openstreetmap.josm.tools.Shortcut;
+import org.openstreetmap.josm.tools.TextTagParser;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * Action, to paste all tags from one primitive to another.
@@ -35,15 +35,16 @@ import org.openstreetmap.josm.tools.Shortcut;
  *
  * @author David Earl
  */
-public final class PasteTagsAction extends JosmAction implements PasteBufferChangedListener {
+public final class PasteTagsAction extends JosmAction {
+
+    private static final String help = ht("/Action/PasteTags");
 
     public PasteTagsAction() {
         super(tr("Paste Tags"), "pastetags",
                 tr("Apply tags of contents of paste buffer to all selected items."),
                 Shortcut.registerShortcut("system:pastestyle", tr("Edit: {0}", tr("Paste Tags")),
                 KeyEvent.VK_V, Shortcut.CTRL_SHIFT), true);
-        Main.pasteBuffer.addPasteBufferChangedListener(this);
-        putValue("help", ht("/Action/PasteTags"));
+        putValue("help", help);
     }
 
     public static class TagPaster {
@@ -168,7 +169,7 @@ public final class PasteTagsAction extends JosmAction implements PasteBufferChan
         }
 
         /**
-         * Replies true if there is at least one primitive of type <code>type</code> 
+         * Replies true if there is at least one primitive of type <code>type</code>
          * is in the target collection
          *
          * @param <T>
@@ -240,18 +241,65 @@ public final class PasteTagsAction extends JosmAction implements PasteBufferChan
 
     }
 
+    @Override
     public void actionPerformed(ActionEvent e) {
         Collection<OsmPrimitive> selection = getCurrentDataSet().getSelected();
 
         if (selection.isEmpty())
             return;
 
-        TagPaster tagPaster = new TagPaster(Main.pasteBuffer.getDirectlyAdded(), selection);
-
-        List<Command> commands = new ArrayList<Command>();
-        for (Tag tag: tagPaster.execute()) {
-            commands.add(new ChangePropertyCommand(selection, tag.getKey(), "".equals(tag.getValue())?null:tag.getValue()));
+        String buf = Utils.getClipboardContent();
+        if (buf == null || buf.isEmpty() || buf.matches("(\\d+,)*\\d+")) {
+            pasteTagsFromJOSMBuffer(selection);
+        } else {
+            // Paste tags from arbitrary text
+            pasteTagsFromText(selection, buf);
         }
+    }
+
+    /** Paste tags from arbitrary text, not using JOSM buffer
+     * @return true if action was successful
+     */
+    public static boolean pasteTagsFromText(Collection<OsmPrimitive> selection, String text) {
+        Map<String, String> tags = TextTagParser.readTagsFromText(text);
+        if (tags==null || tags.isEmpty()) {
+            TextTagParser.showBadBufferMessage(help);
+            return false;
+        }
+        if (!TextTagParser.validateTags(tags)) return false;
+
+        List<Command> commands = new ArrayList<Command>(tags.size());
+        String v;
+        for (String key: tags.keySet()) {
+            v = tags.get(key);
+            commands.add(new ChangePropertyCommand(selection, key, "".equals(v)?null:v));
+        }
+        commitCommands(selection, commands);
+        return !commands.isEmpty();
+    }
+
+    /** Paste tags from JOSM buffer
+     * @param selection objects that will have the tags
+     * @return false if JOSM buffer was empty
+     */
+    public static boolean pasteTagsFromJOSMBuffer(Collection<OsmPrimitive> selection) {
+        List<PrimitiveData> directlyAdded = Main.pasteBuffer.getDirectlyAdded();
+        if (directlyAdded==null || directlyAdded.isEmpty()) return false;
+
+        PasteTagsAction.TagPaster tagPaster = new PasteTagsAction.TagPaster(directlyAdded, selection);
+        List<Command> commands = new ArrayList<Command>();
+        for (Tag tag : tagPaster.execute()) {
+            commands.add(new ChangePropertyCommand(selection, tag.getKey(), "".equals(tag.getValue()) ? null : tag.getValue()));
+        }
+        commitCommands(selection, commands);
+        return true;
+    }
+
+    /**
+     * Create and execute SequenceCommand with descriptive title
+     * @param commands
+     */
+    private static void commitCommands(Collection<OsmPrimitive> selection, List<Command> commands) {
         if (!commands.isEmpty()) {
             String title1 = trn("Pasting {0} tag", "Pasting {0} tags", commands.size(), commands.size());
             String title2 = trn("to {0} object", "to {0} objects", selection.size(), selection.size());
@@ -261,30 +309,20 @@ public final class PasteTagsAction extends JosmAction implements PasteBufferChan
                             commands
                     ));
         }
-
-    }
-
-    @Override public void pasteBufferChanged(PrimitiveDeepCopy newPasteBuffer) {
-        updateEnabledState();
     }
 
     @Override
     protected void updateEnabledState() {
-        if (getCurrentDataSet() == null || Main.pasteBuffer == null) {
+        if (getCurrentDataSet() == null) {
             setEnabled(false);
             return;
         }
-        setEnabled(
-                !getCurrentDataSet().getSelected().isEmpty()
-                && !TagCollection.unionOfAllPrimitives(Main.pasteBuffer.getDirectlyAdded()).isEmpty()
-        );
+        // buffer listening slows down the program and is not very good for arbitrary text in buffer
+        setEnabled(!getCurrentDataSet().getSelected().isEmpty());
     }
 
     @Override
     protected void updateEnabledState(Collection<? extends OsmPrimitive> selection) {
-        setEnabled(
-                selection!= null && !selection.isEmpty()
-                && !TagCollection.unionOfAllPrimitives(Main.pasteBuffer.getDirectlyAdded()).isEmpty()
-        );
+        setEnabled(selection!= null && !selection.isEmpty());
     }
 }

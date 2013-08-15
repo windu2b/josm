@@ -32,11 +32,13 @@ public class TagConflictResolutionUtil {
     public static void normalizeTagCollectionBeforeEditing(TagCollection tc, Collection<? extends OsmPrimitive> merged) {
         // remove irrelevant tags
         //
-        tc.removeByKey("created_by");
+        for(String key : OsmPrimitive.getDiscardableKeys()) {
+            tc.removeByKey(key);
+        }
 
         int numNodesWithTags = 0;
         for (OsmPrimitive p: merged) {
-            if (p.getKeys().size() >0) {
+            if (!p.getKeys().isEmpty()) {
                 numNodesWithTags++;
             }
         }

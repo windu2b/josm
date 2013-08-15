@@ -31,7 +31,7 @@ import org.openstreetmap.josm.gui.SideButton;
 import org.openstreetmap.josm.gui.help.ContextSensitiveHelpAction;
 import org.openstreetmap.josm.gui.help.HelpUtil;
 import org.openstreetmap.josm.gui.preferences.PreferenceTabbedPane.ValidationListener;
-import org.openstreetmap.josm.gui.preferences.map.MapPreference;
+import org.openstreetmap.josm.gui.preferences.map.MapPaintPreference;
 import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.WindowGeometry;
@@ -47,6 +47,7 @@ public class PreferenceDialog extends JDialog {
         JCheckBox expert = new JCheckBox(tr("Expert mode"));
         expert.setSelected(ExpertToggleAction.isExpert());
         expert.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 ExpertToggleAction.getInstance().actionPerformed(null);
             }
@@ -86,6 +87,15 @@ public class PreferenceDialog extends JDialog {
         this.setMaximumSize( Toolkit.getDefaultToolkit().getScreenSize());
     }
 
+    /**
+     * Replies the preferences tabbed pane.
+     * @return The preferences tabbed pane, or null if the dialog is not yet initialized.
+     * @since 5604
+     */
+    public PreferenceTabbedPane getTabbedPane() {
+        return tpPreferences;
+    }
+
     public boolean isCanceled() {
         return canceled;
     }
@@ -111,7 +121,7 @@ public class PreferenceDialog extends JDialog {
                             p
                     )
             ).applySafe(this);
-        } else if (!visible && isShowing()){
+        } else if (isShowing()) { // Avoid IllegalComponentStateException like in #8775
             new WindowGeometry(this).remember(getClass().getName() + ".geometry");
         }
         super.setVisible(visible);
@@ -123,6 +133,10 @@ public class PreferenceDialog extends JDialog {
 
     public void selectPreferencesTabByClass(Class<? extends TabPreferenceSetting> clazz) {
         tpPreferences.selectTabByPref(clazz);
+    }
+
+    public void selectSubPreferencesTabByClass(Class<? extends SubPreferenceSetting> clazz) {
+        tpPreferences.selectSubTabByPref(clazz);
     }
 
     class CancelAction extends AbstractAction {
@@ -138,6 +152,7 @@ public class PreferenceDialog extends JDialog {
             tpPreferences.validationListeners.clear();
         }
 
+        @Override
         public void actionPerformed(ActionEvent evt) {
             cancel();
         }
@@ -150,6 +165,7 @@ public class PreferenceDialog extends JDialog {
             putValue(SHORT_DESCRIPTION, tr("Save the preferences and close the dialog"));
         }
 
+        @Override
         public void actionPerformed(ActionEvent evt) {
             for (ValidationListener listener: tpPreferences.validationListeners) {
                 if (!listener.validatePreferences())
@@ -171,7 +187,6 @@ public class PreferenceDialog extends JDialog {
     }
 
     public void selectMapPaintPreferenceTab() {
-        tpPreferences.selectTabByPref(MapPreference.class);
-        tpPreferences.getMapPreference().mapcontent.setSelectedIndex(1);
+        tpPreferences.selectSubTabByPref(MapPaintPreference.class);
     }
 }

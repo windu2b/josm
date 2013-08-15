@@ -52,6 +52,7 @@ public class NodeListMerger extends ListMerger<Node> implements IConflictResolve
         return embeddInScrollPane(theirEntriesTable);
     }
 
+    @Override
     public void populate(Conflict<? extends OsmPrimitive> conflict) {
         Way myWay = (Way)conflict.getMy();
         Way theirWay = (Way)conflict.getTheir();
@@ -59,7 +60,8 @@ public class NodeListMerger extends ListMerger<Node> implements IConflictResolve
         myEntriesTable.setLayer(findLayerFor(myWay));
         theirEntriesTable.setLayer(findLayerFor(theirWay));
     }
-    
+
+    @Override
     public void deletePrimitive(boolean deleted) {
         if (deleted) {
             model.setFrozen(true);

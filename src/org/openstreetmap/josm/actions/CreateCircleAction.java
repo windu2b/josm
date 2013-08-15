@@ -23,6 +23,7 @@ import org.openstreetmap.josm.data.coor.EastNorth;
 import org.openstreetmap.josm.data.osm.Node;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.osm.Way;
+import org.openstreetmap.josm.gui.Notification;
 import org.openstreetmap.josm.tools.Shortcut;
 
 /**
@@ -74,6 +75,7 @@ public final class CreateCircleAction extends JosmAction {
         return a;
     }
 
+    @Override
     public void actionPerformed(ActionEvent e) {
         if (!isEnabled())
             return;
@@ -96,7 +98,7 @@ public final class CreateCircleAction extends JosmAction {
 
         // special case if no single nodes are selected and exactly one way is:
         // then use the way's nodes
-        if ((nodes.size() == 0) && (sel.size() == 1)) {
+        if (nodes.isEmpty() && (sel.size() == 1)) {
             for (OsmPrimitive osm : sel)
                 if (osm instanceof Way) {
                     existingWay = ((Way)osm);
@@ -135,7 +137,7 @@ public final class CreateCircleAction extends JosmAction {
             if (a1 < a2) { double at = a1; Node nt = n1; a1 = a2; n1 = n2; a2 = at; n2 = nt; }
 
             // build a way for the circle
-            List<Node> wayToAdd = new ArrayList<Node>();
+            List<Node> wayToAdd = new ArrayList<Node>(numberOfNodesInCircle + 1);
 
             for (int i = 1; i <= numberOfNodesInCircle; i++) {
                 double a = a2 + 2*Math.PI*(1.0 - i/(double)numberOfNodesInCircle); // "1-" to get it clock-wise
@@ -200,12 +202,10 @@ public final class CreateCircleAction extends JosmAction {
             double sUnder = (x1 - x2)*(y3 - y1) - (y2 - y1)*(x1 - x3);
 
             if (sUnder == 0) {
-                JOptionPane.showMessageDialog(
-                        Main.parent,
-                        tr("Those nodes are not in a circle. Aborting."),
-                        tr("Warning"),
-                        JOptionPane.WARNING_MESSAGE
-                );
+                new Notification(
+                        tr("Those nodes are not in a circle. Aborting."))
+                        .setIcon(JOptionPane.WARNING_MESSAGE)
+                        .show();
                 return;
             }
 
@@ -261,12 +261,11 @@ public final class CreateCircleAction extends JosmAction {
             }
 
         } else {
-            JOptionPane.showMessageDialog(
-                    Main.parent,
-                    tr("Please select exactly two or three nodes or one way with exactly two or three nodes."),
-                    tr("Information"),
-                    JOptionPane.INFORMATION_MESSAGE
-            );
+            new Notification(
+                    tr("Please select exactly two or three nodes or one way with exactly two or three nodes."))
+                    .setIcon(JOptionPane.INFORMATION_MESSAGE)
+                    .setDuration(Notification.TIME_LONG)
+                    .show();
             return;
         }
 
