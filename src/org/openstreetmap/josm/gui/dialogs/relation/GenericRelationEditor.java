@@ -793,7 +793,8 @@ public class GenericRelationEditor extends RelationEditor  {
 
     class AddSelectedAtStartAction extends AddFromSelectionAction implements TableModelListener {
         public AddSelectedAtStartAction() {
-            putValue(SHORT_DESCRIPTION, tr("Add all objects selected in the current dataset before the first member"));
+            putValue(SHORT_DESCRIPTION,
+                    tr("Add all objects selected in the current dataset before the first member"));
             putValue(SMALL_ICON, ImageProvider.get("dialogs/conflict", "copystartright"));
             // putValue(NAME, tr("Add Selected"));
             refreshEnabled();
