@@ -769,6 +769,8 @@ public class GenericRelationEditor extends RelationEditor  {
             if (primitives == null || primitives.isEmpty())
                 return primitives;
             ArrayList<OsmPrimitive> ret = new ArrayList<OsmPrimitive>();
+            ConditionalOptionPaneUtil.setNonPersistentDialogShowingEnabled("add_primitive_to_relation", true);
+            ConditionalOptionPaneUtil.setNonPersistentDialogReturnValue("add_primitive_to_relation", 0);
             for (OsmPrimitive primitive : primitives) {
                 if (primitive instanceof Relation && getRelation() != null && getRelation().equals(primitive)) {
                     warnOfCircularReferences(primitive);
@@ -783,14 +785,15 @@ public class GenericRelationEditor extends RelationEditor  {
                     ret.add(primitive);
                 }
             }
+            ConditionalOptionPaneUtil.setNonPersistentDialogShowingEnabled("add_primitive_to_relation", true);
+            ConditionalOptionPaneUtil.setNonPersistentDialogReturnValue("add_primitive_to_relation", 0);
             return ret;
         }
     }
 
     class AddSelectedAtStartAction extends AddFromSelectionAction implements TableModelListener {
         public AddSelectedAtStartAction() {
-            putValue(SHORT_DESCRIPTION,
-                    tr("Add all objects selected in the current dataset before the first member"));
+            putValue(SHORT_DESCRIPTION, tr("Add all objects selected in the current dataset before the first member"));
             putValue(SMALL_ICON, ImageProvider.get("dialogs/conflict", "copystartright"));
             // putValue(NAME, tr("Add Selected"));
             refreshEnabled();

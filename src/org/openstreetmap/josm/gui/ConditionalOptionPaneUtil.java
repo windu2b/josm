@@ -55,6 +55,27 @@ public class ConditionalOptionPaneUtil {
     }
 
     /**
+     * Replies the preference value for the preference key "message." + <code>prefKey</code>.
+     * The default value if the preference key is missing is true.
+     *
+     * @param  prefKey the preference key
+     * @return the preference value for the preference key "message." + <code>prefKey</code>
+     */
+    public static boolean getNonPersistentDialogShowingEnabled(String prefKey) {
+        return Main.pref.getBoolean("message."+prefKey+"_nonPersistent", true);
+    }
+
+    /**
+     * sets the value for the preference key "message." + <code>prefKey</code>.
+     *
+     * @param prefKey the key
+     * @param enabled the value
+     */
+    public static void setNonPersistentDialogShowingEnabled(String prefKey, boolean enabled) {
+        Main.pref.put("message."+prefKey+"_nonPersistent", enabled);
+    }
+
+    /**
      * Returns the preference value for the preference key "message." + <code>prefKey</code> + ".value".
      * The default value if the preference key is missing is -1.
      *
@@ -73,6 +94,27 @@ public class ConditionalOptionPaneUtil {
      */
     public static void setDialogReturnValue(String prefKey, Integer value) {
         Main.pref.putInteger("message."+prefKey+".value", value);
+    }
+
+    /**
+     * Returns the preference value for the preference key "message." + <code>prefKey</code> + "_nonPersistent" + ".value".
+     * The default value if the preference key is missing is -1.
+     *
+     * @param  prefKey the preference key
+     * @return the preference value for the preference key "message." + <code>prefKey</code> + ".value"
+     */
+    public static Integer getNonPersistentDialogReturnValue(String prefKey) {
+        return Main.pref.getInteger("message."+prefKey+"_nonPersistent"+".value", -1);
+    }
+
+    /**
+     * sets the value for the preference key "message." + <code>prefKey</code> + "_nonPersistent" + ".value".
+     *
+     * @param prefKey the key
+     * @param value the value
+     */
+    public static void setNonPersistentDialogReturnValue(String prefKey, Integer value) {
+        Main.pref.putInteger("message."+prefKey+"_nonPersistent"+".value", value);
     }
 
     /**
@@ -102,15 +144,21 @@ public class ConditionalOptionPaneUtil {
      * @return the option selected by user. {@link JOptionPane#CLOSED_OPTION} if the dialog was closed.
      */
     static public int showOptionDialog(String preferenceKey, Component parent, Object message, String title, int optionType, int messageType, Object [] options, Object defaultOption) throws HeadlessException {
-        int ret = getDialogReturnValue(preferenceKey);
-        if (!getDialogShowingEnabled(preferenceKey) && ((ret == JOptionPane.YES_OPTION) || (ret == JOptionPane.NO_OPTION)))
+        int ret = getDialogReturnValue(preferenceKey) | getNonPersistentDialogReturnValue(preferenceKey);
+        if ((!getDialogShowingEnabled(preferenceKey) || !getNonPersistentDialogShowingEnabled(preferenceKey)) && ((ret == JOptionPane.YES_OPTION) || (ret == JOptionPane.NO_OPTION)))
             return ret;
         MessagePanel pnl = new MessagePanel(false, message);
         ret = JOptionPane.showOptionDialog(parent, pnl, title, optionType, messageType, null, options, defaultOption);
 
-        if (((ret == JOptionPane.YES_OPTION) || (ret == JOptionPane.NO_OPTION)) && !pnl.getDialogShowingEnabled()) {
-            setDialogShowingEnabled(preferenceKey, false);
-            setDialogReturnValue(preferenceKey, ret);
+        if ((ret == JOptionPane.YES_OPTION) || (ret == JOptionPane.NO_OPTION)) {
+            if(!pnl.getDialogShowingEnabled() ) {
+                setDialogShowingEnabled(preferenceKey, false);
+                setDialogReturnValue(preferenceKey, ret);
+            }
+            if( !pnl.getNonPersistentDialogShowingEnabled()) {
+                setNonPersistentDialogShowingEnabled(preferenceKey, false);
+                setNonPersistentDialogReturnValue(preferenceKey, ret);
+            }
         }
         return ret;
     }
@@ -196,10 +244,13 @@ public class ConditionalOptionPaneUtil {
      */
     private static class MessagePanel extends JPanel {
         JCheckBox cbShowDialog;
+        JCheckBox cbShowNonPersistentDialog;
 
         public MessagePanel(boolean donotshow, Object message) {
             cbShowDialog = new JCheckBox(tr("Do not show again (remembers choice)"));
             cbShowDialog.setSelected(donotshow);
+            cbShowNonPersistentDialog = new JCheckBox(tr("Do not show again (just this time)"));
+            cbShowNonPersistentDialog.setSelected(donotshow);
             setLayout(new GridBagLayout());
 
             if (message instanceof Component) {
@@ -207,11 +258,16 @@ public class ConditionalOptionPaneUtil {
             } else {
                 add(new JLabel(message.toString()),GBC.eop());
             }
-            add(cbShowDialog, GBC.eol());
+            add(cbShowDialog, GBC.std());
+            add(cbShowNonPersistentDialog, GBC.eol());
         }
 
         public boolean getDialogShowingEnabled() {
             return !cbShowDialog.isSelected();
+        }
+
+        public boolean getNonPersistentDialogShowingEnabled() {
+            return !cbShowNonPersistentDialog.isSelected();
         }
     }
 }
