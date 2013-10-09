@@ -647,7 +647,7 @@ public class GenericRelationEditor extends RelationEditor  {
      *
      */
     protected void cleanSelfReferences() {
-        ArrayList<OsmPrimitive> toCheck = new ArrayList<OsmPrimitive>();
+        List<OsmPrimitive> toCheck = new ArrayList<OsmPrimitive>();
         toCheck.add(getRelation());
         if (memberTableModel.hasMembersReferringTo(toCheck)) {
             int ret = ConditionalOptionPaneUtil.showOptionDialog(
@@ -769,6 +769,9 @@ public class GenericRelationEditor extends RelationEditor  {
             if (primitives == null || primitives.isEmpty())
                 return primitives;
             ArrayList<OsmPrimitive> ret = new ArrayList<OsmPrimitive>();
+            ConditionalOptionPaneUtil.setNonPersistentDialogShowingEnabled("add_primitive_to_relation", true);
+            ConditionalOptionPaneUtil.setNonPersistentDialogReturnValue("add_primitive_to_relation", 0);
+
             for (OsmPrimitive primitive : primitives) {
                 if (primitive instanceof Relation && getRelation() != null && getRelation().equals(primitive)) {
                     warnOfCircularReferences(primitive);
@@ -783,6 +786,8 @@ public class GenericRelationEditor extends RelationEditor  {
                     ret.add(primitive);
                 }
             }
+            ConditionalOptionPaneUtil.setNonPersistentDialogShowingEnabled("add_primitive_to_relation", true);
+            ConditionalOptionPaneUtil.setNonPersistentDialogReturnValue("add_primitive_to_relation", 0);
             return ret;
         }
     }
@@ -792,7 +797,6 @@ public class GenericRelationEditor extends RelationEditor  {
             putValue(SHORT_DESCRIPTION,
                     tr("Add all objects selected in the current dataset before the first member"));
             putValue(SMALL_ICON, ImageProvider.get("dialogs/conflict", "copystartright"));
-            // putValue(NAME, tr("Add Selected"));
             refreshEnabled();
         }
 
@@ -820,7 +824,6 @@ public class GenericRelationEditor extends RelationEditor  {
         public AddSelectedAtEndAction() {
             putValue(SHORT_DESCRIPTION, tr("Add all objects selected in the current dataset after the last member"));
             putValue(SMALL_ICON, ImageProvider.get("dialogs/conflict", "copyendright"));
-            // putValue(NAME, tr("Add Selected"));
             refreshEnabled();
         }
 
@@ -849,7 +852,6 @@ public class GenericRelationEditor extends RelationEditor  {
             putValue(SHORT_DESCRIPTION,
                     tr("Add all objects selected in the current dataset before the first selected member"));
             putValue(SMALL_ICON, ImageProvider.get("dialogs/conflict", "copybeforecurrentright"));
-            // putValue(NAME, tr("Add Selected"));
             refreshEnabled();
         }
 
@@ -886,7 +888,6 @@ public class GenericRelationEditor extends RelationEditor  {
             putValue(SHORT_DESCRIPTION,
                     tr("Add all objects selected in the current dataset after the last selected member"));
             putValue(SMALL_ICON, ImageProvider.get("dialogs/conflict", "copyaftercurrentright"));
-            // putValue(NAME, tr("Add Selected"));
             refreshEnabled();
         }
 
@@ -921,7 +922,6 @@ public class GenericRelationEditor extends RelationEditor  {
         public RemoveSelectedAction() {
             putValue(SHORT_DESCRIPTION, tr("Remove all members referring to one of the selected objects"));
             putValue(SMALL_ICON, ImageProvider.get("dialogs/relation", "deletemembers"));
-            // putValue(NAME, tr("Remove Selected"));
             updateEnabledState();
         }
 
@@ -1067,7 +1067,6 @@ public class GenericRelationEditor extends RelationEditor  {
         public MoveUpAction() {
             String tooltip = tr("Move the currently selected members up");
             putValue(SMALL_ICON, ImageProvider.get("dialogs", "moveup"));
-            // putValue(NAME, tr("Move Up"));
             Shortcut sc = Shortcut.registerShortcut("relationeditor:moveup", tr("Relation Editor: Move Up"),
                 KeyEvent.VK_UP, Shortcut.ALT);
             sc.setAccelerator(this);
@@ -1090,7 +1089,6 @@ public class GenericRelationEditor extends RelationEditor  {
         public MoveDownAction() {
             String tooltip = tr("Move the currently selected members down");
             putValue(SMALL_ICON, ImageProvider.get("dialogs", "movedown"));
-            // putValue(NAME, tr("Move Down"));
             Shortcut sc = Shortcut.registerShortcut("relationeditor:movedown", tr("Relation Editor: Move Down"),
                 KeyEvent.VK_DOWN, Shortcut.ALT);
             sc.setAccelerator(this);
@@ -1446,7 +1444,6 @@ public class GenericRelationEditor extends RelationEditor  {
         public AddTagAction() {
             putValue(SHORT_DESCRIPTION, tr("Add an empty tag"));
             putValue(SMALL_ICON, ImageProvider.get("dialogs", "add"));
-            // putValue(NAME, tr("Cancel"));
             setEnabled(true);
         }
 
