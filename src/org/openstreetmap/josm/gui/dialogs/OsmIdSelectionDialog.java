@@ -1,26 +1,9 @@
 // License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui.dialogs;
 
-import org.openstreetmap.josm.Main;
-import org.openstreetmap.josm.data.osm.OsmPrimitiveType;
-import org.openstreetmap.josm.data.osm.PrimitiveId;
-import org.openstreetmap.josm.data.osm.SimplePrimitiveId;
-import org.openstreetmap.josm.gui.ExtendedDialog;
-import org.openstreetmap.josm.gui.widgets.HistoryComboBox;
-import org.openstreetmap.josm.gui.widgets.HtmlPanel;
-import org.openstreetmap.josm.gui.widgets.JosmTextField;
-import org.openstreetmap.josm.gui.widgets.OsmIdTextField;
-import org.openstreetmap.josm.gui.widgets.OsmPrimitiveTypesComboBox;
-import org.openstreetmap.josm.tools.Utils;
+import static org.openstreetmap.josm.tools.I18n.tr;
+import static org.openstreetmap.josm.tools.I18n.trc;
 
-import javax.swing.BorderFactory;
-import javax.swing.GroupLayout;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.KeyStroke;
-import javax.swing.border.EtchedBorder;
-import javax.swing.plaf.basic.BasicComboBoxEditor;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.event.ItemEvent;
@@ -36,8 +19,26 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
-import static org.openstreetmap.josm.tools.I18n.tr;
-import static org.openstreetmap.josm.tools.I18n.trc;
+import javax.swing.BorderFactory;
+import javax.swing.GroupLayout;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.KeyStroke;
+import javax.swing.border.EtchedBorder;
+import javax.swing.plaf.basic.BasicComboBoxEditor;
+
+import org.openstreetmap.josm.Main;
+import org.openstreetmap.josm.data.osm.OsmPrimitiveType;
+import org.openstreetmap.josm.data.osm.PrimitiveId;
+import org.openstreetmap.josm.data.osm.SimplePrimitiveId;
+import org.openstreetmap.josm.gui.ExtendedDialog;
+import org.openstreetmap.josm.gui.widgets.HistoryComboBox;
+import org.openstreetmap.josm.gui.widgets.HtmlPanel;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
+import org.openstreetmap.josm.gui.widgets.OsmIdTextField;
+import org.openstreetmap.josm.gui.widgets.OsmPrimitiveTypesComboBox;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * Dialog prompt to user to let him choose OSM primitives by specifying their type and IDs.
@@ -90,10 +91,13 @@ public class OsmIdSelectionDialog extends ExtendedDialog implements WindowListen
         HtmlPanel help = new HtmlPanel(/* I18n: {0} and {1} contains example strings not meant for translation. {2}=n, {3}=w, {4}=r. */
                 tr("Object IDs can be separated by comma or space.<br/>"
                         + "Examples: {0}<br/>"
-                        + "In mixed mode, specify objects like this: {1}<br/>"
-                        + "({2} stands for <i>node</i>, {3} for <i>way</i>, and {4} for <i>relation</i>)",
+                        + "In mixed mode, specify objects like this: {1}<br/><br/>"
+                        + "Ranges of object IDs can also be catched, by a hyphen.<br/>"
+                        + "Examples: {2}<br/>"
+                        + "({3} stands for <i>node</i>, {4} for <i>way</i>, and {5} for <i>relation</i>)",
                         "<b>" + Utils.joinAsHtmlUnorderedList(Arrays.asList("1 2 5", "1,2,5")) + "</b>",
                         "<b>w123, n110, w12, r15</b>",
+                        "<b>" + Utils.joinAsHtmlUnorderedList(Arrays.asList("w1-5", "n1-7")) + "</b>",
                         "<b>n</b>", "<b>w</b>", "<b>r</b>"
                 ));
         help.setBorder(BorderFactory.createEtchedBorder(EtchedBorder.LOWERED));
@@ -220,8 +224,8 @@ public class OsmIdSelectionDialog extends ExtendedDialog implements WindowListen
                 // select "mixed"
                 cbType.setSelectedIndex(3);
             }
-        } else if (buf.matches("[\\d,v\\s]+")) { 
-            //fallback solution for id1,id2,id3 format 
+        } else if (buf.matches("[\\d,v\\s]+")) {
+            //fallback solution for id1,id2,id3 format
             tfId.tryToPasteFrom(buf);
         }
     }
