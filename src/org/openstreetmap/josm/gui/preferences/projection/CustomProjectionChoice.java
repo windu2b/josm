@@ -45,7 +45,7 @@ public class CustomProjectionChoice extends AbstractProjectionChoice implements 
      * Constructs a new {@code CustomProjectionChoice}.
      */
     public CustomProjectionChoice() {
-        super(tr("Custom Projection"), "core:custom");
+        super(tr("Custom Projection"), /* NO-ICON */ "core:custom");
     }
 
     private static class PreferencePanel extends JPanel {
@@ -101,14 +101,14 @@ public class CustomProjectionChoice extends AbstractProjectionChoice implements 
                         test.update(input.getText());
                     } catch (ProjectionConfigurationException ex) {
                         error = ex.getMessage();
-                        valStatus.setIcon(ImageProvider.get("data", "error.png"));
+                        valStatus.setIcon(ImageProvider.get("data", "error"));
                         valStatus.setVisible(true);
                         errorsPanel.setText(error);
                         errorsPanel.setVisible(true);
                         return false;
                     }
                     errorsPanel.setVisible(false);
-                    valStatus.setIcon(ImageProvider.get("misc", "green_check.png"));
+                    valStatus.setIcon(ImageProvider.get("misc", "green_check"));
                     valStatus.setVisible(true);
                     return true;
                 }
@@ -168,26 +168,27 @@ public class CustomProjectionChoice extends AbstractProjectionChoice implements 
 
         private JComponent build() {
             StringBuilder s = new StringBuilder();
-            s.append("<b>+proj=...</b> - <i>"+tr("Projection name")+"</i><br>");
-            s.append("&nbsp;&nbsp;&nbsp;&nbsp;"+tr("Supported values:")+" ");
-            s.append(listKeys(Projections.projs)+"<br>");
-            s.append("<b>+lat_0=..., +lat_1=..., +lat_2=...</b> - <i>"+tr("Projection parameters")+"</i><br>");
-            s.append("<b>+x_0=..., +y_0=...</b> - <i>"+tr("False easting and false northing")+"</i><br>");
-            s.append("<b>+lon_0=...</b> - <i>"+tr("Central meridian")+"</i><br>");
-            s.append("<b>+k_0=...</b> - <i>"+tr("Scaling factor")+"</i><br>");
-            s.append("<b>+ellps=...</b> - <i>"+tr("Ellipsoid name")+"</i><br>");
-            s.append("&nbsp;&nbsp;&nbsp;&nbsp;"+tr("Supported values:")+" ");
-            s.append(listKeys(Projections.ellipsoids)+"<br>");
-            s.append("<b>+a=..., +b=..., +rf=..., +f=..., +es=...</b> - <i>"+tr("Ellipsoid parameters")+"</i><br>");
-            s.append("<b>+datum=...</b> - <i>"+tr("Datum name")+"</i><br>");
-            s.append("&nbsp;&nbsp;&nbsp;&nbsp;"+tr("Supported values:")+" ");
-            s.append(listKeys(Projections.datums)+"<br>");
-            s.append("<b>+towgs84=...</b> - <i>"+tr("3 or 7 term datum transform parameters")+"</i><br>");
-            s.append("<b>+nadgrids=...</b> - <i>"+tr("NTv2 grid file")+"</i><br>");
-            s.append("&nbsp;&nbsp;&nbsp;&nbsp;"+tr("Built-in:")+" ");
-            s.append(listKeys(Projections.nadgrids)+"<br>");
-            s.append("<b>+bounds=</b>minlon,minlat,maxlon,maxlat - <i>"+tr("Projection bounds (in degrees)")+"</i><br>");
-            s.append("<b>+wmssrs=</b>EPSG:123456 - <i>"+tr("WMS SRS (EPSG code)")+"</i><br>");
+            s.append("<b>+proj=...</b> - <i>").append(tr("Projection name"))
+             .append("</i><br>&nbsp;&nbsp;&nbsp;&nbsp;").append(tr("Supported values:")).append(' ')
+             .append(listKeys(Projections.projs))
+             .append("<br><b>+lat_0=..., +lat_1=..., +lat_2=...</b> - <i>").append(tr("Projection parameters"))
+             .append("</i><br><b>+x_0=..., +y_0=...</b> - <i>").append(tr("False easting and false northing"))
+             .append("</i><br><b>+lon_0=...</b> - <i>").append(tr("Central meridian"))
+             .append("</i><br><b>+k_0=...</b> - <i>").append(tr("Scaling factor"))
+             .append("</i><br><b>+ellps=...</b> - <i>").append(tr("Ellipsoid name"))
+             .append("</i><br>&nbsp;&nbsp;&nbsp;&nbsp;").append(tr("Supported values:")).append(' ')
+             .append(listKeys(Projections.ellipsoids))
+             .append("<br><b>+a=..., +b=..., +rf=..., +f=..., +es=...</b> - <i>").append(tr("Ellipsoid parameters"))
+             .append("</i><br><b>+datum=...</b> - <i>").append(tr("Datum name"))
+             .append("</i><br>&nbsp;&nbsp;&nbsp;&nbsp;").append(tr("Supported values:")).append(' ')
+             .append(listKeys(Projections.datums))
+             .append("<br><b>+towgs84=...</b> - <i>").append(tr("3 or 7 term datum transform parameters"))
+             .append("</i><br><b>+nadgrids=...</b> - <i>").append(tr("NTv2 grid file"))
+             .append("</i><br>&nbsp;&nbsp;&nbsp;&nbsp;").append(tr("Built-in:")).append(' ')
+             .append(listKeys(Projections.nadgrids))
+             .append("<br><b>+bounds=</b>minlon,minlat,maxlon,maxlat - <i>").append(tr("Projection bounds (in degrees)"))
+             .append("</i><br><b>+wmssrs=</b>EPSG:123456 - <i>").append(tr("Sets the SRS=... parameter in the WMS request"))
+             .append("</i><br>");
 
             return new HtmlPanel(s.toString());
         }
@@ -231,7 +232,7 @@ public class CustomProjectionChoice extends AbstractProjectionChoice implements 
     @Override
     public Collection<String> getPreferences(JPanel panel) {
         if (!(panel instanceof PreferencePanel)) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("Unsupported panel: "+panel);
         }
         PreferencePanel prefPanel = (PreferencePanel) panel;
         String pref = prefPanel.input.getText();

@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.actions;
 
 import static org.openstreetmap.josm.gui.help.HelpUtil.ht;
@@ -48,7 +48,7 @@ public class DownloadPrimitiveAction extends JosmAction {
      */
     public static void processItems(boolean newLayer, final List<PrimitiveId> ids, boolean downloadReferrers, boolean full) {
         final DownloadPrimitivesWithReferrersTask task =
-                new DownloadPrimitivesWithReferrersTask(newLayer, ids, downloadReferrers, full, null);
+                new DownloadPrimitivesWithReferrersTask(newLayer, ids, downloadReferrers, full, null, null);
         Main.worker.submit(task);
         Main.worker.submit(new Runnable() {
             @Override

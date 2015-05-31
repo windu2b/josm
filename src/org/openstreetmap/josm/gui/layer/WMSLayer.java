@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -61,11 +62,12 @@ import org.openstreetmap.josm.gui.dialogs.LayerListDialog;
 import org.openstreetmap.josm.gui.dialogs.LayerListPopup;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
 import org.openstreetmap.josm.io.WMSLayerImporter;
-import org.openstreetmap.josm.io.imagery.Grabber;
 import org.openstreetmap.josm.io.imagery.HTMLGrabber;
+import org.openstreetmap.josm.io.imagery.WMSException;
 import org.openstreetmap.josm.io.imagery.WMSGrabber;
 import org.openstreetmap.josm.io.imagery.WMSRequest;
 import org.openstreetmap.josm.tools.ImageProvider;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * This is a layer that grabs the current screen from an WMS server. The data
@@ -97,6 +99,7 @@ public class WMSLayer extends ImageryLayer implements ImageObserver, PreferenceC
     }
 
     // Fake reference to keep build scripts from removing ObjectFactory class. This class is not used directly but it's necessary for jaxb to work
+    @SuppressWarnings("unused")
     private static final ObjectFactory OBJECT_FACTORY = null;
 
     // these values correspond to the zoom levels used throughout OSM and are in meters/pixel from zoom level 0 to 18.
@@ -126,8 +129,8 @@ public class WMSLayer extends ImageryLayer implements ImageObserver, PreferenceC
     protected boolean autoDownloadEnabled = true;
     protected boolean autoResolutionEnabled = PROP_DEFAULT_AUTOZOOM.get();
     protected boolean settingsChanged;
-    public WmsCache cache;
-    private AttributionSupport attribution = new AttributionSupport();
+    public transient WmsCache cache;
+    private transient AttributionSupport attribution = new AttributionSupport();
 
     // Image index boundary for current view
     private volatile int bminx;
@@ -138,16 +141,16 @@ public class WMSLayer extends ImageryLayer implements ImageObserver, PreferenceC
     private volatile int bottomEdge;
 
     // Request queue
-    private final List<WMSRequest> requestQueue = new ArrayList<>();
-    private final List<WMSRequest> finishedRequests = new ArrayList<>();
+    private final transient List<WMSRequest> requestQueue = new ArrayList<>();
+    private final transient List<WMSRequest> finishedRequests = new ArrayList<>();
     /**
      * List of request currently being processed by download threads
      */
-    private final List<WMSRequest> processingRequests = new ArrayList<>();
-    private final Lock requestQueueLock = new ReentrantLock();
-    private final Condition queueEmpty = requestQueueLock.newCondition();
-    private final List<Grabber> grabbers = new ArrayList<>();
-    private final List<Thread> grabberThreads = new ArrayList<>();
+    private final transient List<WMSRequest> processingRequests = new ArrayList<>();
+    private final transient Lock requestQueueLock = new ReentrantLock();
+    private final transient Condition queueEmpty = requestQueueLock.newCondition();
+    private final transient List<WMSGrabber> grabbers = new ArrayList<>();
+    private final transient List<Thread> grabberThreads = new ArrayList<>();
     private boolean canceled;
 
     /** set to true if this layer uses an invalid base url */
@@ -162,6 +165,9 @@ public class WMSLayer extends ImageryLayer implements ImageObserver, PreferenceC
         this(new ImageryInfo(tr("Blank Layer")));
     }
 
+    /**
+     * Constructs a new {@code WMSLayer}.
+     */
     public WMSLayer(ImageryInfo info) {
         super(info);
         imageSize = PROP_IMAGE_SIZE.get();
@@ -236,6 +242,18 @@ public class WMSLayer extends ImageryLayer implements ImageObserver, PreferenceC
         return autoDownloadEnabled;
     }
 
+    public void setAutoDownload(boolean val) {
+        autoDownloadEnabled = val;
+    }
+
+    public boolean isAutoResolution() {
+        return autoResolutionEnabled;
+    }
+
+    public void setAutoResolution(boolean val) {
+        autoResolutionEnabled = val;
+    }
+
     public void downloadAreaToCache(PrecacheTask precacheTask, List<LatLon> points, double bufferX, double bufferY) {
         Set<Point> requestedTiles = new HashSet<>();
         for (LatLon point: points) {
@@ -301,7 +319,7 @@ public class WMSLayer extends ImageryLayer implements ImageObserver, PreferenceC
             return tr("WMS layer ({0}), downloading in zoom {1}", getName(), resolutionText);
     }
 
-    private int modulo (int a, int b) {
+    private int modulo(int a, int b) {
         return a % b >= 0 ? a%b : a%b+b;
     }
 
@@ -310,10 +328,11 @@ public class WMSLayer extends ImageryLayer implements ImageObserver, PreferenceC
         return info.getPixelPerDegree() / getPPD() > minZoom;
     }
 
-    @Override public void paint(Graphics2D g, final MapView mv, Bounds b) {
+    @Override
+    public void paint(Graphics2D g, final MapView mv, Bounds b) {
         if(info.getUrl() == null || (usesInvalidUrl && !isInvalidUrlConfirmed)) return;
 
-        if (autoResolutionEnabled && getBestZoom() != mv.getDist100Pixel()) {
+        if (autoResolutionEnabled && !Utils.equalsEpsilon(getBestZoom(), mv.getDist100Pixel())) {
             changeResolution(this, true);
         }
 
@@ -377,7 +396,7 @@ public class WMSLayer extends ImageryLayer implements ImageObserver, PreferenceC
      * @return Size of image in original zoom
      */
     public int getBaseImageWidth() {
-        int overlap = PROP_OVERLAP.get() ? (PROP_OVERLAP_EAST.get() * imageSize / 100) : 0;
+        int overlap = PROP_OVERLAP.get() ? PROP_OVERLAP_EAST.get() * imageSize / 100 : 0;
         return imageSize + overlap;
     }
 
@@ -386,7 +405,7 @@ public class WMSLayer extends ImageryLayer implements ImageObserver, PreferenceC
      * @return Size of image in original zoom
      */
     public int getBaseImageHeight() {
-        int overlap = PROP_OVERLAP.get() ? (PROP_OVERLAP_NORTH.get() * imageSize / 100) : 0;
+        int overlap = PROP_OVERLAP.get() ? PROP_OVERLAP_NORTH.get() * imageSize / 100 : 0;
         return imageSize + overlap;
     }
 
@@ -516,7 +535,7 @@ public class WMSLayer extends ImageryLayer implements ImageObserver, PreferenceC
      * @return -1 if request is no longer needed, otherwise priority of request (lower number &lt;=&gt; more important request)
      */
     private int getRequestPriority(WMSRequest request) {
-        if (request.getPixelPerDegree() != info.getPixelPerDegree())
+        if (!Utils.equalsEpsilon(request.getPixelPerDegree(), info.getPixelPerDegree()))
             return -1;
         if (bminx > request.getXIndex()
                 || bmaxx < request.getXIndex()
@@ -647,7 +666,8 @@ public class WMSLayer extends ImageryLayer implements ImageObserver, PreferenceC
             for (WMSRequest request: finishedRequests) {
                 GeorefImage img = images[modulo(request.getXIndex(),dax)][modulo(request.getYIndex(),day)];
                 if (img.equalPosition(request.getXIndex(), request.getYIndex())) {
-                    img.changeImage(request.getState(), request.getImage());
+                    WMSException we = request.getException();
+                    img.changeImage(request.getState(), request.getImage(), we != null ? we.getMessage() : null);
                 }
             }
         } finally {
@@ -930,14 +950,13 @@ public class WMSLayer extends ImageryLayer implements ImageObserver, PreferenceC
         public void actionPerformed(ActionEvent e) {
             Main.map.mapView.zoomTo(Main.map.mapView.getCenter(), 1 / info.getPixelPerDegree());
         }
-
     }
 
     private void cancelGrabberThreads(boolean wait) {
         requestQueueLock.lock();
         try {
             canceled = true;
-            for (Grabber grabber: grabbers) {
+            for (WMSGrabber grabber: grabbers) {
                 grabber.cancel();
             }
             queueEmpty.signalAll();
@@ -963,7 +982,7 @@ public class WMSLayer extends ImageryLayer implements ImageObserver, PreferenceC
             grabbers.clear();
             grabberThreads.clear();
             for (int i=0; i<threadCount; i++) {
-                Grabber grabber = getGrabber(i == 0 && threadCount > 1);
+                WMSGrabber grabber = getGrabber(i == 0 && threadCount > 1);
                 grabbers.add(grabber);
                 Thread t = new Thread(grabber, "WMS " + getName() + " " + i);
                 t.setDaemon(true);
@@ -1004,12 +1023,23 @@ public class WMSLayer extends ImageryLayer implements ImageObserver, PreferenceC
         }
     }
 
-    protected Grabber getGrabber(boolean localOnly) {
+    /**
+     * Checks that WMS layer is a grabber-compatible one (HTML or WMS).
+     * @throws IllegalStateException if imagery time is neither HTML nor WMS
+     * @since 8068
+     */
+    public void checkGrabberType() {
+        ImageryType it = getInfo().getImageryType();
+        if (!ImageryType.HTML.equals(it) && !ImageryType.WMS.equals(it))
+            throw new IllegalStateException("getGrabber() called for non-WMS layer type");
+    }
+
+    protected WMSGrabber getGrabber(boolean localOnly) {
+        checkGrabberType();
         if (getInfo().getImageryType() == ImageryType.HTML)
             return new HTMLGrabber(Main.map.mapView, this, localOnly);
-        else if (getInfo().getImageryType() == ImageryType.WMS)
+        else
             return new WMSGrabber(Main.map.mapView, this, localOnly);
-        else throw new IllegalStateException("getGrabber() called for non-WMS layer type");
     }
 
     public ProjectionBounds getBounds(WMSRequest request) {
@@ -1034,7 +1064,7 @@ public class WMSLayer extends ImageryLayer implements ImageObserver, PreferenceC
     @Override
     public boolean isProjectionSupported(Projection proj) {
         List<String> serverProjections = info.getServerProjections();
-        return serverProjections.contains(proj.toCode().toUpperCase())
+        return serverProjections.contains(proj.toCode().toUpperCase(Locale.ENGLISH))
                 || ("EPSG:3857".equals(proj.toCode()) && (serverProjections.contains("EPSG:4326") || serverProjections.contains("CRS:84")))
                 || ("EPSG:4326".equals(proj.toCode()) && serverProjections.contains("CRS:84"));
     }
@@ -1053,7 +1083,7 @@ public class WMSLayer extends ImageryLayer implements ImageObserver, PreferenceC
 
     @Override
     public boolean imageUpdate(Image img, int infoflags, int x, int y, int width, int height) {
-        boolean done = ((infoflags & (ERROR | FRAMEBITS | ALLBITS)) != 0);
+        boolean done = (infoflags & (ERROR | FRAMEBITS | ALLBITS)) != 0;
         Main.map.repaint(done ? 0 : 100);
         return !done;
     }

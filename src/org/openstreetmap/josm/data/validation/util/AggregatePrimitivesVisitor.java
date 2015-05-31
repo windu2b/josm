@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.data.validation.util;
 
 import java.util.Collection;
@@ -20,7 +20,7 @@ import org.openstreetmap.josm.data.osm.visitor.AbstractVisitor;
  */
 public class AggregatePrimitivesVisitor extends AbstractVisitor {
     /** Aggregated data */
-    final Collection<OsmPrimitive> aggregatedData = new HashSet<>();
+    private final Collection<OsmPrimitive> aggregatedData = new HashSet<>();
 
     /**
      * Visits a collection of primitives

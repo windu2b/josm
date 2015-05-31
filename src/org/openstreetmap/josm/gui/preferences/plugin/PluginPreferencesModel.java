@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Observable;
@@ -24,12 +25,14 @@ import org.openstreetmap.josm.plugins.PluginInformation;
  * The plugin model behind a {@code PluginListPanel}.
  */
 public class PluginPreferencesModel extends Observable {
+    // remember the initial list of active plugins
+    private final Set<String> currentActivePlugins;
     private final List<PluginInformation> availablePlugins = new ArrayList<>();
+    private String filterExpression;
     private final List<PluginInformation> displayedPlugins = new ArrayList<>();
     private final Map<PluginInformation, Boolean> selectedPluginsMap = new HashMap<>();
+    // plugins that still require an update/download
     private Set<String> pendingDownloads = new HashSet<>();
-    private String filterExpression;
-    private Set<String> currentActivePlugins;
 
     /**
      * Constructs a new {@code PluginPreferencesModel}.
@@ -81,7 +84,7 @@ public class PluginPreferencesModel extends Observable {
         for (PluginInformation pi: availablePlugins) {
             if (selectedPluginsMap.get(pi) == null) {
                 if (activePlugins.contains(pi.name)) {
-                    selectedPluginsMap.put(pi, true);
+                    selectedPluginsMap.put(pi, Boolean.TRUE);
                 }
             }
         }
@@ -152,8 +155,8 @@ public class PluginPreferencesModel extends Observable {
                 new Comparator<PluginInformation>() {
                     @Override
                     public int compare(PluginInformation o1, PluginInformation o2) {
-                        String n1 = o1.getName() == null ? "" : o1.getName().toLowerCase();
-                        String n2 = o2.getName() == null ? "" : o2.getName().toLowerCase();
+                        String n1 = o1.getName() == null ? "" : o1.getName().toLowerCase(Locale.ENGLISH);
+                        String n2 = o2.getName() == null ? "" : o2.getName().toLowerCase(Locale.ENGLISH);
                         return n1.compareTo(n2);
                     }
                 }
@@ -196,7 +199,7 @@ public class PluginPreferencesModel extends Observable {
     public void setPluginSelected(String name, boolean selected) {
         PluginInformation pi = getPluginInformation(name);
         if (pi != null) {
-            selectedPluginsMap.put(pi,selected);
+            selectedPluginsMap.put(pi, selected);
             if (pi.isUpdateRequired()) {
                 pendingDownloads.add(pi.name);
             }
@@ -212,9 +215,9 @@ public class PluginPreferencesModel extends Observable {
      *
      * @param plugins the list of plugins to clear for a pending download
      */
-    public void clearPendingPlugins(Collection<PluginInformation> plugins){
+    public void clearPendingPlugins(Collection<PluginInformation> plugins) {
         if (plugins == null || plugins.isEmpty()) return;
-        for(PluginInformation pi: plugins) {
+        for (PluginInformation pi: plugins) {
             pendingDownloads.remove(pi.name);
         }
     }

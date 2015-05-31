@@ -14,6 +14,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -80,18 +81,15 @@ public class WMSImagery {
             return null;
         }
         StringBuilder a = new StringBuilder(serviceUrl.getProtocol());
-        a.append("://");
-        a.append(serviceUrl.getHost());
+        a.append("://").append(serviceUrl.getHost());
         if (serviceUrl.getPort() != -1) {
-            a.append(":");
-            a.append(serviceUrl.getPort());
+            a.append(':').append(serviceUrl.getPort());
         }
-        a.append(serviceUrl.getPath());
-        a.append("?");
+        a.append(serviceUrl.getPath()).append('?');
         if (serviceUrl.getQuery() != null) {
             a.append(serviceUrl.getQuery());
             if (!serviceUrl.getQuery().isEmpty() && !serviceUrl.getQuery().endsWith("&")) {
-                a.append("&");
+                a.append('&');
             }
         }
         return a.toString();
@@ -138,7 +136,7 @@ public class WMSImagery {
             return;
         }
 
-        Main.info("GET " + getCapabilitiesUrl.toString());
+        Main.info("GET " + getCapabilitiesUrl);
         URLConnection openConnection = Utils.openHttpConnection(getCapabilitiesUrl);
         StringBuilder ba = new StringBuilder();
 
@@ -149,7 +147,7 @@ public class WMSImagery {
             String line;
             while ((line = br.readLine()) != null) {
                 ba.append(line);
-                ba.append("\n");
+                ba.append('\n');
             }
         }
         String incomingData = ba.toString();
@@ -232,7 +230,7 @@ public class WMSImagery {
     public ImageryInfo toImageryInfo(String name, Collection<LayerDetails> selectedLayers) {
         ImageryInfo i = new ImageryInfo(name, buildGetMapUrl(selectedLayers));
         if (selectedLayers != null) {
-            HashSet<String> proj = new HashSet<>();
+            Set<String> proj = new HashSet<>();
             for (WMSImagery.LayerDetails l : selectedLayers) {
                 proj.addAll(l.getProjections());
             }
@@ -265,7 +263,7 @@ public class WMSImagery {
         for (Element child : crsChildren) {
             String crs = (String) getContent(child);
             if (!crs.isEmpty()) {
-                String upperCase = crs.trim().toUpperCase();
+                String upperCase = crs.trim().toUpperCase(Locale.ENGLISH);
                 crsList.add(upperCase);
             }
         }

@@ -35,7 +35,7 @@ public class TagEditorModel extends AbstractTableModel {
     public static final String PROP_DIRTY = TagEditorModel.class.getName() + ".dirty";
 
     /** the list holding the tags */
-    protected final List<TagModel> tags =new ArrayList<>();
+    protected final transient List<TagModel> tags =new ArrayList<>();
 
     /** indicates whether the model is dirty */
     private boolean dirty =  false;
@@ -66,10 +66,10 @@ public class TagEditorModel extends AbstractTableModel {
      *
      * @param rowSelectionModel the row selection model. Must not be null.
      * @param colSelectionModel the column selection model. Must not be null.
-     * @throws IllegalArgumentException thrown if {@code rowSelectionModel} is null
-     * @throws IllegalArgumentException thrown if {@code colSelectionModel} is null
+     * @throws IllegalArgumentException if {@code rowSelectionModel} is null
+     * @throws IllegalArgumentException if {@code colSelectionModel} is null
      */
-    public TagEditorModel(DefaultListSelectionModel rowSelectionModel, DefaultListSelectionModel colSelectionModel) throws IllegalArgumentException{
+    public TagEditorModel(DefaultListSelectionModel rowSelectionModel, DefaultListSelectionModel colSelectionModel) {
         CheckParameterUtil.ensureParameterNotNull(rowSelectionModel, "rowSelectionModel");
         CheckParameterUtil.ensureParameterNotNull(colSelectionModel, "colSelectionModel");
         this.rowSelectionModel = rowSelectionModel;
@@ -172,19 +172,17 @@ public class TagEditorModel extends AbstractTableModel {
      *
      * @param tag the tag. Must not be null.
      *
-     * @exception IllegalArgumentException thrown, if tag is null
+     * @throws IllegalArgumentException if tag is null
      */
     public void add(TagModel tag) {
-        if (tag == null)
-            throw new IllegalArgumentException("argument 'tag' must not be null");
+        CheckParameterUtil.ensureParameterNotNull(tag, "tag");
         tags.add(tag);
         setDirty(true);
         fireTableDataChanged();
     }
 
     public void prepend(TagModel tag) {
-        if (tag == null)
-            throw new IllegalArgumentException("argument 'tag' must not be null");
+        CheckParameterUtil.ensureParameterNotNull(tag, "tag");
         tags.add(0, tag);
         setDirty(true);
         fireTableDataChanged();
@@ -311,7 +309,7 @@ public class TagEditorModel extends AbstractTableModel {
     public void deleteTags(int [] tagIndices) {
         if (tags == null)
             return;
-        ArrayList<TagModel> toDelete = new ArrayList<>();
+        List<TagModel> toDelete = new ArrayList<>();
         for (int tagIdx : tagIndices) {
             TagModel tag = tags.get(tagIdx);
             if (tag != null) {
@@ -489,7 +487,7 @@ public class TagEditorModel extends AbstractTableModel {
     protected Command createDeleteTagsCommand(Collection<OsmPrimitive> primitives) {
 
         List<String> currentkeys = getKeys();
-        ArrayList<Command> commands = new ArrayList<>();
+        List<Command> commands = new ArrayList<>();
 
         for (OsmPrimitive primitive : primitives) {
             for (String oldkey : primitive.keySet()) {
@@ -513,7 +511,7 @@ public class TagEditorModel extends AbstractTableModel {
      * @return the list of keys managed by this model
      */
     public List<String> getKeys() {
-        ArrayList<String> keys = new ArrayList<>();
+        List<String> keys = new ArrayList<>();
         for (TagModel tag: tags) {
             if (!tag.getName().trim().isEmpty()) {
                 keys.add(tag.getName());

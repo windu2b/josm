@@ -9,6 +9,7 @@ import java.awt.GridBagLayout;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -43,7 +44,7 @@ import org.openstreetmap.josm.tools.Utils;
 
 /**
  * A command to delete a number of primitives from the dataset.
- *
+ * @since 23
  */
 public class DeleteCommand extends Command {
     /**
@@ -56,25 +57,24 @@ public class DeleteCommand extends Command {
      * Constructor. Deletes a collection of primitives in the current edit layer.
      *
      * @param data the primitives to delete. Must neither be null nor empty.
-     * @throws IllegalArgumentException thrown if data is null or empty
+     * @throws IllegalArgumentException if data is null or empty
      */
-    public DeleteCommand(Collection<? extends OsmPrimitive> data) throws IllegalArgumentException {
-        if (data == null)
-            throw new IllegalArgumentException("Parameter 'data' must not be empty");
+    public DeleteCommand(Collection<? extends OsmPrimitive> data) {
+        CheckParameterUtil.ensureParameterNotNull(data, "data");
         if (data.isEmpty())
             throw new IllegalArgumentException(tr("At least one object to delete required, got empty collection"));
         this.toDelete = data;
+        checkConsistency();
     }
 
     /**
      * Constructor. Deletes a single primitive in the current edit layer.
      *
      * @param data  the primitive to delete. Must not be null.
-     * @throws IllegalArgumentException thrown if data is null
+     * @throws IllegalArgumentException if data is null
      */
-    public DeleteCommand(OsmPrimitive data) throws IllegalArgumentException {
-        CheckParameterUtil.ensureParameterNotNull(data, "data");
-        this.toDelete = Collections.singleton(data);
+    public DeleteCommand(OsmPrimitive data) {
+        this(Collections.singleton(data));
     }
 
     /**
@@ -83,13 +83,11 @@ public class DeleteCommand extends Command {
      *
      * @param layer the layer context for deleting this primitive. Must not be null.
      * @param data the primitive to delete. Must not be null.
-     * @throws IllegalArgumentException thrown if data is null
-     * @throws IllegalArgumentException thrown if layer is null
+     * @throws IllegalArgumentException if data is null
+     * @throws IllegalArgumentException if layer is null
      */
-    public DeleteCommand(OsmDataLayer layer, OsmPrimitive data) throws IllegalArgumentException {
-        super(layer);
-        CheckParameterUtil.ensureParameterNotNull(data, "data");
-        this.toDelete = Collections.singleton(data);
+    public DeleteCommand(OsmDataLayer layer, OsmPrimitive data) {
+        this(layer, Collections.singleton(data));
     }
 
     /**
@@ -98,16 +96,26 @@ public class DeleteCommand extends Command {
      *
      * @param layer the layer context for deleting these primitives. Must not be null.
      * @param data the primitives to delete. Must neither be null nor empty.
-     * @throws IllegalArgumentException thrown if layer is null
-     * @throws IllegalArgumentException thrown if data is null or empty
+     * @throws IllegalArgumentException if layer is null
+     * @throws IllegalArgumentException if data is null or empty
      */
-    public DeleteCommand(OsmDataLayer layer, Collection<? extends OsmPrimitive> data) throws IllegalArgumentException{
+    public DeleteCommand(OsmDataLayer layer, Collection<? extends OsmPrimitive> data) {
         super(layer);
-        if (data == null)
-            throw new IllegalArgumentException("Parameter 'data' must not be empty");
+        CheckParameterUtil.ensureParameterNotNull(data, "data");
         if (data.isEmpty())
             throw new IllegalArgumentException(tr("At least one object to delete required, got empty collection"));
         this.toDelete = data;
+        checkConsistency();
+    }
+
+    private void checkConsistency() {
+        for (OsmPrimitive p : toDelete) {
+            if (p == null) {
+                throw new IllegalArgumentException("Primitive to delete must not be null");
+            } else if (p.getDataSet() == null) {
+                throw new IllegalArgumentException("Primitive to delete must be in a dataset");
+            }
+        }
     }
 
     @Override
@@ -115,7 +123,7 @@ public class DeleteCommand extends Command {
         // Make copy and remove all references (to prevent inconsistent dataset (delete referenced) while command is executed)
         for (OsmPrimitive osm: toDelete) {
             if (osm.isDeleted())
-                throw new IllegalArgumentException(osm.toString() + " is already deleted");
+                throw new IllegalArgumentException(osm + " is already deleted");
             clonedPrimitives.put(osm, osm.save());
 
             if (osm instanceof Way) {
@@ -149,7 +157,7 @@ public class DeleteCommand extends Command {
     }
 
     private Set<OsmPrimitiveType> getTypesToDelete() {
-        Set<OsmPrimitiveType> typesToDelete = new HashSet<>();
+        Set<OsmPrimitiveType> typesToDelete = EnumSet.noneOf(OsmPrimitiveType.class);
         for (OsmPrimitive osm : toDelete) {
             typesToDelete.add(OsmPrimitiveType.from(osm));
         }
@@ -230,20 +238,17 @@ public class DeleteCommand extends Command {
     /**
      * Delete the primitives and everything they reference.
      *
-     * If a node is deleted, the node and all ways and relations the node is part of are deleted as
-     * well.
-     *
+     * If a node is deleted, the node and all ways and relations the node is part of are deleted as well.
      * If a way is deleted, all relations the way is member of are also deleted.
-     *
      * If a way is deleted, only the way and no nodes are deleted.
      *
      * @param layer the {@link OsmDataLayer} in whose context primitives are deleted. Must not be null.
      * @param selection The list of all object to be deleted.
      * @param silent  Set to true if the user should not be bugged with additional dialogs
      * @return command A command to perform the deletions, or null of there is nothing to delete.
-     * @throws IllegalArgumentException thrown if layer is null
+     * @throws IllegalArgumentException if layer is null
      */
-    public static Command deleteWithReferences(OsmDataLayer layer, Collection<? extends OsmPrimitive> selection, boolean silent) throws IllegalArgumentException {
+    public static Command deleteWithReferences(OsmDataLayer layer, Collection<? extends OsmPrimitive> selection, boolean silent) {
         CheckParameterUtil.ensureParameterNotNull(layer, "layer");
         if (selection == null || selection.isEmpty()) return null;
         Set<OsmPrimitive> parents = OsmPrimitive.getReferrer(selection);
@@ -256,10 +261,35 @@ public class DeleteCommand extends Command {
         return new DeleteCommand(layer,parents);
     }
 
+    /**
+     * Delete the primitives and everything they reference.
+     *
+     * If a node is deleted, the node and all ways and relations the node is part of are deleted as well.
+     * If a way is deleted, all relations the way is member of are also deleted.
+     * If a way is deleted, only the way and no nodes are deleted.
+     *
+     * @param layer the {@link OsmDataLayer} in whose context primitives are deleted. Must not be null.
+     * @param selection The list of all object to be deleted.
+     * @return command A command to perform the deletions, or null of there is nothing to delete.
+     * @throws IllegalArgumentException if layer is null
+     */
     public static Command deleteWithReferences(OsmDataLayer layer, Collection<? extends OsmPrimitive> selection) {
         return deleteWithReferences(layer, selection, false);
     }
 
+    /**
+     * Try to delete all given primitives.
+     *
+     * If a node is used by a way, it's removed from that way. If a node or a way is used by a
+     * relation, inform the user and do not delete.
+     *
+     * If this would cause ways with less than 2 nodes to be created, delete these ways instead. If
+     * they are part of a relation, inform the user and do not delete.
+     *
+     * @param layer the {@link OsmDataLayer} in whose context the primitives are deleted
+     * @param selection the objects to delete.
+     * @return command a command to perform the deletions, or null if there is nothing to delete.
+     */
     public static Command delete(OsmDataLayer layer, Collection<? extends OsmPrimitive> selection) {
         return delete(layer, selection, true, false);
     }

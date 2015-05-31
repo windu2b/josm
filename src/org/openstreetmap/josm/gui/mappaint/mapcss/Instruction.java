@@ -37,7 +37,9 @@ public interface Instruction extends StyleKeys {
             this.isSetInstruction = isSetInstruction;
             if (val instanceof LiteralExpression) {
                 Object litValue = ((LiteralExpression) val).evaluate(null);
-                if (key.equals(TEXT)) {
+                if (litValue instanceof Keyword && "none".equals(((Keyword) litValue).val)) {
+                    this.val = null;
+                } else if (TEXT.equals(key)) {
                     /* Special case for declaration 'text: ...'
                      *
                      * - Treat the value 'auto' as keyword.
@@ -74,7 +76,7 @@ public interface Instruction extends StyleKeys {
             } else {
                 value = val;
             }
-            if (key.equals(ICON_IMAGE) || key.equals(FILL_IMAGE) || key.equals(REPEAT_IMAGE)) {
+            if (ICON_IMAGE.equals(key) || FILL_IMAGE.equals(key) || REPEAT_IMAGE.equals(key)) {
                 if (value instanceof String) {
                     value = new IconReference((String) value, env.source);
                 }
@@ -84,7 +86,8 @@ public interface Instruction extends StyleKeys {
 
         @Override
         public String toString() {
-            return key + ": " + (val instanceof float[] ? Arrays.toString((float[]) val) : val instanceof String ? "String<"+val+">" : val) + ';';
+            return key + ": " + (val instanceof float[] ? Arrays.toString((float[]) val) :
+                val instanceof String ? "String<"+val+">" : val) + ';';
         }
     }
 }

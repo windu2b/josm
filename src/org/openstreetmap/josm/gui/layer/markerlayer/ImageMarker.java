@@ -38,7 +38,7 @@ public class ImageMarker extends ButtonMarker {
     public URL imageUrl;
 
     public ImageMarker(LatLon ll, URL imageUrl, MarkerLayer parentLayer, double time, double offset) {
-        super(ll, "photo.png", parentLayer, time, offset);
+        super(ll, "photo", parentLayer, time, offset);
         this.imageUrl = imageUrl;
     }
 
@@ -78,10 +78,10 @@ public class ImageMarker extends ButtonMarker {
         int w = img.getWidth(null);
         int h = img.getHeight(null);
         if (w>h) {
-            h = Math.round(maxSize*((float)h/w));
+            h = (int) Math.round(maxSize*((double)h/w));
             w = maxSize;
         } else {
-            w = Math.round(maxSize*((float)w/h));
+            w = (int) Math.round(maxSize*((double)w/h));
             h = maxSize;
         }
         return new ImageIcon(img.getScaledInstance(w, h, Image.SCALE_SMOOTH));
@@ -92,8 +92,7 @@ public class ImageMarker extends ButtonMarker {
         WayPoint wpt = super.convertToWayPoint();
         GpxLink link = new GpxLink(imageUrl.toString());
         link.type = "image";
-        wpt.attr.put(GpxConstants.META_LINKS, Collections.singleton(link));
+        wpt.put(GpxConstants.META_LINKS, Collections.singleton(link));
         return wpt;
     }
-
 }

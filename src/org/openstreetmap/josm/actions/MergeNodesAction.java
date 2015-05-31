@@ -1,4 +1,4 @@
-//License: GPL. For details, see LICENSE file.. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.actions;
 
 import static org.openstreetmap.josm.gui.help.HelpUtil.ht;
@@ -49,7 +49,7 @@ import org.openstreetmap.josm.tools.Shortcut;
  * However we use the location of the node that was selected *last*.
  * The "surviving" node will be moved to that location if it is
  * different from the last selected node.
- * 
+ *
  * @since 422
  */
 public class MergeNodesAction extends JosmAction {
@@ -71,7 +71,8 @@ public class MergeNodesAction extends JosmAction {
         List<Node> selectedNodes = OsmPrimitive.getFilteredList(selection, Node.class);
 
         if (selectedNodes.size() == 1) {
-            List<Node> nearestNodes = Main.map.mapView.getNearestNodes(Main.map.mapView.getPoint(selectedNodes.get(0)), selectedNodes, OsmPrimitive.isUsablePredicate);
+            List<Node> nearestNodes = Main.map.mapView.getNearestNodes(
+                    Main.map.mapView.getPoint(selectedNodes.get(0)), selectedNodes, OsmPrimitive.isUsablePredicate);
             if (nearestNodes.isEmpty()) {
                 new Notification(
                         tr("Please select at least two nodes to merge or one node that is close to another node."))
@@ -141,9 +142,8 @@ public class MergeNodesAction extends JosmAction {
 
             return new Node(new EastNorth(east2 / weight, north2 / weight));
         default:
-            throw new RuntimeException("unacceptable merge-nodes.mode");
+            throw new IllegalStateException("unacceptable merge-nodes.mode");
         }
-
     }
 
     /**
@@ -197,14 +197,13 @@ public class MergeNodesAction extends JosmAction {
         for (Way w: OsmPrimitive.getFilteredList(OsmPrimitive.getReferrer(nodesToDelete), Way.class)) {
             List<Node> newNodes = new ArrayList<>(w.getNodesCount());
             for (Node n: w.getNodes()) {
-                if (! nodesToDelete.contains(n) && n != targetNode) {
+                if (! nodesToDelete.contains(n) && !n.equals(targetNode)) {
                     newNodes.add(n);
                 } else if (newNodes.isEmpty()) {
                     newNodes.add(targetNode);
-                } else if (newNodes.get(newNodes.size()-1) != targetNode) {
+                } else if (!newNodes.get(newNodes.size()-1).equals(targetNode)) {
                     // make sure we collapse a sequence of deleted nodes
                     // to exactly one occurrence of the merged target node
-                    //
                     newNodes.add(targetNode);
                 } else {
                     // drop the node
@@ -254,7 +253,7 @@ public class MergeNodesAction extends JosmAction {
      * @param layer layer the reference data layer. Must not be null
      * @param nodes the collection of nodes. Ignored if null
      * @param targetLocationNode this node's location will be used for the target node
-     * @throws IllegalArgumentException thrown if {@code layer} is null
+     * @throws IllegalArgumentException if {@code layer} is null
      */
     public static void doMergeNodes(OsmDataLayer layer, Collection<Node> nodes, Node targetLocationNode) {
         if (nodes == null) {
@@ -284,7 +283,7 @@ public class MergeNodesAction extends JosmAction {
      * @param nodes the collection of nodes. Ignored if null.
      * @param targetLocationNode this node's location will be used for the targetNode.
      * @return The command necessary to run in order to perform action, or {@code null} if there is nothing to do
-     * @throws IllegalArgumentException thrown if {@code layer} is null
+     * @throws IllegalArgumentException if {@code layer} is null
      */
     public static Command mergeNodes(OsmDataLayer layer, Collection<Node> nodes, Node targetLocationNode) {
         if (nodes == null) {
@@ -304,7 +303,7 @@ public class MergeNodesAction extends JosmAction {
      * @param targetNode the target node the collection of nodes is merged to. Must not be null.
      * @param targetLocationNode this node's location will be used for the targetNode.
      * @return The command necessary to run in order to perform action, or {@code null} if there is nothing to do
-     * @throws IllegalArgumentException thrown if layer is null
+     * @throws IllegalArgumentException if layer is null
      */
     public static Command mergeNodes(OsmDataLayer layer, Collection<Node> nodes, Node targetNode, Node targetLocationNode) {
         CheckParameterUtil.ensureParameterNotNull(layer, "layer");
@@ -316,7 +315,7 @@ public class MergeNodesAction extends JosmAction {
         try {
             TagCollection nodeTags = TagCollection.unionOfAllPrimitives(nodes);
             List<Command> resultion = CombinePrimitiveResolverDialog.launchIfNecessary(nodeTags, nodes, Collections.singleton(targetNode));
-            LinkedList<Command> cmds = new LinkedList<>();
+            List<Command> cmds = new LinkedList<>();
 
             // the nodes we will have to delete
             //
@@ -336,7 +335,7 @@ public class MergeNodesAction extends JosmAction {
 
             // build the commands
             //
-            if (targetNode != targetLocationNode) {
+            if (!targetNode.equals(targetLocationNode)) {
                 LatLon targetLocationCoor = targetLocationNode.getCoor();
                 if (!targetNode.getCoor().equals(targetLocationCoor)) {
                     Node newTargetNode = new Node(targetNode);

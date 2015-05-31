@@ -7,7 +7,6 @@ import java.awt.event.KeyEvent;
 import java.util.Collection;
 
 import javax.swing.AbstractAction;
-import javax.swing.Icon;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.SelectionChangedListener;
@@ -39,9 +38,9 @@ import org.openstreetmap.josm.tools.Shortcut;
  */
 public abstract class JosmAction extends AbstractAction implements Destroyable {
 
-    protected Shortcut sc;
-    private LayerChangeAdapter layerChangeAdapter;
-    private SelectionChangeAdapter selectionChangeAdapter;
+    protected transient Shortcut sc;
+    private transient LayerChangeAdapter layerChangeAdapter;
+    private transient SelectionChangeAdapter selectionChangeAdapter;
 
     /**
      * Returns the shortcut for this action.
@@ -71,9 +70,12 @@ public abstract class JosmAction extends AbstractAction implements Destroyable {
      * @param registerInToolbar register this action for the toolbar preferences?
      * @param toolbarId identifier for the toolbar preferences. The iconName is used, if this parameter is null
      * @param installAdapters false, if you don't want to install layer changed and selection changed adapters
+     * TODO: do not pass Icon, pass ImageProvider instead
      */
-    public JosmAction(String name, Icon icon, String tooltip, Shortcut shortcut, boolean registerInToolbar, String toolbarId, boolean installAdapters) {
-        super(name, icon);
+    public JosmAction(String name, ImageProvider icon, String tooltip, Shortcut shortcut, boolean registerInToolbar, String toolbarId, boolean installAdapters) {
+        super(name);
+        if(icon != null)
+            icon.getResource().getImageIcon(this);
         setHelpId();
         sc = shortcut;
         if (sc != null) {
@@ -83,7 +85,7 @@ public abstract class JosmAction extends AbstractAction implements Destroyable {
         if (getValue("toolbar") == null) {
             putValue("toolbar", toolbarId);
         }
-        if (registerInToolbar) {
+        if (registerInToolbar && Main.toolbar != null) {
             Main.toolbar.register(this);
         }
         if (installAdapters) {
@@ -109,7 +111,7 @@ public abstract class JosmAction extends AbstractAction implements Destroyable {
      * @param installAdapters false, if you don't want to install layer changed and selection changed adapters
      */
     public JosmAction(String name, String iconName, String tooltip, Shortcut shortcut, boolean registerInToolbar, String toolbarId, boolean installAdapters) {
-        this(name, iconName == null ? null : ImageProvider.get(iconName), tooltip, shortcut, registerInToolbar,
+        this(name, iconName == null ? null : new ImageProvider(iconName), tooltip, shortcut, registerInToolbar,
                 toolbarId == null ? iconName : toolbarId, installAdapters);
     }
 
@@ -204,7 +206,7 @@ public abstract class JosmAction extends AbstractAction implements Destroyable {
      * @return the current edit layer. null, if no edit layer exists
      */
     protected static OsmDataLayer getEditLayer() {
-        return Main.main.getEditLayer();
+        return Main.main != null ? Main.main.getEditLayer() : null;
     }
 
     /**
@@ -213,7 +215,7 @@ public abstract class JosmAction extends AbstractAction implements Destroyable {
      * @return the current dataset. null, if no current dataset exists
      */
     protected static DataSet getCurrentDataSet() {
-        return Main.main.getCurrentDataSet();
+        return Main.main != null ? Main.main.getCurrentDataSet() : null;
     }
 
     protected void installAdapters() {
@@ -295,7 +297,6 @@ public abstract class JosmAction extends AbstractAction implements Destroyable {
 
     /**
      * Adapter for selection change events
-     *
      */
     private class SelectionChangeAdapter implements SelectionChangedListener {
         @Override

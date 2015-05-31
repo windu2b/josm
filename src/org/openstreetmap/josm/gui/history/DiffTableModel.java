@@ -13,17 +13,13 @@ import org.openstreetmap.josm.gui.history.TwoColumnDiff.Item.DiffItemType;
  * used a {@link javax.swing.table.DefaultTableModel} instead.
  */
 class DiffTableModel extends AbstractTableModel {
-    private List<TwoColumnDiff.Item> rows;
+    private transient List<TwoColumnDiff.Item> rows = new ArrayList<>();
+    private boolean reversed = false;
 
-    public void setRows(List<TwoColumnDiff.Item> rows) {
+    public void setRows(List<TwoColumnDiff.Item> rows, boolean reversed) {
         this.rows = rows;
-    }
-
-    public DiffTableModel(List<TwoColumnDiff.Item> rows) {
-        this.rows = rows;
-    }
-    public DiffTableModel() {
-        this.rows = new ArrayList<>();
+        this.reversed = reversed;
+        fireTableDataChanged();
     }
     @Override
     public int getRowCount() {
@@ -33,6 +29,10 @@ class DiffTableModel extends AbstractTableModel {
     @Override
     public int getColumnCount() {
         return 1;
+    }
+
+    public boolean isReversed() {
+        return reversed;
     }
 
     @Override

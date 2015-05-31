@@ -7,17 +7,20 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
+import java.io.StringReader;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -27,7 +30,9 @@ import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.command.ChangePropertyCommand;
 import org.openstreetmap.josm.command.ChangePropertyKeyCommand;
 import org.openstreetmap.josm.command.Command;
+import org.openstreetmap.josm.command.DeleteCommand;
 import org.openstreetmap.josm.command.SequenceCommand;
+import org.openstreetmap.josm.data.osm.DataSet;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.osm.OsmUtils;
 import org.openstreetmap.josm.data.osm.Tag;
@@ -36,14 +41,17 @@ import org.openstreetmap.josm.data.validation.Severity;
 import org.openstreetmap.josm.data.validation.Test;
 import org.openstreetmap.josm.data.validation.TestError;
 import org.openstreetmap.josm.gui.mappaint.Environment;
+import org.openstreetmap.josm.gui.mappaint.Keyword;
 import org.openstreetmap.josm.gui.mappaint.MultiCascade;
 import org.openstreetmap.josm.gui.mappaint.mapcss.Condition;
+import org.openstreetmap.josm.gui.mappaint.mapcss.Condition.ClassCondition;
 import org.openstreetmap.josm.gui.mappaint.mapcss.Expression;
 import org.openstreetmap.josm.gui.mappaint.mapcss.Instruction;
 import org.openstreetmap.josm.gui.mappaint.mapcss.MapCSSRule;
 import org.openstreetmap.josm.gui.mappaint.mapcss.MapCSSRule.Declaration;
 import org.openstreetmap.josm.gui.mappaint.mapcss.MapCSSStyleSource;
 import org.openstreetmap.josm.gui.mappaint.mapcss.Selector;
+import org.openstreetmap.josm.gui.mappaint.mapcss.Selector.AbstractSelector;
 import org.openstreetmap.josm.gui.mappaint.mapcss.Selector.GeneralSelector;
 import org.openstreetmap.josm.gui.mappaint.mapcss.parsergen.MapCSSParser;
 import org.openstreetmap.josm.gui.mappaint.mapcss.parsergen.ParseException;
@@ -51,6 +59,7 @@ import org.openstreetmap.josm.gui.preferences.SourceEntry;
 import org.openstreetmap.josm.gui.preferences.validator.ValidatorPreference;
 import org.openstreetmap.josm.gui.preferences.validator.ValidatorTagCheckerRulesPreference;
 import org.openstreetmap.josm.io.CachedFile;
+import org.openstreetmap.josm.io.IllegalDataException;
 import org.openstreetmap.josm.io.UTFInputStreamReader;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
 import org.openstreetmap.josm.tools.MultiMap;
@@ -69,9 +78,9 @@ public class MapCSSTagChecker extends Test.TagTest {
      */
     public static class GroupedMapCSSRule {
         /** MapCSS selectors **/
-        final public List<Selector> selectors;
+        public final List<Selector> selectors;
         /** MapCSS declaration **/
-        final public Declaration declaration;
+        public final Declaration declaration;
 
         /**
          * Constructs a new {@code GroupedMapCSSRule}.
@@ -113,6 +122,11 @@ public class MapCSSTagChecker extends Test.TagTest {
                 return false;
             return true;
         }
+
+        @Override
+        public String toString() {
+            return "GroupedMapCSSRule [selectors=" + selectors + ", declaration=" + declaration + "]";
+        }
     }
 
     /**
@@ -128,114 +142,158 @@ public class MapCSSTagChecker extends Test.TagTest {
         super(tr("Tag checker (MapCSS based)"), tr("This test checks for errors in tag keys and values."));
     }
 
+    /**
+     * Represents a fix to a validation test. The fixing {@link Command} can be obtained by {@link #createCommand(OsmPrimitive, Selector)}.
+     */
+    abstract static class FixCommand {
+        /**
+         * Creates the fixing {@link Command} for the given primitive. The {@code matchingSelector} is used to
+         * evaluate placeholders (cf. {@link org.openstreetmap.josm.data.validation.tests.MapCSSTagChecker.TagCheck#insertArguments(Selector, String, OsmPrimitive)}).
+         */
+        abstract Command createCommand(final OsmPrimitive p, final Selector matchingSelector);
+
+        private static void checkObject(final Object obj) {
+            CheckParameterUtil.ensureThat(obj instanceof Expression || obj instanceof String, "instance of Exception or String expected, but got " + obj);
+        }
+
+        /**
+         * Evaluates given object as {@link Expression} or {@link String} on the matched {@link OsmPrimitive} and {@code matchingSelector}.
+         */
+        private static String evaluateObject(final Object obj, final OsmPrimitive p, final Selector matchingSelector) {
+            final String s;
+            if (obj instanceof Expression) {
+                s = (String) ((Expression) obj).evaluate(new Environment(p));
+            } else if (obj instanceof String) {
+                s = (String) obj;
+            } else {
+                return null;
+            }
+            return TagCheck.insertArguments(matchingSelector, s, p);
+        }
+
+        /**
+         * Creates a fixing command which executes a {@link ChangePropertyCommand} on the specified tag.
+         */
+        static FixCommand fixAdd(final Object obj) {
+            checkObject(obj);
+            return new FixCommand() {
+                @Override
+                Command createCommand(OsmPrimitive p, Selector matchingSelector) {
+                    final Tag tag = Tag.ofString(evaluateObject(obj, p, matchingSelector));
+                    return new ChangePropertyCommand(p, tag.getKey(), tag.getValue());
+                }
+
+                @Override
+                public String toString() {
+                    return "fixAdd: " + obj;
+                }
+            };
+
+        }
+
+        /**
+         * Creates a fixing command which executes a {@link ChangePropertyCommand} to delete the specified key.
+         */
+        static FixCommand fixRemove(final Object obj) {
+            checkObject(obj);
+            return new FixCommand() {
+                @Override
+                Command createCommand(OsmPrimitive p, Selector matchingSelector) {
+                    final String key = evaluateObject(obj, p, matchingSelector);
+                    return new ChangePropertyCommand(p, key, "");
+                }
+
+                @Override
+                public String toString() {
+                    return "fixRemove: " + obj;
+                }
+            };
+        }
+
+        /**
+         * Creates a fixing command which executes a {@link ChangePropertyKeyCommand} on the specified keys.
+         */
+        static FixCommand fixChangeKey(final String oldKey, final String newKey) {
+            return new FixCommand() {
+                @Override
+                Command createCommand(OsmPrimitive p, Selector matchingSelector) {
+                    return new ChangePropertyKeyCommand(p, oldKey, newKey);
+                }
+
+                @Override
+                public String toString() {
+                    return "fixChangeKey: " + oldKey + " => " + newKey;
+                }
+            };
+        }
+    }
+
     final MultiMap<String, TagCheck> checks = new MultiMap<>();
 
     static class TagCheck implements Predicate<OsmPrimitive> {
         protected final GroupedMapCSSRule rule;
-        protected final List<PrimitiveToTag> change = new ArrayList<>();
-        protected final Map<String, String> keyChange = new LinkedHashMap<>();
+        protected final List<FixCommand> fixCommands = new ArrayList<>();
         protected final List<String> alternatives = new ArrayList<>();
         protected final Map<Instruction.AssignmentInstruction, Severity> errors = new HashMap<>();
         protected final Map<String, Boolean> assertions = new HashMap<>();
+        protected final Set<String> setClassExpressions = new HashSet<>();
+        protected boolean deletion = false;
 
         TagCheck(GroupedMapCSSRule rule) {
             this.rule = rule;
         }
 
-        /**
-         * A function mapping the matched {@link OsmPrimitive} to a {@link Tag}.
-         */
-        abstract static class PrimitiveToTag implements Utils.Function<OsmPrimitive, Tag> {
-
-            private PrimitiveToTag() {
-                // Hide implicit public constructor for utility class
-            }
-
-            /**
-             * Creates a new mapping from an {@code MapCSS} object.
-             * In case of an {@link Expression}, that is evaluated on the matched {@link OsmPrimitive}.
-             * In case of a {@link String}, that is "compiled" to a {@link Tag} instance.
-             */
-            static PrimitiveToTag ofMapCSSObject(final Object obj, final boolean keyOnly) {
-                if (obj instanceof Expression) {
-                    return new PrimitiveToTag() {
-                        @Override
-                        public Tag apply(OsmPrimitive p) {
-                            final String s = (String) ((Expression) obj).evaluate(new Environment().withPrimitive(p));
-                            return keyOnly? new Tag(s) : Tag.ofString(s);
-                        }
-                    };
-                } else if (obj instanceof String) {
-                    final Tag tag = keyOnly ? new Tag((String) obj) : Tag.ofString((String) obj);
-                    return new PrimitiveToTag() {
-                        @Override
-                        public Tag apply(OsmPrimitive ignore) {
-                            return tag;
-                        }
-                    };
-                } else {
-                    return null;
-                }
-            }
-        }
-
-        static final String POSSIBLE_THROWS = possibleThrows();
+        private static final String POSSIBLE_THROWS = possibleThrows();
 
         static final String possibleThrows() {
-            StringBuffer sb = new StringBuffer();
+            StringBuilder sb = new StringBuilder();
             for (Severity s : Severity.values()) {
                 if (sb.length() > 0) {
                     sb.append('/');
                 }
                 sb.append("throw")
                 .append(s.name().charAt(0))
-                .append(s.name().substring(1).toLowerCase());
+                .append(s.name().substring(1).toLowerCase(Locale.ENGLISH));
             }
             return sb.toString();
         }
 
-        static TagCheck ofMapCSSRule(final GroupedMapCSSRule rule) {
+        static TagCheck ofMapCSSRule(final GroupedMapCSSRule rule) throws IllegalDataException {
             final TagCheck check = new TagCheck(rule);
-            boolean containsSetClassExpression = false;
             for (Instruction i : rule.declaration.instructions) {
                 if (i instanceof Instruction.AssignmentInstruction) {
                     final Instruction.AssignmentInstruction ai = (Instruction.AssignmentInstruction) i;
                     if (ai.isSetInstruction) {
-                        containsSetClassExpression = true;
+                        check.setClassExpressions.add(ai.key);
                         continue;
                     }
                     final String val = ai.val instanceof Expression
                             ? (String) ((Expression) ai.val).evaluate(new Environment())
                             : ai.val instanceof String
                             ? (String) ai.val
+                            : ai.val instanceof Keyword
+                            ? ((Keyword) ai.val).val
                             : null;
                     if (ai.key.startsWith("throw")) {
                         try {
-                            final Severity severity = Severity.valueOf(ai.key.substring("throw".length()).toUpperCase());
+                            final Severity severity = Severity.valueOf(ai.key.substring("throw".length()).toUpperCase(Locale.ENGLISH));
                             check.errors.put(ai, severity);
                         } catch (IllegalArgumentException e) {
                             Main.warn("Unsupported "+ai.key+" instruction. Allowed instructions are "+POSSIBLE_THROWS);
                         }
                     } else if ("fixAdd".equals(ai.key)) {
-                        final PrimitiveToTag toTag = PrimitiveToTag.ofMapCSSObject(ai.val, false);
-                        if (toTag != null) {
-                            check.change.add(toTag);
-                        } else {
-                            Main.warn("Invalid value for "+ai.key+": "+ai.val);
-                        }
+                        check.fixCommands.add(FixCommand.fixAdd(ai.val));
                     } else if ("fixRemove".equals(ai.key)) {
                         CheckParameterUtil.ensureThat(!(ai.val instanceof String) || !(val != null && val.contains("=")),
                                 "Unexpected '='. Please only specify the key to remove!");
-                        final PrimitiveToTag toTag = PrimitiveToTag.ofMapCSSObject(ai.val, true);
-                        if (toTag != null) {
-                            check.change.add(toTag);
-                        } else {
-                            Main.warn("Invalid value for "+ai.key+": "+ai.val);
-                        }
+                        check.fixCommands.add(FixCommand.fixRemove(ai.val));
                     } else if ("fixChangeKey".equals(ai.key) && val != null) {
                         CheckParameterUtil.ensureThat(val.contains("=>"), "Separate old from new key by '=>'!");
                         final String[] x = val.split("=>", 2);
-                        check.keyChange.put(Tag.removeWhiteSpaces(x[0]), Tag.removeWhiteSpaces(x[1]));
+                        check.fixCommands.add(FixCommand.fixChangeKey(Tag.removeWhiteSpaces(x[0]), Tag.removeWhiteSpaces(x[1])));
+                    } else if ("fixDeleteObject".equals(ai.key) && val != null) {
+                        CheckParameterUtil.ensureThat("this".equals(val), "fixDeleteObject must be followed by 'this'");
+                        check.deletion = true;
                     } else if ("suggestAlternative".equals(ai.key) && val != null) {
                         check.alternatives.add(val);
                     } else if ("assertMatch".equals(ai.key) && val != null) {
@@ -243,27 +301,30 @@ public class MapCSSTagChecker extends Test.TagTest {
                     } else if ("assertNoMatch".equals(ai.key) && val != null) {
                         check.assertions.put(val, false);
                     } else {
-                        throw new RuntimeException("Cannot add instruction " + ai.key + ": " + ai.val + "!");
+                        throw new IllegalDataException("Cannot add instruction " + ai.key + ": " + ai.val + "!");
                     }
                 }
             }
-            if (check.errors.isEmpty() && !containsSetClassExpression) {
-                throw new RuntimeException("No "+POSSIBLE_THROWS+" given! You should specify a validation error message for " + rule.selectors);
+            if (check.errors.isEmpty() && check.setClassExpressions.isEmpty()) {
+                throw new IllegalDataException(
+                        "No "+POSSIBLE_THROWS+" given! You should specify a validation error message for " + rule.selectors);
             } else if (check.errors.size() > 1) {
-                throw new RuntimeException("More than one "+POSSIBLE_THROWS+" given! You should specify a single validation error message for " + rule.selectors);
+                throw new IllegalDataException(
+                        "More than one "+POSSIBLE_THROWS+" given! You should specify a single validation error message for "
+                                + rule.selectors);
             }
             return check;
         }
 
         static List<TagCheck> readMapCSS(Reader css) throws ParseException {
             CheckParameterUtil.ensureParameterNotNull(css, "css");
-            return readMapCSS(new MapCSSParser(css));
-        }
 
-        static List<TagCheck> readMapCSS(MapCSSParser css) throws ParseException {
-            CheckParameterUtil.ensureParameterNotNull(css, "css");
             final MapCSSStyleSource source = new MapCSSStyleSource("");
-            css.sheet(source);
+            final MapCSSParser preprocessor = new MapCSSParser(css, MapCSSParser.LexicalState.PREPROCESSOR);
+
+            css = new StringReader(preprocessor.pp_root(source));
+            final MapCSSParser parser = new MapCSSParser(css, MapCSSParser.LexicalState.DEFAULT);
+            parser.sheet(source);
             assert source.getErrors().isEmpty();
             // Ignore "meta" rule(s) from external rules of JOSM wiki
             removeMetaRules(source);
@@ -280,8 +341,12 @@ public class MapCSSTagChecker extends Test.TagTest {
             }
             List<TagCheck> result = new ArrayList<>();
             for (Map.Entry<Declaration, List<Selector>> map : g.entrySet()) {
-                result.add(TagCheck.ofMapCSSRule(
-                        new GroupedMapCSSRule(map.getValue(), map.getKey())));
+                try {
+                    result.add(TagCheck.ofMapCSSRule(
+                            new GroupedMapCSSRule(map.getValue(), map.getKey())));
+                } catch (IllegalDataException e) {
+                    Main.error("Cannot add MapCss rule: "+e.getMessage());
+                }
             }
             return result;
         }
@@ -305,7 +370,7 @@ public class MapCSSTagChecker extends Test.TagTest {
         }
 
         Selector whichSelectorMatchesPrimitive(OsmPrimitive primitive) {
-            return whichSelectorMatchesEnvironment(new Environment().withPrimitive(primitive));
+            return whichSelectorMatchesEnvironment(new Environment(primitive));
         }
 
         Selector whichSelectorMatchesEnvironment(Environment env) {
@@ -322,11 +387,11 @@ public class MapCSSTagChecker extends Test.TagTest {
          * Determines the {@code index}-th key/value/tag (depending on {@code type}) of the
          * {@link org.openstreetmap.josm.gui.mappaint.mapcss.Selector.GeneralSelector}.
          */
-        static String determineArgument(Selector.GeneralSelector matchingSelector, int index, String type) {
+        static String determineArgument(Selector.GeneralSelector matchingSelector, int index, String type, OsmPrimitive p) {
             try {
                 final Condition c = matchingSelector.getConditions().get(index);
                 final Tag tag = c instanceof Condition.KeyCondition
-                        ? ((Condition.KeyCondition) c).asTag()
+                        ? ((Condition.KeyCondition) c).asTag(p)
                         : c instanceof Condition.SimpleKeyValueCondition
                         ? ((Condition.SimpleKeyValueCondition) c).asTag()
                         : c instanceof Condition.KeyValueCondition
@@ -353,16 +418,16 @@ public class MapCSSTagChecker extends Test.TagTest {
          * Replaces occurrences of <code>{i.key}</code>, <code>{i.value}</code>, <code>{i.tag}</code> in {@code s} by the corresponding
          * key/value/tag of the {@code index}-th {@link Condition} of {@code matchingSelector}.
          */
-        static String insertArguments(Selector matchingSelector, String s) {
+        static String insertArguments(Selector matchingSelector, String s, OsmPrimitive p) {
             if (s != null && matchingSelector instanceof Selector.ChildOrParentSelector) {
-                return  insertArguments(((Selector.ChildOrParentSelector)matchingSelector).right, s);
+                return insertArguments(((Selector.ChildOrParentSelector)matchingSelector).right, s, p);
             } else if (s == null || !(matchingSelector instanceof GeneralSelector)) {
                 return s;
             }
             final Matcher m = Pattern.compile("\\{(\\d+)\\.(key|value|tag)\\}").matcher(s);
             final StringBuffer sb = new StringBuffer();
             while (m.find()) {
-                final String argument = determineArgument((Selector.GeneralSelector) matchingSelector, Integer.parseInt(m.group(1)), m.group(2));
+                final String argument = determineArgument((Selector.GeneralSelector) matchingSelector, Integer.parseInt(m.group(1)), m.group(2), p);
                 try {
                     // Perform replacement with null-safe + regex-safe handling
                     m.appendReplacement(sb, String.valueOf(argument).replace("^(", "").replace(")$", ""));
@@ -382,21 +447,16 @@ public class MapCSSTagChecker extends Test.TagTest {
          * @return the fix or {@code null}
          */
         Command fixPrimitive(OsmPrimitive p) {
-            if (change.isEmpty() && keyChange.isEmpty()) {
+            if (fixCommands.isEmpty() && !deletion) {
                 return null;
             }
             final Selector matchingSelector = whichSelectorMatchesPrimitive(p);
             Collection<Command> cmds = new LinkedList<>();
-            for (PrimitiveToTag toTag : change) {
-                final Tag tag = toTag.apply(p);
-                final String key = insertArguments(matchingSelector, tag.getKey());
-                final String value = insertArguments(matchingSelector, tag.getValue());
-                cmds.add(new ChangePropertyCommand(p, key, value));
+            for (FixCommand fixCommand : fixCommands) {
+                cmds.add(fixCommand.createCommand(p, matchingSelector));
             }
-            for (Map.Entry<String, String> i : keyChange.entrySet()) {
-                final String oldKey = insertArguments(matchingSelector, i.getKey());
-                final String newKey = insertArguments(matchingSelector, i.getValue());
-                cmds.add(new ChangePropertyKeyCommand(p, oldKey, newKey));
+            if (deletion) {
+                cmds.add(new DeleteCommand(p));
             }
             return new SequenceCommand(tr("Fix of {0}", getDescriptionForMatchingSelector(p, matchingSelector)), cmds);
         }
@@ -414,7 +474,7 @@ public class MapCSSTagChecker extends Test.TagTest {
                 final Object val = errors.keySet().iterator().next().val;
                 return String.valueOf(
                         val instanceof Expression
-                                ? ((Expression) val).evaluate(new Environment().withPrimitive(p))
+                                ? ((Expression) val).evaluate(new Environment(p))
                                 : val
                 );
             }
@@ -442,7 +502,7 @@ public class MapCSSTagChecker extends Test.TagTest {
          * @return a description (possibly with alternative suggestions)
          */
         String getDescriptionForMatchingSelector(OsmPrimitive p, Selector matchingSelector) {
-            return insertArguments(matchingSelector, getDescription(p));
+            return insertArguments(matchingSelector, getDescription(p), p);
         }
 
         Severity getSeverity() {
@@ -461,7 +521,7 @@ public class MapCSSTagChecker extends Test.TagTest {
          * @return an instance of {@link TestError}, or returns null if the primitive does not give rise to an error.
          */
         TestError getErrorForPrimitive(OsmPrimitive p) {
-            final Environment env = new Environment().withPrimitive(p);
+            final Environment env = new Environment(p);
             return getErrorForPrimitive(p, whichSelectorMatchesEnvironment(env), env);
         }
 
@@ -483,6 +543,50 @@ public class MapCSSTagChecker extends Test.TagTest {
             } else {
                 return null;
             }
+        }
+
+        /**
+         * Returns the set of tagchecks on which this check depends on.
+         * @param schecks the collection of tagcheks to search in
+         * @return the set of tagchecks on which this check depends on
+         * @since 7881
+         */
+        public Set<TagCheck> getTagCheckDependencies(Collection<TagCheck> schecks) {
+            Set<TagCheck> result = new HashSet<MapCSSTagChecker.TagCheck>();
+            Set<String> classes = getClassesIds();
+            if (schecks != null && !classes.isEmpty()) {
+                for (TagCheck tc : schecks) {
+                    if (this.equals(tc)) {
+                        continue;
+                    }
+                    for (String id : tc.setClassExpressions) {
+                        if (classes.contains(id)) {
+                            result.add(tc);
+                            break;
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+
+        /**
+         * Returns the list of ids of all MapCSS classes referenced in the rule selectors.
+         * @return the list of ids of all MapCSS classes referenced in the rule selectors
+         * @since 7881
+         */
+        public Set<String> getClassesIds() {
+            Set<String> result = new HashSet<>();
+            for (Selector s : rule.selectors) {
+                if (s instanceof AbstractSelector) {
+                    for (Condition c : ((AbstractSelector)s).getConditions()) {
+                        if (c instanceof ClassCondition) {
+                            result.add(((ClassCondition) c).id);
+                        }
+                    }
+                }
+            }
+            return result;
         }
     }
 
@@ -507,6 +611,11 @@ public class MapCSSTagChecker extends Test.TagTest {
             result = prime * result + ((rule == null) ? 0 : rule.hashCode());
             return result;
         }
+
+        @Override
+        public String toString() {
+            return "MapCSSTagCheckerAndRule [rule=" + rule + "]";
+        }
     }
 
     /**
@@ -516,9 +625,14 @@ public class MapCSSTagChecker extends Test.TagTest {
      * @return all errors for the given primitive, with or without those of "info" severity
      */
     public synchronized Collection<TestError> getErrorsForPrimitive(OsmPrimitive p, boolean includeOtherSeverity) {
-        final ArrayList<TestError> r = new ArrayList<>();
+        return getErrorsForPrimitive(p, includeOtherSeverity, checks.values());
+    }
+
+    private static Collection<TestError> getErrorsForPrimitive(OsmPrimitive p, boolean includeOtherSeverity,
+            Collection<Set<TagCheck>> checksCol) {
+        final List<TestError> r = new ArrayList<>();
         final Environment env = new Environment(p, new MultiCascade(), Environment.DEFAULT_LAYER, null);
-        for (Set<TagCheck> schecks : checks.values()) {
+        for (Set<TagCheck> schecks : checksCol) {
             for (TagCheck check : schecks) {
                 if (Severity.OTHER.equals(check.getSeverity()) && !includeOtherSeverity) {
                     continue;
@@ -557,7 +671,8 @@ public class MapCSSTagChecker extends Test.TagTest {
     public synchronized void addMapCSS(String url) throws ParseException, IOException {
         CheckParameterUtil.ensureParameterNotNull(url, "url");
         CachedFile cache = new CachedFile(url);
-        try (InputStream s = cache.getInputStream()) {
+        InputStream zip = cache.findZipEntryInputStream("validator.mapcss", "");
+        try (InputStream s = zip != null ? zip : cache.getInputStream()) {
             List<TagCheck> tagchecks = TagCheck.readMapCSS(new BufferedReader(UTFInputStreamReader.create(s)));
             checks.remove(url);
             checks.putAll(url, tagchecks);
@@ -610,6 +725,7 @@ public class MapCSSTagChecker extends Test.TagTest {
      */
     public Set<String> checkAsserts(final Collection<TagCheck> schecks) {
         Set<String> assertionErrors = new LinkedHashSet<>();
+        final DataSet ds = new DataSet();
         for (final TagCheck check : schecks) {
             if (Main.isDebugEnabled()) {
                 Main.debug("Check: "+check);
@@ -619,7 +735,20 @@ public class MapCSSTagChecker extends Test.TagTest {
                     Main.debug("- Assertion: "+i);
                 }
                 final OsmPrimitive p = OsmUtils.createPrimitive(i.getKey());
-                final boolean isError = Utils.exists(getErrorsForPrimitive(p, true), new Predicate<TestError>() {
+                // Build minimal ordered list of checks to run to test the assertion
+                List<Set<TagCheck>> checksToRun = new ArrayList<Set<TagCheck>>();
+                Set<TagCheck> checkDependencies = check.getTagCheckDependencies(schecks);
+                if (!checkDependencies.isEmpty()) {
+                    checksToRun.add(checkDependencies);
+                }
+                checksToRun.add(Collections.singleton(check));
+                // Add primitive to dataset to avoid DataIntegrityProblemException when evaluating selectors
+                ds.addPrimitive(p);
+                final Collection<TestError> pErrors = getErrorsForPrimitive(p, true, checksToRun);
+                if (Main.isDebugEnabled()) {
+                    Main.debug("- Errors: "+pErrors);
+                }
+                final boolean isError = Utils.exists(pErrors, new Predicate<TestError>() {
                     @Override
                     public boolean evaluate(TestError e) {
                         //noinspection EqualsBetweenInconvertibleTypes
@@ -631,6 +760,7 @@ public class MapCSSTagChecker extends Test.TagTest {
                             check.getMessage(p), check.rule.selectors, i.getValue() ? "match" : "not match", i.getKey(), p.getKeys());
                     assertionErrors.add(error);
                 }
+                ds.removePrimitive(p);
             }
         }
         return assertionErrors;

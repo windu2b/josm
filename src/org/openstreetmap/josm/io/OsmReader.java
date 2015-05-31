@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.io;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -20,10 +20,10 @@ import javax.xml.stream.XMLStreamReader;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.Bounds;
+import org.openstreetmap.josm.data.DataSource;
 import org.openstreetmap.josm.data.coor.LatLon;
 import org.openstreetmap.josm.data.osm.Changeset;
 import org.openstreetmap.josm.data.osm.DataSet;
-import org.openstreetmap.josm.data.osm.DataSource;
 import org.openstreetmap.josm.data.osm.Node;
 import org.openstreetmap.josm.data.osm.NodeData;
 import org.openstreetmap.josm.data.osm.OsmPrimitiveType;
@@ -54,7 +54,7 @@ public class OsmReader extends AbstractReader {
     protected boolean cancel;
 
     /** Used by plugins to register themselves as data postprocessors. */
-    private static List<OsmServerReadPostprocessor> postprocessors;
+    private static volatile List<OsmServerReadPostprocessor> postprocessors;
 
     /** register a new postprocessor */
     public static void registerPostprocessor(OsmServerReadPostprocessor pp) {
@@ -77,6 +77,7 @@ public class OsmReader extends AbstractReader {
      * @see #parseDataSet(InputStream, ProgressMonitor)
      */
     protected OsmReader() {
+        // Restricts visibility
     }
 
     protected void setParser(XMLStreamReader parser) {
@@ -453,14 +454,17 @@ public class OsmReader extends AbstractReader {
             try {
                 version = Integer.parseInt(versionString);
             } catch(NumberFormatException e) {
-                throwException(tr("Illegal value for attribute ''version'' on OSM primitive with ID {0}. Got {1}.", Long.toString(current.getUniqueId()), versionString), e);
+                throwException(tr("Illegal value for attribute ''version'' on OSM primitive with ID {0}. Got {1}.",
+                        Long.toString(current.getUniqueId()), versionString), e);
             }
             switch (ds.getVersion()) {
             case "0.6":
                 if (version <= 0 && !current.isNew()) {
-                    throwException(tr("Illegal value for attribute ''version'' on OSM primitive with ID {0}. Got {1}.", Long.toString(current.getUniqueId()), versionString));
+                    throwException(tr("Illegal value for attribute ''version'' on OSM primitive with ID {0}. Got {1}.",
+                            Long.toString(current.getUniqueId()), versionString));
                 } else if (version < 0 && current.isNew()) {
-                    Main.warn(tr("Normalizing value of attribute ''version'' of element {0} to {2}, API version is ''{3}''. Got {1}.", current.getUniqueId(), version, 0, "0.6"));
+                    Main.warn(tr("Normalizing value of attribute ''version'' of element {0} to {2}, API version is ''{3}''. Got {1}.",
+                            current.getUniqueId(), version, 0, "0.6"));
                     version = 0;
                 }
                 break;
@@ -553,7 +557,11 @@ public class OsmReader extends AbstractReader {
             }
             if (getLocation() == null)
                 return msg;
-            msg = msg + " " + tr("(at line {0}, column {1})", getLocation().getLineNumber(), getLocation().getColumnNumber());
+            msg += " " + tr("(at line {0}, column {1})", getLocation().getLineNumber(), getLocation().getColumnNumber());
+            int offset = getLocation().getCharacterOffset();
+            if (offset > -1) {
+                msg += ". "+ tr("{0} bytes have been read", offset);
+            }
             return msg;
         }
     }
@@ -636,8 +644,8 @@ public class OsmReader extends AbstractReader {
      * @param progressMonitor  the progress monitor. If null, {@link NullProgressMonitor#INSTANCE} is assumed
      *
      * @return the dataset with the parsed data
-     * @throws IllegalDataException thrown if the an error was found while parsing the data from the source
-     * @throws IllegalArgumentException thrown if source is null
+     * @throws IllegalDataException if the an error was found while parsing the data from the source
+     * @throws IllegalArgumentException if source is null
      */
     public static DataSet parseDataSet(InputStream source, ProgressMonitor progressMonitor) throws IllegalDataException {
         return new OsmReader().doParseDataSet(source, progressMonitor);

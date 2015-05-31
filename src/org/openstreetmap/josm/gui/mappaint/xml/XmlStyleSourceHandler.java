@@ -18,17 +18,17 @@ public class XmlStyleSourceHandler extends DefaultHandler {
     private boolean hadLine, hadLineMod, hadIcon, hadArea;
     private RuleElem rule = new RuleElem();
 
-    XmlStyleSource style;
+    private XmlStyleSource style;
 
     static class RuleElem {
-        XmlCondition cond = new XmlCondition();
-        Collection<XmlCondition> conditions;
-        double scaleMax;
-        double scaleMin;
-        LinePrototype line = new LinePrototype();
-        LinemodPrototype linemod = new LinemodPrototype();
-        AreaPrototype area = new AreaPrototype();
-        IconPrototype icon = new IconPrototype();
+        private XmlCondition cond = new XmlCondition();
+        private Collection<XmlCondition> conditions;
+        private double scaleMax;
+        private double scaleMin;
+        private LinePrototype line = new LinePrototype();
+        private LinemodPrototype linemod = new LinemodPrototype();
+        private AreaPrototype area = new AreaPrototype();
+        private IconPrototype icon = new IconPrototype();
         public void init() {
             conditions = null;
             scaleMax = Double.POSITIVE_INFINITY;
@@ -80,7 +80,7 @@ public class XmlStyleSourceHandler extends DefaultHandler {
             switch (atts.getQName(count)) {
             case "width":
                 String val = atts.getValue(count);
-                if (! (val.startsWith("+") || val.startsWith("-") || val.endsWith("%"))) {
+                if (!(val.startsWith("+") || val.startsWith("-") || val.endsWith("%"))) {
                     line.setWidth(Integer.parseInt(val));
                 }
                 break;
@@ -88,7 +88,7 @@ public class XmlStyleSourceHandler extends DefaultHandler {
                 line.color = convertColor(atts.getValue(count));
                 break;
             case "realwidth":
-                line.realWidth = Integer.parseInt(atts.getValue(count));
+                line.realWidth = Integer.valueOf(atts.getValue(count));
                 break;
             case "dashed":
                 Float[] dashed;
@@ -223,7 +223,7 @@ public class XmlStyleSourceHandler extends DefaultHandler {
                         rule.icon.icon = icon;
                         break;
                     case "annotate":
-                        rule.icon.annotate = Boolean.parseBoolean (atts.getValue(count));
+                        rule.icon.annotate = Boolean.valueOf(atts.getValue(count));
                         break;
                     case "priority":
                         rule.icon.priority = Integer.parseInt(atts.getValue(count));

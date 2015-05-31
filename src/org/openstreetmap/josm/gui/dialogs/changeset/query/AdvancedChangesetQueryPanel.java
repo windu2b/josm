@@ -378,9 +378,9 @@ public class AdvancedChangesetQueryPanel extends JPanel {
         private JRadioButton rbRestrictToUid;
         private JRadioButton rbRestrictToUserName;
         private JosmTextField tfUid;
-        private UidInputFieldValidator valUid;
+        private transient UidInputFieldValidator valUid;
         private JosmTextField tfUserName;
-        private UserNameInputValidator valUserName;
+        private transient UserNameInputValidator valUserName;
         private JMultilineLabel lblRestrictedToMyself;
 
         protected JPanel buildUidInputPanel() {
@@ -513,12 +513,11 @@ public class AdvancedChangesetQueryPanel extends JPanel {
          * restrictions.
          *
          * @param query the query. Must not be null.
-         * @throws IllegalArgumentException thrown if query is null
-         * @throws IllegalStateException thrown if one of the available values for query parameters in
+         * @throws IllegalArgumentException if query is null
+         * @throws IllegalStateException if one of the available values for query parameters in
          * this panel isn't valid
-         *
          */
-        public void fillInQuery(ChangesetQuery query) throws IllegalStateException, IllegalArgumentException  {
+        public void fillInQuery(ChangesetQuery query) {
             CheckParameterUtil.ensureParameterNotNull(query, "query");
             if (rbRestrictToMyself.isSelected()) {
                 JosmUserIdentityManager im = JosmUserIdentityManager.getInstance();
@@ -639,17 +638,17 @@ public class AdvancedChangesetQueryPanel extends JPanel {
         private JRadioButton rbClosedAfter;
         private JRadioButton rbClosedAfterAndCreatedBefore;
         private JosmTextField tfClosedAfterDate1;
-        private DateValidator valClosedAfterDate1;
+        private transient DateValidator valClosedAfterDate1;
         private JosmTextField tfClosedAfterTime1;
-        private TimeValidator valClosedAfterTime1;
+        private transient TimeValidator valClosedAfterTime1;
         private JosmTextField tfClosedAfterDate2;
-        private DateValidator valClosedAfterDate2;
+        private transient DateValidator valClosedAfterDate2;
         private JosmTextField tfClosedAfterTime2;
-        private TimeValidator valClosedAfterTime2;
+        private transient TimeValidator valClosedAfterTime2;
         private JosmTextField tfCreatedBeforeDate;
-        private DateValidator valCreatedBeforeDate;
+        private transient DateValidator valCreatedBeforeDate;
         private JosmTextField tfCreatedBeforeTime;
-        private TimeValidator valCreatedBeforeTime;
+        private transient TimeValidator valCreatedBeforeTime;
 
         protected JPanel buildClosedAfterInputPanel() {
             JPanel pnl = new JPanel(new GridBagLayout());
@@ -837,7 +836,7 @@ public class AdvancedChangesetQueryPanel extends JPanel {
             restoreFromSettings();
         }
 
-        public void fillInQuery(ChangesetQuery query) throws IllegalStateException{
+        public void fillInQuery(ChangesetQuery query) {
             if (!isValidChangesetQuery())
                 throw new IllegalStateException(tr("Cannot build changeset query with time based restrictions. Input is not valid."));
             if (rbClosedAfter.isSelected()) {
@@ -984,7 +983,7 @@ public class AdvancedChangesetQueryPanel extends JPanel {
         @Override
         public void validate() {
             String value  = getComponent().getText();
-            if (value == null || value.trim().length() == 0) {
+            if (value == null || value.trim().isEmpty()) {
                 feedbackInvalid("");
                 return;
             }
@@ -1003,7 +1002,7 @@ public class AdvancedChangesetQueryPanel extends JPanel {
 
         public int getUid() {
             String value  = getComponent().getText();
-            if (value == null || value.trim().length() == 0) return 0;
+            if (value == null || value.trim().isEmpty()) return 0;
             try {
                 int uid = Integer.parseInt(value.trim());
                 if (uid > 0) return uid;
@@ -1031,7 +1030,7 @@ public class AdvancedChangesetQueryPanel extends JPanel {
         @Override
         public void validate() {
             String value  = getComponent().getText();
-            if (value.trim().length() == 0) {
+            if (value.trim().isEmpty()) {
                 feedbackInvalid(tr("<html>The  current value is not a valid user name.<br>Please enter an non-empty user name.</html>"));
                 return;
             }
@@ -1120,7 +1119,7 @@ public class AdvancedChangesetQueryPanel extends JPanel {
 
         @Override
         public boolean isValid() {
-            if (getComponent().getText().trim().length() == 0) return true;
+            if (getComponent().getText().trim().isEmpty()) return true;
             return getDate() != null;
         }
 
@@ -1157,7 +1156,7 @@ public class AdvancedChangesetQueryPanel extends JPanel {
         }
 
         public Date getDate() {
-            if (getComponent().getText().trim().length() == 0)
+            if (getComponent().getText().trim().isEmpty())
                 return null;
 
             for (int style : new int[]{DateFormat.SHORT, DateFormat.MEDIUM, DateFormat.LONG, DateFormat.FULL}) {

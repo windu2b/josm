@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -19,6 +20,7 @@ import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.coor.EastNorth;
 import org.openstreetmap.josm.data.coor.LatLon;
 import org.openstreetmap.josm.data.projection.datum.Datum;
+import org.openstreetmap.josm.data.projection.datum.GRS80Datum;
 import org.openstreetmap.josm.data.projection.datum.NTV2GridShiftFileWrapper;
 import org.openstreetmap.josm.data.projection.datum.WGS84Datum;
 import org.openstreetmap.josm.data.projection.proj.ClassProjFactory;
@@ -72,6 +74,7 @@ public final class Projections {
         registerBaseProjection("somerc", SwissObliqueMercator.class, "core");
         registerBaseProjection("tmerc", TransverseMercator.class, "core");
 
+        ellipsoids.put("clrk66", Ellipsoid.clarke1866);
         ellipsoids.put("clarkeIGN", Ellipsoid.clarkeIGN);
         ellipsoids.put("intl", Ellipsoid.hayford);
         ellipsoids.put("GRS67", Ellipsoid.GRS67);
@@ -80,6 +83,7 @@ public final class Projections {
         ellipsoids.put("bessel", Ellipsoid.Bessel1841);
 
         datums.put("WGS84", WGS84Datum.INSTANCE);
+        datums.put("GRS80", GRS80Datum.INSTANCE);
 
         nadgrids.put("BETA2007.gsb", NTV2GridShiftFileWrapper.BETA2007);
         nadgrids.put("ntf_r93_b.gsb", NTV2GridShiftFileWrapper.ntf_rgf93);
@@ -122,8 +126,16 @@ public final class Projections {
         return nadgrids.get(id);
     }
 
+    /**
+     * Get the projection definition string for the given id.
+     * @param id the id
+     * @return the string that can be processed by #{link CustomProjection}.
+     * Null, if the id isn't supported.
+     */
     public static String getInit(String id) {
-        return inits.get(id.toUpperCase()).b;
+        Pair<String, String> r = inits.get(id.toUpperCase(Locale.ENGLISH));
+        if (r == null) return null;
+        return r.b;
     }
 
     /**

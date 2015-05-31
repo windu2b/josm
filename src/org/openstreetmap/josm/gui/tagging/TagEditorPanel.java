@@ -9,8 +9,8 @@ import java.awt.Insets;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.util.EnumSet;
-import javax.swing.AbstractAction;
 
+import javax.swing.AbstractAction;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JPanel;
@@ -38,7 +38,7 @@ public class TagEditorPanel extends JPanel {
     private TagTable tagTable;
 
     private PresetListPanel presetListPanel;
-    private final PresetHandler presetHandler;
+    private final transient PresetHandler presetHandler;
 
     /**
      * builds the panel with the table for editing tags
@@ -81,7 +81,7 @@ public class TagEditorPanel extends JPanel {
         pnl.add(btn = new JButton(tagTable.getDeleteAction()));
         btn.setMargin(new Insets(0,0,0,0));
         tagTable.addComponentNotStoppingCellEditing(btn);
-        
+
         // paste action
         pnl.add(btn = new JButton(tagTable.getPasteAction()));
         btn.setMargin(new Insets(0,0,0,0));
@@ -174,15 +174,15 @@ public class TagEditorPanel extends JPanel {
      * tag values are proposed as auto completion items.
      *
      * @param layer the data layer. Must not be null.
-     * @throws IllegalArgumentException thrown if {@code layer} is null
+     * @throws IllegalArgumentException if {@code layer} is null
      */
-    public void initAutoCompletion(OsmDataLayer layer) throws IllegalArgumentException{
+    public void initAutoCompletion(OsmDataLayer layer) {
         CheckParameterUtil.ensureParameterNotNull(layer, "layer");
 
         AutoCompletionManager autocomplete = layer.data.getAutoCompletionManager();
         AutoCompletionList acList = new AutoCompletionList();
 
-        TagCellEditor editor = ((TagCellEditor) tagTable.getColumnModel().getColumn(0).getCellEditor());
+        TagCellEditor editor = (TagCellEditor) tagTable.getColumnModel().getColumn(0).getCellEditor();
         editor.setAutoCompletionManager(autocomplete);
         editor.setAutoCompletionList(acList);
         editor = ((TagCellEditor) tagTable.getColumnModel().getColumn(1).getCellEditor());

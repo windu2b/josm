@@ -34,7 +34,7 @@ import org.openstreetmap.josm.tools.CheckParameterUtil;
  * factory.activate(MyMapRenderer.class);
  *
  * </pre>
- *
+ * @since 4087
  */
 public final class MapRendererFactory {
 
@@ -44,8 +44,6 @@ public final class MapRendererFactory {
     public static final String PREF_KEY_RENDERER_CLASS_NAME = "mappaint.renderer-class-name";
 
     public static class MapRendererFactoryException extends RuntimeException {
-        public MapRendererFactoryException() {
-        }
 
         public MapRendererFactoryException(String message, Throwable cause) {
             super(message, cause);
@@ -90,7 +88,7 @@ public final class MapRendererFactory {
      * Replies the unique instance
      * @return instance of map rending class
      */
-    public static MapRendererFactory getInstance() {
+    public static synchronized MapRendererFactory getInstance() {
         if (instance == null) {
             instance = new MapRendererFactory();
         }
@@ -164,9 +162,9 @@ public final class MapRendererFactory {
      * @param renderer the map renderer class. Must not be null.
      * @return true, if {@code Renderer} is already a registered map renderer
      * class
-     * @throws IllegalArgumentException thrown if {@code renderer} is null
+     * @throws IllegalArgumentException if {@code renderer} is null
      */
-    public boolean isRegistered(Class<? extends AbstractMapRenderer> renderer) throws IllegalArgumentException {
+    public boolean isRegistered(Class<? extends AbstractMapRenderer> renderer) {
         CheckParameterUtil.ensureParameterNotNull(renderer);
         for (Descriptor d: descriptors) {
             if (d.getRenderer().getName().equals(renderer.getName())) return true;
@@ -180,10 +178,10 @@ public final class MapRendererFactory {
      * @param renderer the map renderer class. Must not be null.
      * @param displayName the display name to be displayed in UIs (i.e. in the preference dialog)
      * @param description the description
-     * @throws IllegalArgumentException thrown if {@code renderer} is null
-     * @throws IllegalStateException thrown if {@code renderer} is already registered
+     * @throws IllegalArgumentException if {@code renderer} is null
+     * @throws IllegalStateException if {@code renderer} is already registered
      */
-    public void register(Class<? extends AbstractMapRenderer> renderer, String displayName, String description) throws IllegalArgumentException, IllegalStateException{
+    public void register(Class<? extends AbstractMapRenderer> renderer, String displayName, String description) {
         CheckParameterUtil.ensureParameterNotNull(renderer);
         if (isRegistered(renderer))
             throw new IllegalStateException(
@@ -226,11 +224,10 @@ public final class MapRendererFactory {
      * <p>The renderer class must already be registered.</p>
      *
      * @param renderer the map renderer class. Must not be null.
-     * @throws IllegalArgumentException thrown if {@code renderer} is null
-     * @throws IllegalStateException thrown if {@code renderer} isn't registered yet
-     *
+     * @throws IllegalArgumentException if {@code renderer} is null
+     * @throws IllegalStateException if {@code renderer} isn't registered yet
      */
-    public void activate(Class<? extends AbstractMapRenderer> renderer) throws IllegalArgumentException, IllegalStateException{
+    public void activate(Class<? extends AbstractMapRenderer> renderer) {
         CheckParameterUtil.ensureParameterNotNull(renderer);
         if (!isRegistered(renderer))
             throw new IllegalStateException(
@@ -245,10 +242,9 @@ public final class MapRendererFactory {
     /**
      * <p>Activates the default map renderer.</p>
      *
-     * @throws IllegalStateException thrown if the default renderer {@link StyledMapRenderer} isn't registered
-     *
+     * @throws IllegalStateException if the default renderer {@link StyledMapRenderer} isn't registered
      */
-    public void activateDefault() throws IllegalStateException{
+    public void activateDefault() {
         Class<? extends AbstractMapRenderer> defaultRenderer = StyledMapRenderer.class;
         if (!isRegistered(defaultRenderer))
             throw new IllegalStateException(
@@ -260,7 +256,7 @@ public final class MapRendererFactory {
     /**
      * <p>Creates an instance of the currently active renderer.</p>
      *
-     * @throws MapRendererFactoryException thrown if creating an instance fails
+     * @throws MapRendererFactoryException if creating an instance fails
      * @see AbstractMapRenderer#AbstractMapRenderer(Graphics2D, NavigatableComponent, boolean)
      */
     public AbstractMapRenderer createActiveRenderer(Graphics2D g, NavigatableComponent viewport, boolean isInactiveMode) throws MapRendererFactoryException{

@@ -17,12 +17,14 @@ import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.gui.HelpAwareOptionPane;
 import org.openstreetmap.josm.gui.layer.GpxLayer;
 import org.openstreetmap.josm.gui.progress.NullProgressMonitor;
-import org.openstreetmap.josm.gui.widgets.JFileChooserManager;
+import org.openstreetmap.josm.gui.widgets.AbstractFileChooser;
+import org.openstreetmap.josm.gui.widgets.FileChooserManager;
 import org.openstreetmap.josm.io.JpgImporter;
 import org.openstreetmap.josm.tools.ImageProvider;
+import org.openstreetmap.josm.tools.Utils;
 
 public class ImportImagesAction extends AbstractAction {
-    private final GpxLayer layer;
+    private final transient GpxLayer layer;
 
     public ImportImagesAction(final GpxLayer layer) {
         super(tr("Import images"), ImageProvider.get("dialogs/geoimage"));
@@ -39,7 +41,7 @@ public class ImportImagesAction extends AbstractAction {
         for (File f : sel) {
             if (f.isDirectory()) {
                 addRecursiveFiles(files, f.listFiles());
-            } else if (f.getName().toLowerCase().endsWith(".jpg")) {
+            } else if (Utils.hasExtension(f, "jpg")) {
                 files.add(f);
             }
         }
@@ -52,11 +54,12 @@ public class ImportImagesAction extends AbstractAction {
             return;
         }
         JpgImporter importer = new JpgImporter(layer);
-        JFileChooser fc = new JFileChooserManager(true, "geoimage.lastdirectory", Main.pref.get("lastDirectory")).createFileChooser(true, null, importer.filter, JFileChooser.FILES_AND_DIRECTORIES).openFileChooser();
+        AbstractFileChooser fc = new FileChooserManager(true, "geoimage.lastdirectory", Main.pref.get("lastDirectory")).
+                createFileChooser(true, null, importer.filter, JFileChooser.FILES_AND_DIRECTORIES).openFileChooser();
         if (fc != null) {
             File[] sel = fc.getSelectedFiles();
             if (sel != null && sel.length > 0) {
-                LinkedList<File> files = new LinkedList<>();
+                List<File> files = new LinkedList<>();
                 addRecursiveFiles(files, sel);
                 importer.importDataHandleExceptions(files, NullProgressMonitor.INSTANCE);
             }

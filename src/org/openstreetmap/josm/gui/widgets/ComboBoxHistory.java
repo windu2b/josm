@@ -13,7 +13,7 @@ public class ComboBoxHistory extends DefaultComboBoxModel<AutoCompletionListItem
 
     private int maxSize = 10;
 
-    private List<HistoryChangedListener> listeners = new ArrayList<>();
+    private transient List<HistoryChangedListener> listeners = new ArrayList<>();
 
     public ComboBoxHistory(int size) {
         maxSize = size;
@@ -22,7 +22,7 @@ public class ComboBoxHistory extends DefaultComboBoxModel<AutoCompletionListItem
     public void addElement(String s) {
         addElement(new AutoCompletionListItem(s));
     }
-    
+
     /**
      * Adds or moves an element to the top of the history
      */

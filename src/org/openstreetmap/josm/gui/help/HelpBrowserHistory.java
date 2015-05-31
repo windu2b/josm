@@ -56,15 +56,14 @@ public class HelpBrowserHistory extends Observable {
             add = false;
         } else if (historyPos == history.size() -1) {
             // do nothing just append
-        } else if (historyPos ==0 && history.size() > 0) {
+        } else if (historyPos ==0 && !history.isEmpty()) {
             history = new ArrayList<>(Collections.singletonList(history.get(0)));
         } else if (historyPos < history.size() -1 && historyPos > 0) {
             history = new ArrayList<>(history.subList(0, historyPos));
         } else {
             history = new ArrayList<>();
         }
-        if(add)
-        {
+        if (add) {
             history.add(url);
             historyPos = history.size()-1;
         }

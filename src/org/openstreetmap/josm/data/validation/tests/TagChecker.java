@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.data.validation.tests;
 
 import static org.openstreetmap.josm.tools.I18n.marktr;
@@ -17,6 +17,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -63,16 +64,16 @@ import org.openstreetmap.josm.tools.MultiMap;
 public class TagChecker extends Test.TagTest {
 
     /** The default data file of tagchecker rules */
-    public static final String DATA_FILE = "resource://data/validator/tagchecker.cfg";
+    //public static final String DATA_FILE = "resource://data/validator/tagchecker.cfg";
     /** The config file of ignored tags */
     public static final String IGNORE_FILE = "resource://data/validator/ignoretags.cfg";
     /** The config file of dictionary words */
     public static final String SPELL_FILE = "resource://data/validator/words.cfg";
 
     /** The spell check key substitutions: the key should be substituted by the value */
-    private static Map<String, String> spellCheckKeyData;
+    private static volatile Map<String, String> spellCheckKeyData;
     /** The spell check preset values */
-    private static MultiMap<String, String> presetsValueData;
+    private static volatile MultiMap<String, String> presetsValueData;
     /** The TagChecker data */
     private static final List<CheckerData> checkerData = new ArrayList<>();
     private static final List<String> ignoreDataStartsWith = new ArrayList<>();
@@ -129,7 +130,7 @@ public class TagChecker extends Test.TagTest {
 
     protected static final Entities entities = new Entities();
 
-    static final List<String> DEFAULT_SOURCES = Arrays.asList(DATA_FILE, IGNORE_FILE, SPELL_FILE);
+    private static final List<String> DEFAULT_SOURCES = Arrays.asList(/*DATA_FILE, */IGNORE_FILE, SPELL_FILE);
 
     /**
      * Constructor
@@ -353,7 +354,7 @@ public class TagChecker extends Test.TagTest {
                         tr(s, key), MessageFormat.format(s, key), LONG_KEY, p) );
                 withErrors.put(p, "LK");
             }
-            if (checkValues && (value==null || value.trim().length() == 0) && !withErrors.contains(p, "EV")) {
+            if (checkValues && (value==null || value.trim().isEmpty()) && !withErrors.contains(p, "EV")) {
                 errors.add( new TestError(this, Severity.WARNING, tr("Tags with empty values"),
                         tr(s, key), MessageFormat.format(s, key), EMPTY_VALUES, p) );
                 withErrors.put(p, "EV");
@@ -363,7 +364,7 @@ public class TagChecker extends Test.TagTest {
                         tr(s, key), MessageFormat.format(s, key), INVALID_KEY, p) );
                 withErrors.put(p, "IPK");
             }
-            if (checkKeys && key.indexOf(' ') >= 0 && !withErrors.contains(p, "IPK")) {
+            if (checkKeys && key != null && key.indexOf(' ') >= 0 && !withErrors.contains(p, "IPK")) {
                 errors.add( new TestError(this, Severity.WARNING, tr("Invalid white space in property key"),
                         tr(s, key), MessageFormat.format(s, key), INVALID_KEY_SPACE, p) );
                 withErrors.put(p, "IPK");
@@ -378,7 +379,7 @@ public class TagChecker extends Test.TagTest {
                         tr(s, key), MessageFormat.format(s, key), INVALID_HTML, p) );
                 withErrors.put(p, "HTML");
             }
-            if (checkValues && value != null && value.length() > 0 && presetsValueData != null) {
+            if (checkValues && key != null && value != null && value.length() > 0 && presetsValueData != null) {
                 final Set<String> values = presetsValueData.get(key);
                 final boolean keyInPresets = values != null;
                 final boolean tagInPresets = values != null && (values.isEmpty() || values.contains(prop.getValue()));
@@ -422,10 +423,10 @@ public class TagChecker extends Test.TagTest {
                     }
                 }
             }
-            if (checkFixmes && value != null && value.length() > 0) {
-                if ((value.toLowerCase().contains("fixme")
+            if (checkFixmes && key != null && value != null && value.length() > 0) {
+                if ((value.toLowerCase(Locale.ENGLISH).contains("fixme")
                         || value.contains("check and delete")
-                        || key.contains("todo") || key.toLowerCase().contains("fixme"))
+                        || key.contains("todo") || key.toLowerCase(Locale.ENGLISH).contains("fixme"))
                         && !withErrors.contains(p, "FIXME")) {
                     errors.add(new TestError(this, Severity.OTHER,
                             tr("FIXMES"), FIXME, p));
@@ -489,7 +490,7 @@ public class TagChecker extends Test.TagTest {
         prefCheckComplexBeforeUpload.setSelected(Main.pref.getBoolean(PREF_CHECK_COMPLEX_BEFORE_UPLOAD, true));
         testPanel.add(prefCheckComplexBeforeUpload, a);
 
-        final Collection<String> sources = Main.pref.getCollection(PREF_SOURCES, Arrays.asList(DATA_FILE, IGNORE_FILE, SPELL_FILE));
+        final Collection<String> sources = Main.pref.getCollection(PREF_SOURCES, DEFAULT_SOURCES);
         sourcesList = new EditableList(tr("TagChecker source"));
         sourcesList.setItems(sources);
         testPanel.add(new JLabel(tr("Data sources ({0})", "*.cfg")), GBC.eol().insets(23, 0, 0, 0));
@@ -562,7 +563,7 @@ public class TagChecker extends Test.TagTest {
             for (Entry<String, String> prop: tags.entrySet()) {
                 String key = prop.getKey();
                 String value = prop.getValue();
-                if (value == null || value.trim().length() == 0) {
+                if (value == null || value.trim().isEmpty()) {
                     commands.add(new ChangePropertyCommand(p, key, null));
                 } else if (value.startsWith(" ") || value.endsWith(" ")) {
                     commands.add(new ChangePropertyCommand(p, key, Tag.removeWhiteSpaces(value)));
@@ -623,7 +624,7 @@ public class TagChecker extends Test.TagTest {
             public boolean valueAll = false;
             public boolean valueBool = false;
 
-            private Pattern getPattern(String str) throws IllegalStateException, PatternSyntaxException {
+            private Pattern getPattern(String str) throws PatternSyntaxException {
                 if (str.endsWith("/i"))
                     return Pattern.compile(str.substring(1,str.length()-2), Pattern.CASE_INSENSITIVE);
                 if (str.endsWith("/"))
@@ -631,7 +632,7 @@ public class TagChecker extends Test.TagTest {
 
                 throw new IllegalStateException();
             }
-            public CheckerElement(String exp) throws IllegalStateException, PatternSyntaxException {
+            public CheckerElement(String exp) throws PatternSyntaxException {
                 Matcher m = Pattern.compile("(.+)([!=]=)(.+)").matcher(exp);
                 m.matches();
 
@@ -678,7 +679,7 @@ public class TagChecker extends Test.TagTest {
             String trimmed = m.replaceFirst("").trim();
             try {
                 description = m.group(1);
-                if (description != null && description.length() == 0) {
+                if (description != null && description.isEmpty()) {
                     description = null;
                 }
             } catch (IllegalStateException e) {

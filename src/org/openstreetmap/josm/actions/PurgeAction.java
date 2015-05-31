@@ -68,23 +68,23 @@ public class PurgeAction extends JosmAction {
         putValue("help", HelpUtil.ht("/Action/Purge"));
     }
 
-    protected OsmDataLayer layer;
-    JCheckBox cbClearUndoRedo;
+    protected transient OsmDataLayer layer;
+    protected JCheckBox cbClearUndoRedo;
 
-    protected Set<OsmPrimitive> toPurge;
+    protected transient Set<OsmPrimitive> toPurge;
     /**
      * finally, contains all objects that are purged
      */
-    protected Set<OsmPrimitive> toPurgeChecked;
+    protected transient Set<OsmPrimitive> toPurgeChecked;
     /**
      * Subset of toPurgeChecked. Marks primitives that remain in the
      * dataset, but incomplete.
      */
-    protected Set<OsmPrimitive> makeIncomplete;
+    protected transient Set<OsmPrimitive> makeIncomplete;
     /**
      * Subset of toPurgeChecked. Those that have not been in the selection.
      */
-    protected List<OsmPrimitive> toPurgeAdditionally;
+    protected transient List<OsmPrimitive> toPurgeAdditionally;
 
     @Override
     public void actionPerformed(ActionEvent e) {
@@ -100,7 +100,7 @@ public class PurgeAction extends JosmAction {
 
         // Add referrer, unless the object to purge is not new
         // and the parent is a relation
-        HashSet<OsmPrimitive> toPurgeRecursive = new HashSet<>();
+        Set<OsmPrimitive> toPurgeRecursive = new HashSet<>();
         while (!toPurge.isEmpty()) {
 
             for (OsmPrimitive osm: toPurge) {
@@ -244,7 +244,7 @@ public class PurgeAction extends JosmAction {
                     int type = o2.getType().compareTo(o1.getType());
                     if (type != 0)
                         return type;
-                    return (Long.valueOf(o1.getUniqueId())).compareTo(o2.getUniqueId());
+                    return Long.compare(o1.getUniqueId(), o2.getUniqueId());
                 }
             });
             JList<OsmPrimitive> list = new JList<>(toPurgeAdditionally.toArray(new OsmPrimitive[toPurgeAdditionally.size()]));
@@ -262,7 +262,7 @@ public class PurgeAction extends JosmAction {
             JScrollPane scroll = new JScrollPane(list);
             scroll.setPreferredSize(new Dimension(250, 300));
             scroll.setMinimumSize(new Dimension(250, 300));
-            pnl.add(scroll, GBC.std().fill(GBC.VERTICAL).weight(0.0, 1.0));
+            pnl.add(scroll, GBC.std().fill(GBC.BOTH).weight(1.0, 1.0));
 
             JButton addToSelection = new JButton(new AbstractAction() {
                 {
@@ -276,7 +276,7 @@ public class PurgeAction extends JosmAction {
                 }
             });
             addToSelection.setMargin(new Insets(0,0,0,0));
-            pnl.add(addToSelection, GBC.eol().anchor(GBC.SOUTHWEST).weight(1.0, 1.0).insets(2,0,0,3));
+            pnl.add(addToSelection, GBC.eol().anchor(GBC.SOUTHWEST).weight(0.0, 1.0).insets(2,0,0,3));
         }
 
         if (modified) {

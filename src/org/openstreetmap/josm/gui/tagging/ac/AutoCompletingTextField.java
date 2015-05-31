@@ -7,6 +7,7 @@ import java.awt.event.FocusEvent;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.util.EventObject;
+import java.util.Objects;
 
 import javax.swing.ComboBoxEditor;
 import javax.swing.JTable;
@@ -79,7 +80,7 @@ public class AutoCompletingTextField extends JosmTextField implements ComboBoxEd
             if (Main.pref.getBoolean("autocomplete.dont_complete_numbers", true)) {
                 try {
                     Long.parseLong(str);
-                    if (currentText.length() == 0) {
+                    if (currentText.isEmpty()) {
                         // we don't autocomplete on numbers
                         super.insertString(offs, str, a);
                         return;
@@ -94,7 +95,7 @@ public class AutoCompletingTextField extends JosmTextField implements ComboBoxEd
             }
             String prefix = currentText.substring(0, offs);
             autoCompletionList.applyFilter(prefix+str);
-            if (autoCompletionList.getFilteredSize()>0) {
+            if (autoCompletionList.getFilteredSize() > 0 && !Objects.equals(str, noAutoCompletionString)) {
                 // there are matches. Insert the new text and highlight the
                 // auto completed suffix
                 //
@@ -119,6 +120,8 @@ public class AutoCompletingTextField extends JosmTextField implements ComboBoxEd
 
     /** the auto completion list user input is matched against */
     protected AutoCompletionList autoCompletionList = null;
+    /** a string which should not be auto completed */
+    protected String noAutoCompletionString = null;
 
     @Override
     protected Document createDefaultModel() {
@@ -153,16 +156,26 @@ public class AutoCompletingTextField extends JosmTextField implements ComboBoxEd
      * Constructs a new {@code AutoCompletingTextField}.
      */
     public AutoCompletingTextField() {
-        init();
+        this(0);
     }
 
     /**
      * Constructs a new {@code AutoCompletingTextField}.
-     * @param columns the number of columns to use to calculate the preferred width; 
+     * @param columns the number of columns to use to calculate the preferred width;
      * if columns is set to zero, the preferred width will be whatever naturally results from the component implementation
      */
     public AutoCompletingTextField(int columns) {
-        super(columns);
+        this(columns, true);
+    }
+
+    /**
+     * Constructs a new {@code AutoCompletingTextField}.
+     * @param columns the number of columns to use to calculate the preferred width;
+     * if columns is set to zero, the preferred width will be whatever naturally results from the component implementation
+     * @param undoRedo Enables or not Undo/Redo feature. Not recommended for table cell editors, unless each cell provides its own editor
+     */
+    public AutoCompletingTextField(int columns, boolean undoRedo) {
+        super(null, null, columns, undoRedo);
         init();
     }
 
@@ -208,6 +221,13 @@ public class AutoCompletingTextField extends JosmTextField implements ComboBoxEd
         }
     }
 
+    @Override
+    public void setText(String t) {
+        // disallow auto completion for this explicitly set string
+        this.noAutoCompletionString = t;
+        super.setText(t);
+    }
+
     /**
      * Sets the maximum number of characters allowed.
      * @param max maximum number of characters allowed
@@ -221,7 +241,7 @@ public class AutoCompletingTextField extends JosmTextField implements ComboBoxEd
     /* TableCellEditor interface                                                            */
     /* ------------------------------------------------------------------------------------ */
 
-    private CellEditorSupport tableCellEditorSupport;
+    private transient CellEditorSupport tableCellEditorSupport;
     private String originalValue;
 
     @Override

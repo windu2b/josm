@@ -45,12 +45,11 @@ public abstract class AbstractTextComponentValidator implements ActionListener, 
 
     protected void feedbackInvalid(String msg) {
         if (valid == null || valid || !Objects.equals(msg, this.msg)) {
-            // only provide feedback if the validity has changed. This avoids
-            // unnecessary UI updates.
+            // only provide feedback if the validity has changed. This avoids unnecessary UI updates.
             tc.setBorder(ERROR_BORDER);
             tc.setBackground(ERROR_BACKGROUND);
             tc.setToolTipText(msg);
-            valid = false;
+            valid = Boolean.FALSE;
             this.msg = msg;
         }
     }
@@ -61,12 +60,11 @@ public abstract class AbstractTextComponentValidator implements ActionListener, 
 
     protected void feedbackValid(String msg) {
         if (valid == null || !valid || !Objects.equals(msg, this.msg)) {
-            // only provide feedback if the validity has changed. This avoids
-            // unnecessary UI updates.
+            // only provide feedback if the validity has changed. This avoids unnecessary UI updates.
             tc.setBorder(UIManager.getBorder("TextField.border"));
             tc.setBackground(UIManager.getColor("TextField.background"));
             tc.setToolTipText(msg == null ? "" : msg);
-            valid = true;
+            valid = Boolean.TRUE;
             this.msg = msg;
         }
     }
@@ -84,9 +82,9 @@ public abstract class AbstractTextComponentValidator implements ActionListener, 
      * Creates the validator and weires it to the text component <code>tc</code>.
      *
      * @param tc the text component. Must not be null.
-     * @throws IllegalArgumentException thrown if tc is null
+     * @throws IllegalArgumentException if tc is null
      */
-    public AbstractTextComponentValidator(JTextComponent tc) throws IllegalArgumentException {
+    public AbstractTextComponentValidator(JTextComponent tc) {
         this(tc, true);
     }
 
@@ -94,11 +92,11 @@ public abstract class AbstractTextComponentValidator implements ActionListener, 
      * Alternative constructor that allows to turn off the actionListener.
      * This can be useful if the enter key stroke needs to be forwarded to the default button in a dialog.
      */
-    public AbstractTextComponentValidator(JTextComponent tc, boolean addActionListener) throws IllegalArgumentException {
+    public AbstractTextComponentValidator(JTextComponent tc, boolean addActionListener) {
         this(tc, true, true, addActionListener);
     }
 
-    public AbstractTextComponentValidator(JTextComponent tc, boolean addFocusListener, boolean addDocumentListener, boolean addActionListener) throws IllegalArgumentException {
+    public AbstractTextComponentValidator(JTextComponent tc, boolean addFocusListener, boolean addDocumentListener, boolean addActionListener) {
         CheckParameterUtil.ensureParameterNotNull(tc, "tc");
         this.tc = tc;
         if (addFocusListener) {

@@ -10,6 +10,8 @@ package org.openstreetmap.josm.data.coor;
  */
 public class EastNorth extends Coordinate {
 
+    private static final long serialVersionUID = 1L;
+
     public EastNorth(double east, double north) {
         super(east,north);
     }
@@ -45,7 +47,7 @@ public class EastNorth extends Coordinate {
 
     /**
      * Returns the euclidean distance from this {@code EastNorth} to a specified {@code EastNorth}.
-     * 
+     *
      * @param en the specified coordinate to be measured against this {@code EastNorth}
      * @return the euclidean distance from this {@code EastNorth} to a specified {@code EastNorth}
      * @since 6166
@@ -56,7 +58,7 @@ public class EastNorth extends Coordinate {
 
     /**
      * Returns the square of the euclidean distance from this {@code EastNorth} to a specified {@code EastNorth}.
-     * 
+     *
      * @param en the specified coordinate to be measured against this {@code EastNorth}
      * @return the square of the euclidean distance from this {@code EastNorth} to a specified {@code EastNorth}
      * @since 6166
@@ -67,7 +69,7 @@ public class EastNorth extends Coordinate {
 
     /**
      * Counts length (distance from [0,0]) of this.
-     * 
+     *
      * @return length of this
      */
     public double length(){
@@ -129,6 +131,6 @@ public class EastNorth extends Coordinate {
      * @return true if "x" and "y" values are within 1E-6 of each other
      */
     public boolean equalsEpsilon(EastNorth other, double e) {
-        return (Math.abs(x - other.x) < e && Math.abs(y - other.y) < e);
+        return Math.abs(x - other.x) < e && Math.abs(y - other.y) < e;
     }
 }

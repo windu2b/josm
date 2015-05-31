@@ -51,7 +51,7 @@ public class OsmServerUserInfoReader extends OsmServerReader {
             try {
                 userInfo.setId(Integer.parseInt(v));
             } catch(NumberFormatException e) {
-                throw new XmlParsingException(tr("Illegal value for attribute ''{0}'' on XML tag ''{1}''. Got {2}.", "id", "user", v));
+                throw new XmlParsingException(tr("Illegal value for attribute ''{0}'' on XML tag ''{1}''. Got {2}.", "id", "user", v), e);
             }
             // -- display name
             v = getAttribute(xmlNode, "display_name");
@@ -76,7 +76,8 @@ public class OsmServerUserInfoReader extends OsmServerReader {
                 try {
                     lat = Double.parseDouble(v);
                 } catch(NumberFormatException e) {
-                    throw new XmlParsingException(tr("Illegal value for attribute ''{0}'' on XML tag ''{1}''. Got {2}.", "lat", "home", v));
+                    throw new XmlParsingException(tr("Illegal value for attribute ''{0}'' on XML tag ''{1}''. Got {2}.",
+                            "lat", "home", v), e);
                 }
 
                 v = getAttribute(xmlNode, "lon");
@@ -86,7 +87,8 @@ public class OsmServerUserInfoReader extends OsmServerReader {
                 try {
                     lon = Double.parseDouble(v);
                 } catch(NumberFormatException e) {
-                    throw new XmlParsingException(tr("Illegal value for attribute ''{0}'' on XML tag ''{1}''. Got {2}.", "lon", "home", v));
+                    throw new XmlParsingException(tr("Illegal value for attribute ''{0}'' on XML tag ''{1}''. Got {2}.",
+                            "lon", "home", v), e);
                 }
 
                 v = getAttribute(xmlNode, "zoom");
@@ -96,7 +98,8 @@ public class OsmServerUserInfoReader extends OsmServerReader {
                 try {
                     zoom = Integer.parseInt(v);
                 } catch(NumberFormatException e) {
-                    throw new XmlParsingException(tr("Illegal value for attribute ''{0}'' on XML tag ''{1}''. Got {2}.", "zoom", "home", v));
+                    throw new XmlParsingException(tr("Illegal value for attribute ''{0}'' on XML tag ''{1}''. Got {2}.",
+                            "zoom", "home", v), e);
                 }
                 userInfo.setHome(new LatLon(lat,lon));
                 userInfo.setHomeZoom(zoom);
@@ -111,7 +114,7 @@ public class OsmServerUserInfoReader extends OsmServerReader {
                 }
                 userInfo.setLanguages(languages);
             }
-            
+
             // -- messages
             xmlNode = (Node)xpath.compile("/osm/user[1]/messages/received").evaluate(document, XPathConstants.NODE);
             if (xmlNode != null) {
@@ -124,7 +127,7 @@ public class OsmServerUserInfoReader extends OsmServerReader {
                     throw new XmlParsingException(tr("Illegal value for attribute ''{0}'' on XML tag ''{1}''. Got {2}.", "unread", "received", v), e);
                 }
             }
-            
+
             return userInfo;
         } catch(XPathException e) {
             throw new XmlParsingException(e);

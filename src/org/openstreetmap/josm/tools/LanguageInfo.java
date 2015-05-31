@@ -1,14 +1,16 @@
 // License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.tools;
 
+import java.util.Collection;
+import java.util.LinkedList;
 import java.util.Locale;
 
 public final class LanguageInfo {
-    
+
     private LanguageInfo() {
         // Hide default constructor for utils classes
     }
-    
+
     /**
      * Type of the locale to use
      * @since 5915
@@ -47,9 +49,13 @@ public final class LanguageInfo {
             } else {
                 return null;
             }
-        } else if(type == LocaleType.DEFAULTNOTENGLISH && "en".equals(code))
+        } else if(type == LocaleType.DEFAULTNOTENGLISH && "en".equals(code)) {
             return null;
-        return code.substring(0,1).toUpperCase() + code.substring(1) + ":";
+        } else if(code.matches(".+@.+")) {
+          return code.substring(0,1).toUpperCase(Locale.ENGLISH) + code.substring(1,2)
+          + "-" + code.substring(3,4).toUpperCase(Locale.ENGLISH) + code.substring(4) + ":";
+        }
+        return code.substring(0,1).toUpperCase(Locale.ENGLISH) + code.substring(1) + ":";
     }
 
     /**
@@ -80,20 +86,24 @@ public final class LanguageInfo {
      * to identify the locale of a localized resource, but in some cases it may use the
      * programmatic name for locales, as replied by {@link Locale#toString()}.
      *
+     * For unknown country codes and variants this function already does fallback to
+     * internally known translations.
+     *
      * @param locale the locale. Replies "en" if null.
      * @return the JOSM code for the given locale
      */
     public static String getJOSMLocaleCode(Locale locale) {
         if (locale == null) return "en";
-        String full = locale.toString();
-        if ("iw_IL".equals(full))
-            return "he";
-        else if ("in".equals(full))
-            return "id";
-        else if (I18n.hasCode(full)) // catch all non-single codes
-            return full;
+        for(String full : getLanguageCodes(locale)) {
+            if ("iw_IL".equals(full))
+                return "he";
+            else if ("in".equals(full))
+                return "id";
+            else if (I18n.hasCode(full)) // catch all non-single codes
+                return full;
+        }
 
-        // return single code
+        // return single code as fallback
         return locale.getLanguage();
     }
 
@@ -102,31 +112,138 @@ public final class LanguageInfo {
      *
      * In most cases JOSM and Java uses the same codes, but for some exceptions this is needed.
      *
+     * @param locale the locale. Replies "en" if null.
+     * @return the Java code for the given locale
+     * @since 8232
+     */
+    public static String getJavaLocaleCode(String localeName) {
+        if (localeName == null) return "en";
+        if ("ca@valencia".equals(localeName)) {
+            localeName = "ca__valencia";
+        } else if ("he".equals(localeName)) {
+            localeName = "iw_IL";
+        } else if ("id".equals(localeName)) {
+            localeName = "in";
+        }
+        return localeName;
+    }
+
+    /**
+     * Replies the display string used by JOSM for a given locale.
+     *
+     * In most cases returns text replied by {@link Locale#getDisplayName()}, for some
+     * locales an override is used (i.e. when unsupported by Java).
+     *
+     * @param locale the locale. Replies "en" if null.
+     * @return the display string for the given locale
+     * @since 8232
+     */
+    public static String getDisplayName(Locale locale) {
+        /*String full = locale.toString();
+        if ("ca__valencia".equals(full))
+            return t_r_c("language", "Valencian");*/
+
+        return locale.getDisplayName();
+    }
+
+    /**
+     * Replies the locale used by Java for a given language code.
+     *
+     * Accepts JOSM and Java codes as input.
+     *
      * @param localeName the locale code.
      * @return the resulting locale
      */
     public static Locale getLocale(String localeName) {
-        if ("he".equals(localeName)) {
-            localeName = "iw_IL";
-        }
-        else if ("id".equals(localeName)) {
-            localeName = "in";
-        }
+        int country = localeName.indexOf("_");
+        int variant = localeName.indexOf("@");
+        if (variant < 0 && country >= 0)
+            variant = localeName.indexOf("_", country+1);
         Locale l;
-        int i = localeName.indexOf('_');
-        if (i > 0) {
-            l = new Locale(localeName.substring(0, i), localeName.substring(i + 1));
+        if (variant > 0 && country > 0) {
+            l = new Locale(localeName.substring(0, country), localeName.substring(country+1, variant), localeName.substring(variant + 1));
+        } else if (variant > 0) {
+            l = new Locale(localeName.substring(0, variant), "", localeName.substring(variant + 1));
+        } else if (country > 0) {
+            l = new Locale(localeName.substring(0, country), localeName.substring(country + 1));
         } else {
             l = new Locale(localeName);
         }
         return l;
     }
 
-    public static String getLanguageCodeXML() {
-        return getJOSMLocaleCode()+".";
+    /**
+     * Check if a new language is better than a previous existing. Can be used in classes where
+     * multiple user supplied language marked strings appear and the best one is searched. Following
+     * priorities: current language, english, any other
+     *
+     * @param oldLanguage the language code of the existing string
+     * @param newLanguage the language code of the new string
+     * @return true if new one is better
+     * @since 8091
+     */
+    public static boolean isBetterLanguage(String oldLanguage, String newLanguage) {
+        if (oldLanguage == null)
+            return true;
+        String want = getJOSMLocaleCode();
+        return want.equals(newLanguage) || (!want.equals(oldLanguage) && newLanguage.startsWith("en"));
     }
-    
+
+    /**
+     * Replies the language prefix for use in XML elements (with a dot appended).
+     *
+     * @return the XML language prefix
+     * @see #getJOSMLocaleCode()
+     */
+    public static String getLanguageCodeXML() {
+        String code = getJOSMLocaleCode();
+        code = code.replace("@", "-");
+        return code+".";
+    }
+
+    /**
+     * Replies the language prefix for use in manifests (with an underscore appended).
+     *
+     * @return the manifest language prefix
+     * @see #getJOSMLocaleCode()
+     */
     public static String getLanguageCodeManifest() {
-        return getJOSMLocaleCode()+"_";
+        String code = getJOSMLocaleCode();
+        code = code.replace("@", "-");
+        return code+"_";
+    }
+
+    /**
+     * Replies a list of language codes for local names. Prefixes range from very specific
+     * to more generic.
+     * <ul>
+     *   <li>lang_COUNTRY@variant  of the current locale</li>
+     *   <li>lang@variant  of the current locale</li>
+     *   <li>lang_COUNTRY of the current locale</li>
+     *   <li>lang of the current locale</li>
+     * </ul>
+     *
+     * @param locale the locale to use, <code>null</code> for default locale
+     * @return list of codes
+     * @since 8283
+     */
+    public static Collection<String> getLanguageCodes(Locale l) {
+        Collection<String> list = new LinkedList<String>();
+        if(l == null)
+            l = Locale.getDefault();
+        String lang = l.getLanguage();
+        String c = l.getCountry();
+        String v = l.getVariant();
+        if(c.isEmpty())
+            c = null;
+        if(v != null && !v.isEmpty()) {
+            if(c != null)
+                list.add(lang+"_"+c+"@"+v);
+            list.add(lang+"@"+v);
+        }
+        if(c != null)
+            list.add(lang+"_"+c);
+        list.add(lang);
+        return list;
     }
 }

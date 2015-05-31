@@ -112,15 +112,16 @@ public class OAuthParameters {
      * @see #createFromPreferences
      */
     public OAuthParameters() {
+        // contents can be set later with setters
     }
 
     /**
      * Creates a clone of the parameters in <code>other</code>.
      *
      * @param other the other parameters. Must not be null.
-     * @throws IllegalArgumentException thrown if other is null
+     * @throws IllegalArgumentException if other is null
      */
-    public OAuthParameters(OAuthParameters other) throws IllegalArgumentException{
+    public OAuthParameters(OAuthParameters other) {
         CheckParameterUtil.ensureParameterNotNull(other, "other");
         this.consumerKey = other.consumerKey;
         this.consumerSecret = other.consumerSecret;
@@ -225,7 +226,7 @@ public class OAuthParameters {
      * @return the provider
      * @throws IllegalArgumentException if consumer is null
      */
-    public OAuthProvider buildProvider(OAuthConsumer consumer) throws IllegalArgumentException {
+    public OAuthProvider buildProvider(OAuthConsumer consumer) {
         CheckParameterUtil.ensureParameterNotNull(consumer, "consumer");
         return new DefaultOAuthProvider(
                 requestTokenUrl,

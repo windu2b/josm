@@ -10,12 +10,14 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+
+import org.openstreetmap.josm.tools.LanguageInfo;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
 * Abstract class to represent common features of the datatypes primitives.
@@ -184,9 +186,9 @@ public abstract class AbstractPrimitive implements IPrimitive {
      *
      * @param id the id. &gt; 0 required
      * @param version the version &gt; 0 required
-     * @throws IllegalArgumentException thrown if id &lt;= 0
-     * @throws IllegalArgumentException thrown if version &lt;= 0
-     * @throws DataIntegrityProblemException If id is changed and primitive was already added to the dataset
+     * @throws IllegalArgumentException if id &lt;= 0
+     * @throws IllegalArgumentException if version &lt;= 0
+     * @throws DataIntegrityProblemException if id is changed and primitive was already added to the dataset
      */
     @Override
     public void setOsmId(long id, int version) {
@@ -255,11 +257,11 @@ public abstract class AbstractPrimitive implements IPrimitive {
      * primitive.
      *
      * @param changesetId the id. &gt;= 0 required.
-     * @throws IllegalStateException thrown if this primitive is new.
-     * @throws IllegalArgumentException thrown if id &lt; 0
+     * @throws IllegalStateException if this primitive is new.
+     * @throws IllegalArgumentException if id &lt; 0
      */
     @Override
-    public void setChangesetId(int changesetId) throws IllegalStateException, IllegalArgumentException {
+    public void setChangesetId(int changesetId) {
         if (this.changesetId == changesetId)
             return;
         if (changesetId < 0)
@@ -393,11 +395,10 @@ public abstract class AbstractPrimitive implements IPrimitive {
      * and not deleted on the server.
      *
      * @see #isVisible()
-     * @throws IllegalStateException thrown if visible is set to false on an primitive with
-     * id==0
+     * @throws IllegalStateException if visible is set to false on an primitive with id==0
      */
     @Override
-    public void setVisible(boolean visible) throws IllegalStateException{
+    public void setVisible(boolean visible) {
         if (isNew() && !visible)
             throw new IllegalStateException(tr("A primitive with ID = 0 cannot be invisible."));
         updateFlags(FLAG_VISIBLE, visible);
@@ -433,16 +434,16 @@ public abstract class AbstractPrimitive implements IPrimitive {
         StringBuilder builder = new StringBuilder();
 
         if (isIncomplete()) {
-            builder.append("I");
+            builder.append('I');
         }
         if (isModified()) {
-            builder.append("M");
+            builder.append('M');
         }
         if (isVisible()) {
-            builder.append("V");
+            builder.append('V');
         }
         if (isDeleted()) {
-            builder.append("D");
+            builder.append('D');
         }
         return builder.toString();
     }
@@ -508,7 +509,7 @@ public abstract class AbstractPrimitive implements IPrimitive {
      * Set the given value to the given key. If key is null, does nothing. If value is null,
      * removes the key and behaves like {@link #remove(String)}.
      *
-     * @param key  The key, for which the value is to be set. Can be null, does nothing in this case.
+     * @param key  The key, for which the value is to be set. Can be null or empty, does nothing in this case.
      * @param value The value for the key. If null, removes the respective key/value pair.
      *
      * @see #remove(String)
@@ -516,7 +517,7 @@ public abstract class AbstractPrimitive implements IPrimitive {
     @Override
     public void put(String key, String value) {
         Map<String, String> originalKeys = getKeys();
-        if (key == null)
+        if (key == null || Utils.strip(key).isEmpty())
             return;
         else if (value == null) {
             remove(key);
@@ -634,7 +635,7 @@ public abstract class AbstractPrimitive implements IPrimitive {
     public final int getNumKeys() {
         return keys == null ? 0 : keys.length / 2;
     }
-    
+
     @Override
     public final Collection<String> keySet() {
         String[] keys = this.keys;
@@ -691,36 +692,19 @@ public abstract class AbstractPrimitive implements IPrimitive {
     }
 
     /**
-     * Replies the a localized name for this primitive given by the value of the tags (in this order)
-     * <ul>
-     *   <li>name:lang_COUNTRY_Variant  of the current locale</li>
-     *   <li>name:lang_COUNTRY of the current locale</li>
-     *   <li>name:lang of the current locale</li>
-     *   <li>name of the current locale</li>
-     * </ul>
+     * Replies a localized name for this primitive given by the value of the name tags
+     * accessed from very specific (language variant) to more generic (default name).
      *
-     * null, if no such tag exists
-     *
-     * @return the name of this primitive
+     * @see LanguageInfo#getLanguageCodes()
+     * @return the name of this primitive, <code>null</code> if no name exists
      */
     @Override
     public String getLocalName() {
-        final Locale locale = Locale.getDefault();
-        String key = "name:" + locale.toString();
-        String val = get(key);
-        if (val != null)
-            return val;
-
-        final String language = locale.getLanguage();
-        key = "name:" + language + "_" + locale.getCountry();
-        val = get(key);
-        if (val != null)
-            return val;
-
-        key = "name:" + language;
-        val = get(key);
-        if (val != null)
-            return val;
+        for(String s : LanguageInfo.getLanguageCodes(null)) {
+            String val = get("name:" + s);
+            if (val != null)
+                return val;
+        }
 
         return getName();
     }

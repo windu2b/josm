@@ -29,9 +29,8 @@ import org.openstreetmap.josm.gui.conflict.pair.MergeDecisionType;
 import org.openstreetmap.josm.tools.ImageProvider;
 
 /**
- * This class represents a UI component for resolving conflicts in some properties
- * of {@link OsmPrimitive}.
- *
+ * This class represents a UI component for resolving conflicts in some properties of {@link OsmPrimitive}.
+ * @since 1654
  */
 public class PropertiesMerger extends JPanel implements Observer, IConflictResolver {
     private static final DecimalFormat COORD_FORMATTER = new DecimalFormat("###0.0000000");
@@ -47,7 +46,16 @@ public class PropertiesMerger extends JPanel implements Observer, IConflictResol
     private JLabel lblMyReferrers;
     private JLabel lblTheirReferrers;
 
-    private final PropertiesMergeModel model;
+    private final transient PropertiesMergeModel model;
+
+    /**
+     * Constructs a new {@code PropertiesMerger}.
+     */
+    public PropertiesMerger() {
+        model = new PropertiesMergeModel();
+        model.addObserver(this);
+        build();
+    }
 
     protected JLabel buildValueLabel(String name) {
         JLabel lbl = new JLabel();
@@ -276,24 +284,15 @@ public class PropertiesMerger extends JPanel implements Observer, IConflictResol
         buildReferrersRow();
     }
 
-    /**
-     * Constructs a new {@code PropertiesMerger}.
-     */
-    public PropertiesMerger() {
-        model = new PropertiesMergeModel();
-        model.addObserver(this);
-        build();
-    }
-
     public String coordToString(LatLon coord) {
         if (coord == null)
             return tr("(none)");
         StringBuilder sb = new StringBuilder();
-        sb.append("(")
+        sb.append('(')
         .append(COORD_FORMATTER.format(coord.lat()))
-        .append(",")
+        .append(',')
         .append(COORD_FORMATTER.format(coord.lon()))
-        .append(")");
+        .append(')');
         return sb.toString();
     }
 

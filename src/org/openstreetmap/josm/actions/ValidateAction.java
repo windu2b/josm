@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.actions;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -34,7 +34,7 @@ import org.xml.sax.SAXException;
 public class ValidateAction extends JosmAction {
 
     /** Last selection used to validate */
-    private Collection<OsmPrimitive> lastSelection;
+    private transient Collection<OsmPrimitive> lastSelection;
 
     /**
      * Constructor

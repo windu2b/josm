@@ -18,9 +18,11 @@ import java.awt.Window;
 import java.awt.event.ActionListener;
 import java.awt.event.HierarchyEvent;
 import java.awt.event.HierarchyListener;
+import java.awt.event.KeyEvent;
 import java.awt.image.FilteredImageSource;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -29,18 +31,25 @@ import java.util.concurrent.FutureTask;
 import javax.swing.GrayFilter;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
+import javax.swing.UIManager;
+import javax.swing.plaf.FontUIResource;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.gui.ExtendedDialog;
 import org.openstreetmap.josm.gui.widgets.HtmlPanel;
+import org.openstreetmap.josm.tools.CheckParameterUtil;
 import org.openstreetmap.josm.tools.GBC;
+import org.openstreetmap.josm.tools.ImageOverlay;
 import org.openstreetmap.josm.tools.ImageProvider;
+import org.openstreetmap.josm.tools.ImageProvider.ImageSizes;
+import org.openstreetmap.josm.tools.LanguageInfo;
 
 /**
  * basic gui utils
@@ -143,16 +152,14 @@ public final class GuiHelper {
      * @param continueToolTip Tooltip to display for "continue" button
      * @return true if the user wants to cancel, false if they want to continue
      */
-    public static final boolean warnUser(String title, String content, ImageIcon baseActionIcon, String continueToolTip) {
+    public static boolean warnUser(String title, String content, ImageIcon baseActionIcon, String continueToolTip) {
         ExtendedDialog dlg = new ExtendedDialog(Main.parent,
                 title, new String[] {tr("Cancel"), tr("Continue")});
         dlg.setContent(content);
         dlg.setButtonIcons(new Icon[] {
-                ImageProvider.get("cancel"),
-                ImageProvider.overlay(
-                        ImageProvider.get("upload"),
-                        new ImageIcon(ImageProvider.get("warning-small").getImage().getScaledInstance(10 , 10, Image.SCALE_SMOOTH)),
-                        ImageProvider.OverlayPosition.SOUTHEAST)});
+                    new ImageProvider("cancel").setMaxSize(ImageSizes.LARGEICON).get(),
+                    new ImageProvider("upload").setMaxSize(ImageSizes.LARGEICON).addOverlay(
+                            new ImageOverlay(new ImageProvider("warning-small"), 0.5,0.5,1.0,1.0)).get()});
         dlg.setToolTipTexts(new String[] {
                 tr("Cancel"),
                 continueToolTip});
@@ -169,7 +176,7 @@ public final class GuiHelper {
      * @param html HTML content to display (real error message)
      * @since 7312
      */
-    public static final void notifyUserHtmlError(Component parent, String title, String message, String html) {
+    public static void notifyUserHtmlError(Component parent, String title, String message, String html) {
         JPanel p = new JPanel(new GridBagLayout());
         p.add(new JLabel(message), GBC.eol());
         p.add(new JLabel(tr("Received error page:")), GBC.eol());
@@ -189,7 +196,7 @@ public final class GuiHelper {
      * @return The disabled (grayed) version of the specified image, brightened by 20%.
      * @since 5484
      */
-    public static final Image getDisabledImage(Image image) {
+    public static Image getDisabledImage(Image image) {
         return Toolkit.getDefaultToolkit().createImage(
                 new FilteredImageSource(image.getSource(), new GrayFilter(true, 20)));
     }
@@ -200,7 +207,7 @@ public final class GuiHelper {
      * @return The disabled (grayed) version of the specified icon, brightened by 20%.
      * @since 5484
      */
-    public static final ImageIcon getDisabledIcon(ImageIcon icon) {
+    public static ImageIcon getDisabledIcon(ImageIcon icon) {
         return new ImageIcon(getDisabledImage(icon.getImage()));
     }
 
@@ -213,7 +220,7 @@ public final class GuiHelper {
      * @return {@code pane}
      * @since 5493
      */
-    public static final Component prepareResizeableOptionPane(final Component pane, final Dimension minDimension) {
+    public static Component prepareResizeableOptionPane(final Component pane, final Dimension minDimension) {
         if (pane != null) {
             pane.addHierarchyListener(new HierarchyListener() {
                 @Override
@@ -242,7 +249,7 @@ public final class GuiHelper {
      * @return The (started) timer.
      * @since 5735
      */
-    public static final Timer scheduleTimer(int initialDelay, ActionListener actionListener, boolean repeats) {
+    public static Timer scheduleTimer(int initialDelay, ActionListener actionListener, boolean repeats) {
         Timer timer = new Timer(initialDelay, actionListener);
         timer.setRepeats(repeats);
         timer.start();
@@ -295,16 +302,36 @@ public final class GuiHelper {
     }
 
     /**
+     * Gets the font used to display monospaced text in a component, if possible.
+     * @param component The component
+     * @return the font used to display monospaced text in a component, if possible
+     * @since 7896
+     */
+    public static Font getMonospacedFont(JComponent component) {
+        // Special font for Khmer script
+        if ("km".equals(LanguageInfo.getJOSMLocaleCode())) {
+            return component.getFont();
+        } else {
+            return new Font("Monospaced", component.getFont().getStyle(), component.getFont().getSize());
+        }
+    }
+
+    /**
      * Gets the font used to display JOSM title in about dialog and splash screen.
      * @return By order or priority, the first font available in local fonts:
      *         1. Helvetica Bold 20
      *         2. Calibri Bold 23
      *         3. Arial Bold 20
      *         4. SansSerif Bold 20
+     *         Except if current language is Khmer, where it will be current font at size 20
      * @since 5797
      */
     public static Font getTitleFont() {
         List<String> fonts = Arrays.asList(GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames());
+        // Special font for Khmer script
+        if ("km".equals(LanguageInfo.getJOSMLocaleCode())) {
+            return UIManager.getFont("Label.font").deriveFont(20.0f);
+        }
         // Helvetica is the preferred choice but is not available by default on Windows
         // (https://www.microsoft.com/typography/fonts/product.aspx?pid=161)
         if (fonts.contains("Helvetica")) {
@@ -328,5 +355,40 @@ public final class GuiHelper {
      */
     public static JScrollPane embedInVerticalScrollPane(Component panel) {
         return new JScrollPane(panel, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+    }
+
+    /**
+     * Returns extended modifier key used as the appropriate accelerator key for menu shortcuts.
+     * It is advised everywhere to use {@link Toolkit#getMenuShortcutKeyMask()} to get the cross-platform modifier, but:
+     * <ul>
+     * <li>it returns KeyEvent.CTRL_MASK instead of KeyEvent.CTRL_DOWN_MASK. We used the extended
+     *    modifier for years, and Oracle recommends to use it instead, so it's best to keep it</li>
+     * <li>the method throws a HeadlessException ! So we would need to handle it for unit tests anyway</li>
+     * </ul>
+     * @return extended modifier key used as the appropriate accelerator key for menu shortcuts
+     * @since 7539
+     */
+    public static int getMenuShortcutKeyMaskEx() {
+        return Main.isPlatformOsx() ? KeyEvent.META_DOWN_MASK : KeyEvent.CTRL_DOWN_MASK;
+    }
+
+    /**
+     * Sets a global font for all UI, replacing default font of current look and feel.
+     * @param name Font name. It is up to the caller to make sure the font exists
+     * @throws IllegalArgumentException if name is null
+     * @since 7896
+     */
+    public static void setUIFont(String name) {
+        CheckParameterUtil.ensureParameterNotNull(name, "name");
+        Main.info("Setting "+name+" as the default UI font");
+        Enumeration<?> keys = UIManager.getDefaults().keys();
+        while (keys.hasMoreElements()) {
+            Object key = keys.nextElement();
+            Object value = UIManager.get(key);
+            if (value != null && value instanceof FontUIResource) {
+                FontUIResource fui = (FontUIResource)value;
+                UIManager.put(key, new FontUIResource(name, fui.getStyle(), fui.getSize()));
+            }
+        }
     }
 }

@@ -37,6 +37,8 @@ public abstract class AbstractMapRenderer implements Rendering {
     protected Color inactiveColor;
     /** Color Preference for selected objects */
     protected Color selectedColor;
+    /** Color Preference for members of selected relations */
+    protected Color relationSelectedColor;
     /** Color Preference for nodes */
     protected Color nodeColor;
 
@@ -57,10 +59,10 @@ public abstract class AbstractMapRenderer implements Rendering {
      * @param nc the map viewport. Must not be null.
      * @param isInactiveMode if true, the paint visitor shall render OSM objects such that they
      * look inactive. Example: rendering of data in an inactive layer using light gray as color only.
-     * @throws IllegalArgumentException thrown if {@code g} is null
-     * @throws IllegalArgumentException thrown if {@code nc} is null
+     * @throws IllegalArgumentException if {@code g} is null
+     * @throws IllegalArgumentException if {@code nc} is null
      */
-    public AbstractMapRenderer(Graphics2D g, NavigatableComponent nc, boolean isInactiveMode) throws IllegalArgumentException{
+    public AbstractMapRenderer(Graphics2D g, NavigatableComponent nc, boolean isInactiveMode) {
         CheckParameterUtil.ensureParameterNotNull(g);
         CheckParameterUtil.ensureParameterNotNull(nc);
         this.g = g;
@@ -69,10 +71,12 @@ public abstract class AbstractMapRenderer implements Rendering {
     }
 
     /**
-     * Draw the node as small rectangle with the given color.
+     * Draw the node as small square with the given color.
      *
      * @param n  The node to draw.
      * @param color The color of the node.
+     * @param size size in pixels
+     * @param fill determines if the square mmust be filled
      */
     public abstract void drawNode(Node n, Color color, int size, boolean fill);
 
@@ -150,6 +154,7 @@ public abstract class AbstractMapRenderer implements Rendering {
         this.backgroundColor = PaintColors.BACKGROUND.get();
         this.inactiveColor = PaintColors.INACTIVE.get();
         this.selectedColor = PaintColors.SELECTED.get();
+        this.relationSelectedColor = PaintColors.RELATIONSELECTED.get();
         this.nodeColor = PaintColors.NODE.get();
         this.highlightColor = PaintColors.HIGHLIGHT.get();
     }
@@ -178,7 +183,7 @@ public abstract class AbstractMapRenderer implements Rendering {
     public static boolean isLargeSegment(Point2D p1, Point2D p2, int space) {
         double xd = Math.abs(p1.getX()-p2.getX());
         double yd = Math.abs(p1.getY()-p2.getY());
-        return (xd+yd > space);
+        return xd + yd > space;
     }
 
     /**
@@ -206,11 +211,9 @@ public abstract class AbstractMapRenderer implements Rendering {
         Iterator<Node> it = w.getNodes().iterator();
         if (it.hasNext()) {
             Point lastP = nc.getPoint(it.next());
-            while (it.hasNext())
-            {
+            while (it.hasNext()) {
                 Point p = nc.getPoint(it.next());
-                if (isSegmentVisible(lastP, p) && isLargeSegment(lastP, p, virtualNodeSpace))
-                {
+                if (isSegmentVisible(lastP, p) && isLargeSegment(lastP, p, virtualNodeSpace)) {
                     int x = (p.x+lastP.x)/2;
                     int y = (p.y+lastP.y)/2;
                     path.moveTo(x-virtualNodeSize, y);

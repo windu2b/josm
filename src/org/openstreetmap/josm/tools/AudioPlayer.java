@@ -25,7 +25,7 @@ import org.openstreetmap.josm.Main;
  */
 public final class AudioPlayer extends Thread {
 
-    private static AudioPlayer audioPlayer = null;
+    private static volatile AudioPlayer audioPlayer = null;
 
     private enum State { INITIALIZING, NOTPLAYING, PLAYING, PAUSED, INTERRUPTED }
     private State state;
@@ -68,7 +68,9 @@ public final class AudioPlayer extends Thread {
         private void send() throws Exception {
             result = Result.WAITING;
             interrupt();
-            while (result == Result.WAITING) { sleep(10); /* yield(); */ }
+            while (result == Result.WAITING) {
+                sleep(10); /* yield(); */
+            }
             if (result == Result.FAILED)
                 throw exception;
         }
@@ -76,12 +78,12 @@ public final class AudioPlayer extends Thread {
             if (interrupted() || result == Result.WAITING)
                 throw new InterruptedException();
         }
-        protected void failed (Exception e) {
+        protected void failed(Exception e) {
             exception = e;
             result = Result.FAILED;
             state = State.NOTPLAYING;
         }
-        protected void ok (State newState) {
+        protected void ok(State newState) {
             result = Result.OK;
             state = newState;
         }
@@ -216,7 +218,9 @@ public final class AudioPlayer extends Thread {
         leadIn = Main.pref.getDouble("audio.leadin", 1.0 /* default, seconds */);
         calibration = Main.pref.getDouble("audio.calibration", 1.0 /* default, ratio */);
         start();
-        while (state == State.INITIALIZING) { yield(); }
+        while (state == State.INITIALIZING) {
+            yield();
+        }
     }
 
     /**
@@ -250,7 +254,9 @@ public final class AudioPlayer extends Thread {
                             nBytesRead = audioInputStream.read(abData, 0, abData.length);
                             position += nBytesRead / bytesPerSecond;
                             command.possiblyInterrupt();
-                            if (nBytesRead < 0) { break; }
+                            if (nBytesRead < 0) {
+                                break;
+                            }
                             audioOutputLine.write(abData, 0, nBytesRead); // => int nBytesWritten
                             command.possiblyInterrupt();
                         }
@@ -276,8 +282,7 @@ public final class AudioPlayer extends Thread {
                             speed = command.speed();
                             if (playingUrl != command.url() ||
                                     stateChange != State.PAUSED ||
-                                    offset != 0.0)
-                            {
+                                    offset != 0) {
                                 if (audioInputStream != null) {
                                     Utils.close(audioInputStream);
                                     audioInputStream = null;

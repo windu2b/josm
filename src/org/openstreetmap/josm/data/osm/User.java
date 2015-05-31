@@ -9,7 +9,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.openstreetmap.josm.tools.Utils;
 
@@ -24,16 +23,22 @@ import org.openstreetmap.josm.tools.Utils;
  */
 public final class User {
 
-    private static AtomicLong uidCounter = new AtomicLong();
+    private static long uidCounter = 0;
 
     /**
      * the map of known users
      */
     private static Map<Long,User> userMap = new HashMap<>();
+
+    /**
+     * The anonymous user is a local user used in places where no user is known.
+     * @see #getAnonymous()
+     */
     private static final User anonymous = createLocalUser(tr("<anonymous>"));
 
     private static long getNextLocalUid() {
-        return uidCounter.decrementAndGet();
+        uidCounter--;
+        return uidCounter;
     }
 
     /**
@@ -42,12 +47,11 @@ public final class User {
      * @param name the name
      * @return a new local user with the given name
      */
-    public static User createLocalUser(String name) {
-        for(long i = -1; i >= uidCounter.get(); --i)
-        {
-          User olduser = getById(i);
-          if(olduser != null && olduser.hasName(name))
-            return olduser;
+    public static synchronized User createLocalUser(String name) {
+        for(long i = -1; i >= uidCounter; --i) {
+            User olduser = getById(i);
+            if(olduser != null && olduser.hasName(name))
+                return olduser;
         }
         User user = new User(getNextLocalUid(), name);
         userMap.put(user.getId(), user);
@@ -61,7 +65,7 @@ public final class User {
      * @param name the name
      * @return a new OSM user with the given name and uid
      */
-    public static User createOsmUser(long uid, String name) {
+    public static synchronized User createOsmUser(long uid, String name) {
         User user = userMap.get(uid);
         if (user == null) {
             user = new User(uid, name);
@@ -73,9 +77,8 @@ public final class User {
 
     /**
      * clears the static map of user ids to user objects
-     *
      */
-    public static void clearUserMap() {
+    public static synchronized void clearUserMap() {
         userMap.clear();
     }
 
@@ -85,7 +88,7 @@ public final class User {
      * @param uid the user id
      * @return the user; null, if there is no user with  this id
      */
-    public static User getById(long uid) {
+    public static synchronized User getById(long uid) {
         return userMap.get(uid);
     }
 
@@ -97,7 +100,7 @@ public final class User {
      * @return the list of users with name <code>name</code> or the empty list if
      * no such users exist
      */
-    public static List<User> getByName(String name) {
+    public static synchronized List<User> getByName(String name) {
         if (name == null) {
             name = "";
         }
@@ -223,8 +226,7 @@ public final class User {
         s.append("id:").append(uid);
         if (names.size() == 1) {
             s.append(" name:").append(getName());
-        }
-        else if (names.size() > 1) {
+        } else if (names.size() > 1) {
             s.append(String.format(" %d names:%s", names.size(), getName()));
         }
         return s.toString();

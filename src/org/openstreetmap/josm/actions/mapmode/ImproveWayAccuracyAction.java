@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.actions.mapmode;
 
 import static org.openstreetmap.josm.tools.I18n.marktr;
@@ -63,9 +63,9 @@ public class ImproveWayAccuracyAction extends MapMode implements MapViewPaintabl
 
     private static final long serialVersionUID = 42L;
 
-    private Way targetWay;
-    private Node candidateNode = null;
-    private WaySegment candidateSegment = null;
+    private transient Way targetWay;
+    private transient Node candidateNode = null;
+    private transient WaySegment candidateSegment = null;
 
     private Point mousePos = null;
     private boolean dragging = false;
@@ -79,10 +79,10 @@ public class ImproveWayAccuracyAction extends MapMode implements MapViewPaintabl
     private final Cursor cursorImproveLock;
 
     private Color guideColor;
-    private Stroke selectTargetWayStroke;
-    private Stroke moveNodeStroke;
-    private Stroke addNodeStroke;
-    private Stroke deleteNodeStroke;
+    private transient Stroke selectTargetWayStroke;
+    private transient Stroke moveNodeStroke;
+    private transient Stroke addNodeStroke;
+    private transient Stroke deleteNodeStroke;
     private int dotSize;
 
     private boolean selectionChangedBlocked = false;
@@ -94,7 +94,7 @@ public class ImproveWayAccuracyAction extends MapMode implements MapViewPaintabl
      * @param mapFrame Map frame
      */
     public ImproveWayAccuracyAction(MapFrame mapFrame) {
-        super(tr("Improve Way Accuracy"), "improvewayaccuracy.png",
+        super(tr("Improve Way Accuracy"), "improvewayaccuracy",
                 tr("Improve Way Accuracy mode"),
                 Shortcut.registerShortcut("mapmode:ImproveWayAccuracy",
                 tr("Mode: {0}", tr("Improve Way Accuracy")),
@@ -411,8 +411,11 @@ public class ImproveWayAccuracyAction extends MapMode implements MapViewPaintabl
                         int i = -1;
                         for (Pair<Node, Node> wpp : wpps) {
                             ++i;
-                            if ((wpp.a.equals(candidateSegment.getFirstNode())
-                                    && wpp.b.equals(candidateSegment.getSecondNode()) || (wpp.b.equals(candidateSegment.getFirstNode()) && wpp.a.equals(candidateSegment.getSecondNode())))) {
+                            boolean ab = wpp.a.equals(candidateSegment.getFirstNode())
+                                    && wpp.b.equals(candidateSegment.getSecondNode());
+                            boolean ba = wpp.b.equals(candidateSegment.getFirstNode())
+                                    && wpp.a.equals(candidateSegment.getSecondNode());
+                            if (ab || ba) {
                                 virtualSegments.add(new WaySegment(w, i));
                             }
                         }
@@ -611,14 +614,12 @@ public class ImproveWayAccuracyAction extends MapMode implements MapViewPaintabl
             // Starting improving the single selected way
             startImproving(wayList.get(0));
             return;
-        } else if (nodeList.size() > 0) {
+        } else if (nodeList.size() == 1) {
             // Starting improving the only way of the single selected node
-            if (nodeList.size() == 1) {
-                List<OsmPrimitive> r = nodeList.get(0).getReferrers();
-                if (r.size() == 1 && (r.get(0) instanceof Way)) {
-                    startImproving((Way) r.get(0));
-                    return;
-                }
+            List<OsmPrimitive> r = nodeList.get(0).getReferrers();
+            if (r.size() == 1 && (r.get(0) instanceof Way)) {
+                startImproving((Way) r.get(0));
+                return;
             }
         }
 

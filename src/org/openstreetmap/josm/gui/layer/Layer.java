@@ -1,5 +1,4 @@
-// License: GPL. See LICENSE file for details.
-
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui.layer;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -31,6 +30,7 @@ import org.openstreetmap.josm.data.projection.ProjectionChangeListener;
 import org.openstreetmap.josm.gui.MapView;
 import org.openstreetmap.josm.tools.Destroyable;
 import org.openstreetmap.josm.tools.ImageProvider;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * A layer encapsulates the gui component of one dataset and its representation.
@@ -203,18 +203,24 @@ public abstract class Layer implements Destroyable, MapViewPaintable, Projection
     public abstract Action[] getMenuEntries();
 
     /**
-     * Called, when the layer is removed from the mapview and is going to be
-     * destroyed.
+     * Called, when the layer is removed from the mapview and is going to be destroyed.
      *
      * This is because the Layer constructor can not add itself safely as listener
      * to the layerlist dialog, because there may be no such dialog yet (loaded
      * via command line parameter).
      */
     @Override
-    public void destroy() {}
+    public void destroy() {
+        // Override in subclasses if needed
+    }
 
-    public File getAssociatedFile() { return associatedFile; }
-    public void setAssociatedFile(File file) { associatedFile = file; }
+    public File getAssociatedFile() {
+        return associatedFile;
+    }
+
+    public void setAssociatedFile(File file) {
+        associatedFile = file;
+    }
 
     /**
      * Replies the name of the layer
@@ -294,7 +300,7 @@ public abstract class Layer implements Destroyable, MapViewPaintable, Projection
         double oldOpacity = getOpacity();
         boolean oldVisible = isVisible();
         this.opacity = opacity;
-        if (oldOpacity != getOpacity()) {
+        if (!Utils.equalsEpsilon(oldOpacity, getOpacity())) {
             fireOpacityChanged(oldOpacity, getOpacity());
         }
         if (oldVisible != isVisible()) {
@@ -379,7 +385,7 @@ public abstract class Layer implements Destroyable, MapViewPaintable, Projection
      *
      */
     public static class LayerSaveAction extends AbstractAction {
-        private Layer layer;
+        private final transient Layer layer;
         public LayerSaveAction(Layer layer) {
             putValue(SMALL_ICON, ImageProvider.get("save"));
             putValue(SHORT_DESCRIPTION, tr("Save the current data."));
@@ -395,7 +401,7 @@ public abstract class Layer implements Destroyable, MapViewPaintable, Projection
     }
 
     public static class LayerSaveAsAction extends AbstractAction {
-        private Layer layer;
+        private final transient Layer layer;
         public LayerSaveAsAction(Layer layer) {
             putValue(SMALL_ICON, ImageProvider.get("save_as"));
             putValue(SHORT_DESCRIPTION, tr("Save the current data to a new file."));
@@ -411,7 +417,7 @@ public abstract class Layer implements Destroyable, MapViewPaintable, Projection
     }
 
     public static class LayerGpxExportAction extends AbstractAction {
-        private Layer layer;
+        private final transient Layer layer;
         public LayerGpxExportAction(Layer layer) {
             putValue(SMALL_ICON, ImageProvider.get("exportgpx"));
             putValue(SHORT_DESCRIPTION, tr("Export the data to GPX file."));
@@ -471,8 +477,8 @@ public abstract class Layer implements Destroyable, MapViewPaintable, Projection
      * Creates a new "Save" dialog for this layer and makes it visible.<br>
      * When the user has chosen a file, checks the file extension, and confirms overwrite if needed.
      * @return The output {@code File}
-     * @since 5459
      * @see SaveActionBase#createAndOpenSaveFileChooser
+     * @since 5459
      */
     public File createAndOpenSaveFileChooser() {
         return SaveActionBase.createAndOpenSaveFileChooser(tr("Save Layer"), "lay");

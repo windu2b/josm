@@ -2,6 +2,7 @@
 package org.openstreetmap.josm.tools;
 
 import java.awt.Color;
+import java.util.Locale;
 
 /**
  * Helper to convert from color to HTML string and back.
@@ -31,7 +32,7 @@ public final class ColorHelper {
                     Integer.parseInt(html.substring(0,2),16),
                     Integer.parseInt(html.substring(2,4),16),
                     Integer.parseInt(html.substring(4,6),16),
-                    (html.length() == 8 ? Integer.parseInt(html.substring(6,8),16) : 255));
+                    html.length() == 8 ? Integer.parseInt(html.substring(6,8),16) : 255);
         } catch (NumberFormatException e) {
             return null;
         }
@@ -39,7 +40,7 @@ public final class ColorHelper {
 
     private static String int2hex(int i) {
         String s = Integer.toHexString(i / 16) + Integer.toHexString(i % 16);
-        return s.toUpperCase();
+        return s.toUpperCase(Locale.ENGLISH);
     }
 
     /**

@@ -56,14 +56,14 @@ public class WmsCache {
     private static final String LAYERS_INDEX_FILENAME = "layers.properties";
 
     private static class CacheEntry {
-        final double pixelPerDegree;
-        final double east;
-        final double north;
-        final ProjectionBounds bounds;
-        final String filename;
+        private final double pixelPerDegree;
+        private final double east;
+        private final double north;
+        private final ProjectionBounds bounds;
+        private final String filename;
 
-        long lastUsed;
-        long lastModified;
+        private long lastUsed;
+        private long lastModified;
 
         CacheEntry(double pixelPerDegree, double east, double north, int tileSize, String filename) {
             this.pixelPerDegree = pixelPerDegree;
@@ -82,9 +82,9 @@ public class WmsCache {
     }
 
     private static class ProjectionEntries {
-        final String projection;
-        final String cacheDirectory;
-        final List<CacheEntry> entries = new ArrayList<>();
+        private final String projection;
+        private final String cacheDirectory;
+        private final List<CacheEntry> entries = new ArrayList<>();
 
         ProjectionEntries(String projection, String cacheDirectory) {
             this.projection = projection;
@@ -111,7 +111,9 @@ public class WmsCache {
 
     public WmsCache(String url, int tileSize) {
         File globalCacheDir = new File(cacheDirPath());
-        globalCacheDir.mkdirs();
+        if (!globalCacheDir.mkdirs()) {
+            Main.warn("Unable to create global cache directory: "+globalCacheDir.getAbsolutePath());
+        }
         cacheDir = new File(globalCacheDir, getCacheDirectory(url));
         cacheDir.mkdirs();
         this.tileSize = tileSize;
@@ -226,17 +228,23 @@ public class WmsCache {
                     referencedFiles.add(ce.filename);
                 }
 
-                for (File file: projectionDir.listFiles()) {
-                    if (!referencedFiles.contains(file.getName())) {
-                        file.delete();
+                File[] files = projectionDir.listFiles();
+                if (files != null) {
+                    for (File file: files) {
+                        if (!referencedFiles.contains(file.getName()) && !file.delete()) {
+                            Main.warn("Unable to delete file: "+file.getAbsolutePath());
+                        }
                     }
                 }
             }
         }
 
-        for (File projectionDir: cacheDir.listFiles()) {
-            if (projectionDir.isDirectory() && !usedProjections.contains(projectionDir.getName())) {
-                Utils.deleteDirectory(projectionDir);
+        File[] files = cacheDir.listFiles();
+        if (files != null) {
+            for (File projectionDir: files) {
+                if (projectionDir.isDirectory() && !usedProjections.contains(projectionDir.getName())) {
+                    Utils.deleteDirectory(projectionDir);
+                }
             }
         }
     }
@@ -345,7 +353,8 @@ public class WmsCache {
 
     private CacheEntry findEntry(ProjectionEntries projectionEntries, double pixelPerDegree, double east, double north) {
         for (CacheEntry entry: projectionEntries.entries) {
-            if (entry.pixelPerDegree == pixelPerDegree && entry.east == east && entry.north == north)
+            if (Utils.equalsEpsilon(entry.pixelPerDegree, pixelPerDegree)
+                    && Utils.equalsEpsilon(entry.east, east) && Utils.equalsEpsilon(entry.north, north))
                 return entry;
         }
         return null;
@@ -353,8 +362,7 @@ public class WmsCache {
 
     public synchronized boolean hasExactMatch(Projection projection, double pixelPerDegree, double east, double north) {
         ProjectionEntries projectionEntries = getProjectionEntries(projection);
-        CacheEntry entry = findEntry(projectionEntries, pixelPerDegree, east, north);
-        return (entry != null);
+        return findEntry(projectionEntries, pixelPerDegree, east, north) != null;
     }
 
     public BufferedImage getExactMatch(Projection projection, double pixelPerDegree, double east, double north) {
@@ -524,7 +532,9 @@ public class WmsCache {
             totalFileSize -= imageFile.length();
         }
 
-        imageFile.getParentFile().mkdirs();
+        if (!imageFile.getParentFile().mkdirs()) {
+            Main.warn("Unable to create parent directory: "+imageFile.getParentFile().getAbsolutePath());
+        }
 
         if (img != null) {
             BufferedImage copy = new BufferedImage(tileSize, tileSize, img.getType());
@@ -549,7 +559,9 @@ public class WmsCache {
                         totalFileSizeDirty = true; // File probably doesn't exist
                     }
                     totalFileSize -= size;
-                    file.delete();
+                    if (!file.delete()) {
+                        Main.warn("Unable to delete file: "+file.getAbsolutePath());
+                    }
                     it.remove();
                 }
             }

@@ -16,12 +16,12 @@ import org.openstreetmap.josm.tools.ImageProvider;
 
 public class MemberTableLinkedCellRenderer extends MemberTableCellRenderer {
 
-    static final Image arrowUp = ImageProvider.get("dialogs/relation", "arrowup").getImage();
-    static final Image arrowDown = ImageProvider.get("dialogs/relation", "arrowdown").getImage();
-    static final Image corners = ImageProvider.get("dialogs/relation", "roundedcorners").getImage();
-    static final Image roundabout_right = ImageProvider.get("dialogs/relation", "roundabout_right_tiny").getImage();
-    static final Image roundabout_left = ImageProvider.get("dialogs/relation", "roundabout_left_tiny").getImage();
-    private WayConnectionType value = new WayConnectionType();
+    private static final Image arrowUp = ImageProvider.get("dialogs/relation", "arrowup").getImage();
+    private static final Image arrowDown = ImageProvider.get("dialogs/relation", "arrowdown").getImage();
+    private static final Image corners = ImageProvider.get("dialogs/relation", "roundedcorners").getImage();
+    private static final Image roundabout_right = ImageProvider.get("dialogs/relation", "roundabout_right_tiny").getImage();
+    private static final Image roundabout_left = ImageProvider.get("dialogs/relation", "roundabout_left_tiny").getImage();
+    private transient WayConnectionType value = new WayConnectionType();
 
     @Override
     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
@@ -78,8 +78,7 @@ public class MemberTableLinkedCellRenderer extends MemberTableCellRenderer {
                 g.drawImage(corners,xoff,y1-3,xoff+3,y1, 0,0,3,3, new Color(0,0,0,0), null);
                 g.drawImage(corners,xoff+xloop-2,y1-3,xoff+xloop+1,y1, 2,0,5,3, new Color(0,0,0,0), null);
                 g.drawLine(xoff+3,y1-3,xoff+xloop-3,y1-3);
-            }
-            else {
+            } else {
                 g.setColor(Color.red);
                 if(value.isOnewayHead) {
                     g.drawRect(xoff-1, p - 3 - w, w, w);
@@ -106,8 +105,7 @@ public class MemberTableLinkedCellRenderer extends MemberTableCellRenderer {
                 g.drawLine(xoff, y2, xoff, y2+2);
                 g.drawImage(corners,xoff+xloop-2,y2+1,xoff+xloop+1,y2+4, 2,2,5,5, new Color(0,0,0,0), null);
                 g.drawLine(xoff+3-1,y2+3,xoff+xloop-3,y2+3);
-            }
-            else {
+            } else {
                 g.setColor(Color.red);
                 if(value.isOnewayTail) {
                     g.drawRect(xoff-1, ymax - p + 3, w, w);
@@ -187,7 +185,7 @@ public class MemberTableLinkedCellRenderer extends MemberTableCellRenderer {
             }
         }
 
-        if ((arrow != null)) {
+        if (arrow != null) {
             g.drawImage(arrow, xoff+xowloop-3, (y1 + y2) / 2 - 2, null);
         }
     }

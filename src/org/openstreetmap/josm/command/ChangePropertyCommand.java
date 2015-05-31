@@ -5,7 +5,6 @@ import static org.openstreetmap.josm.tools.I18n.marktr;
 import static org.openstreetmap.josm.tools.I18n.tr;
 import static org.openstreetmap.josm.tools.I18n.trn;
 
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -39,7 +38,7 @@ public class ChangePropertyCommand extends Command {
      * key. Otherwise, change the tags of all objects to the given value or create keys of
      * those objects that do not have the key yet.
      */
-    private final AbstractMap<String, String> tags;
+    private final Map<String, String> tags;
 
     /**
      * Creates a command to change multiple tags of multiple objects
@@ -47,7 +46,7 @@ public class ChangePropertyCommand extends Command {
      * @param objects the objects to modify
      * @param tags the tags to set
      */
-    public ChangePropertyCommand(Collection<? extends OsmPrimitive> objects, AbstractMap<String, String> tags) {
+    public ChangePropertyCommand(Collection<? extends OsmPrimitive> objects, Map<String, String> tags) {
         this.objects = new LinkedList<>();
         this.tags = tags;
         init(objects);
@@ -97,8 +96,7 @@ public class ChangePropertyCommand extends Command {
                     if (oldVal != null)
                         // new value is null and tag exists (will delete tag)
                         modified = true;
-                }
-                else if (oldVal == null || !newVal.equals(oldVal))
+                } else if (oldVal == null || !newVal.equals(oldVal))
                     // new value is not null and is different from current value
                     modified = true;
             }
@@ -121,8 +119,7 @@ public class ChangePropertyCommand extends Command {
                     if (newVal == null || newVal.isEmpty()) {
                         if (oldVal != null)
                             osm.remove(tag.getKey());
-                    }
-                    else if (oldVal == null || !newVal.equals(oldVal))
+                    } else if (oldVal == null || !newVal.equals(oldVal))
                         osm.put(tag.getKey(), newVal);
                 }
                 // init() only keeps modified primitives. Therefore the modified
@@ -130,8 +127,7 @@ public class ChangePropertyCommand extends Command {
                 osm.setModified(true);
             }
             return true;
-        }
-        finally {
+        } finally {
             Main.main.getCurrentDataSet().endUpdate();
         }
     }
@@ -171,8 +167,7 @@ public class ChangePropertyCommand extends Command {
                 /* I18n: plural form for objects, but value < 2 not possible! */
                 text = trn("Set {0}={1} for {2} object", "Set {0}={1} for {2} objects", objects.size(), entry.getKey(), entry.getValue(), objects.size());
             }
-        }
-        else {
+        } else {
             boolean allnull = true;
             for (Map.Entry<String, String> tag : this.tags.entrySet()) {
                 if (tag.getValue() != null) {

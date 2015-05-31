@@ -70,7 +70,7 @@ public class DNSName implements GeneralNameInterface {
      * @throws IOException if the name is not a valid DNSName subjectAltName
      */
     public DNSName(String name) throws IOException {
-        if (name == null || name.length() == 0)
+        if (name == null || name.isEmpty())
             throw new IOException("DNS name must not be null");
         if (name.indexOf(' ') != -1)
             throw new IOException("DNS names or NameConstraints with blank components are not permitted");
@@ -100,8 +100,9 @@ public class DNSName implements GeneralNameInterface {
     /**
      * Return the type of the GeneralName.
      */
+    @Override
     public int getType() {
-        return (GeneralNameInterface.NAME_DNS);
+        return GeneralNameInterface.NAME_DNS;
     }
 
     /**
@@ -116,8 +117,9 @@ public class DNSName implements GeneralNameInterface {
      * Encode the DNS name into the DerOutputStream.
      *
      * @param out the DER stream to encode the DNSName to.
-     * @exception IOException on encoding errors.
+     * @throws IOException on encoding errors.
      */
+    @Override
     public void encode(DerOutputStream out) throws IOException {
         out.putIA5String(name);
     }
@@ -127,7 +129,7 @@ public class DNSName implements GeneralNameInterface {
      */
     @Override
     public String toString() {
-        return ("DNSName: " + name);
+        return "DNSName: " + name;
     }
 
     /**
@@ -158,7 +160,7 @@ public class DNSName implements GeneralNameInterface {
      */
     @Override
     public int hashCode() {
-        return name.toUpperCase().hashCode();
+        return name.toUpperCase(Locale.ENGLISH).hashCode();
     }
 
     /**
@@ -187,11 +189,12 @@ public class DNSName implements GeneralNameInterface {
      * order zero bit.
      * <p>
      * @param inputName to be checked for being constrained
-     * @returns constraint type above
+     * @return constraint type above
      * @throws UnsupportedOperationException if name is not exact match, but narrowing and widening are
      *          not supported for this name type.
      */
-    public int constrains(GeneralNameInterface inputName) throws UnsupportedOperationException {
+    @Override
+    public int constrains(GeneralNameInterface inputName) {
         int constraintType;
         if (inputName == null)
             constraintType = NAME_DIFF_TYPE;
@@ -227,10 +230,11 @@ public class DNSName implements GeneralNameInterface {
      * NameConstraints minimum and maximum bounds and for calculating
      * path lengths in name subtrees.
      *
-     * @returns distance of name from root
+     * @return distance of name from root
      * @throws UnsupportedOperationException if not supported for this name type
      */
-    public int subtreeDepth() throws UnsupportedOperationException {
+    @Override
+    public int subtreeDepth() {
         String subtree=name;
         int i=1;
 

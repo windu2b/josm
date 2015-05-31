@@ -38,6 +38,8 @@ import org.openstreetmap.josm.tools.Utils;
  */
 public class NTV2SubGrid implements Cloneable, Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     private String subGridName;
     private String parentSubGridName;
     private String created;
@@ -57,7 +59,6 @@ public class NTV2SubGrid implements Cloneable, Serializable {
     private float[] latAccuracy;
     private float[] lonAccuracy;
 
-    boolean bigEndian;
     private NTV2SubGrid[] subGrid;
 
     /**
@@ -73,40 +74,40 @@ public class NTV2SubGrid implements Cloneable, Serializable {
         byte[] b8 = new byte[8];
         byte[] b4 = new byte[4];
         byte[] b1 = new byte[1];
-        in.read(b8);
-        in.read(b8);
+        readBytes(in, b8);
+        readBytes(in, b8);
         subGridName = new String(b8, StandardCharsets.UTF_8).trim();
-        in.read(b8);
-        in.read(b8);
+        readBytes(in, b8);
+        readBytes(in, b8);
         parentSubGridName = new String(b8, StandardCharsets.UTF_8).trim();
-        in.read(b8);
-        in.read(b8);
+        readBytes(in, b8);
+        readBytes(in, b8);
         created = new String(b8, StandardCharsets.UTF_8);
-        in.read(b8);
-        in.read(b8);
+        readBytes(in, b8);
+        readBytes(in, b8);
         updated = new String(b8, StandardCharsets.UTF_8);
-        in.read(b8);
-        in.read(b8);
+        readBytes(in, b8);
+        readBytes(in, b8);
         minLat = NTV2Util.getDouble(b8, bigEndian);
-        in.read(b8);
-        in.read(b8);
+        readBytes(in, b8);
+        readBytes(in, b8);
         maxLat = NTV2Util.getDouble(b8, bigEndian);
-        in.read(b8);
-        in.read(b8);
+        readBytes(in, b8);
+        readBytes(in, b8);
         minLon = NTV2Util.getDouble(b8, bigEndian);
-        in.read(b8);
-        in.read(b8);
+        readBytes(in, b8);
+        readBytes(in, b8);
         maxLon = NTV2Util.getDouble(b8, bigEndian);
-        in.read(b8);
-        in.read(b8);
+        readBytes(in, b8);
+        readBytes(in, b8);
         latInterval = NTV2Util.getDouble(b8, bigEndian);
-        in.read(b8);
-        in.read(b8);
+        readBytes(in, b8);
+        readBytes(in, b8);
         lonInterval = NTV2Util.getDouble(b8, bigEndian);
         lonColumnCount = 1 + (int)((maxLon - minLon) / lonInterval);
         latRowCount = 1 + (int)((maxLat - minLat) / latInterval);
-        in.read(b8);
-        in.read(b8);
+        readBytes(in, b8);
+        readBytes(in, b8);
         nodeCount = NTV2Util.getInt(b8, bigEndian);
         if (nodeCount != lonColumnCount * latRowCount)
             throw new IllegalStateException("SubGrid " + subGridName + " has inconsistent grid dimesions");
@@ -121,30 +122,36 @@ public class NTV2SubGrid implements Cloneable, Serializable {
             // Read the grid file byte after byte. This is a workaround about a bug in
             // certain VM which are not able to read byte blocks when the resource file is
             // in a .jar file (Pieren)
-            in.read(b1); b4[0] = b1[0];
-            in.read(b1); b4[1] = b1[0];
-            in.read(b1); b4[2] = b1[0];
-            in.read(b1); b4[3] = b1[0];
+            readBytes(in, b1); b4[0] = b1[0];
+            readBytes(in, b1); b4[1] = b1[0];
+            readBytes(in, b1); b4[2] = b1[0];
+            readBytes(in, b1); b4[3] = b1[0];
             latShift[i] = NTV2Util.getFloat(b4, bigEndian);
-            in.read(b1); b4[0] = b1[0];
-            in.read(b1); b4[1] = b1[0];
-            in.read(b1); b4[2] = b1[0];
-            in.read(b1); b4[3] = b1[0];
+            readBytes(in, b1); b4[0] = b1[0];
+            readBytes(in, b1); b4[1] = b1[0];
+            readBytes(in, b1); b4[2] = b1[0];
+            readBytes(in, b1); b4[3] = b1[0];
             lonShift[i] = NTV2Util.getFloat(b4, bigEndian);
-            in.read(b1); b4[0] = b1[0];
-            in.read(b1); b4[1] = b1[0];
-            in.read(b1); b4[2] = b1[0];
-            in.read(b1); b4[3] = b1[0];
+            readBytes(in, b1); b4[0] = b1[0];
+            readBytes(in, b1); b4[1] = b1[0];
+            readBytes(in, b1); b4[2] = b1[0];
+            readBytes(in, b1); b4[3] = b1[0];
             if (loadAccuracy) {
                 latAccuracy[i] = NTV2Util.getFloat(b4, bigEndian);
             }
-            in.read(b1); b4[0] = b1[0];
-            in.read(b1); b4[1] = b1[0];
-            in.read(b1); b4[2] = b1[0];
-            in.read(b1); b4[3] = b1[0];
+            readBytes(in, b1); b4[0] = b1[0];
+            readBytes(in, b1); b4[1] = b1[0];
+            readBytes(in, b1); b4[2] = b1[0];
+            readBytes(in, b1); b4[3] = b1[0];
             if (loadAccuracy) {
                 lonAccuracy[i] = NTV2Util.getFloat(b4, bigEndian);
             }
+        }
+    }
+
+    private void readBytes(InputStream in, byte[] b) throws IOException {
+        if (in.read(b) < b.length) {
+            Main.error("Failed to read expected amount of bytes ("+ b.length +") from stream");
         }
     }
 
@@ -192,37 +199,36 @@ public class NTV2SubGrid implements Cloneable, Serializable {
     /**
      * Bi-Linear interpolation of four nearest node values as described in
      * 'GDAit Software Architecture Manual' produced by the <a
-     * href='http://www.sli.unimelb.edu.au/gda94'>Geomatics
-     * Department of the University of Melbourne</a>
+     * href='http://www.dtpli.vic.gov.au/property-and-land-titles/geodesy/geocentric-datum-of-australia-1994-gda94/gda94-useful-tools'>
+     * Geomatics Department of the University of Melbourne</a>
      * @param a value at the A node
      * @param b value at the B node
      * @param c value at the C node
      * @param d value at the D node
-     * @param X Longitude factor
-     * @param Y Latitude factor
+     * @param x Longitude factor
+     * @param y Latitude factor
      * @return interpolated value
      */
-    private final double interpolate(float a, float b, float c, float d, double X, double Y) {
-        return a + (((double)b - (double)a) * X) + (((double)c - (double)a) * Y) +
-        (((double)a + (double)d - b - c) * X * Y);
+    private final double interpolate(float a, float b, float c, float d, double x, double y) {
+        return a + (((double)b - (double)a) * x) + (((double)c - (double)a) * y) +
+        (((double)a + (double)d - b - c) * x * y);
     }
 
     /**
      * Interpolate shift and accuracy values for a coordinate in the 'from' datum
      * of the GridShiftFile. The algorithm is described in
      * 'GDAit Software Architecture Manual' produced by the <a
-     * href='http://www.sli.unimelb.edu.au/gda94'>Geomatics
-     * Department of the University of Melbourne</a>
+     * href='http://www.dtpli.vic.gov.au/property-and-land-titles/geodesy/geocentric-datum-of-australia-1994-gda94/gda94-useful-tools'>
+     * Geomatics Department of the University of Melbourne</a>
      * <p>This method is thread safe for both memory based and file based node data.
      * @param gs GridShift object containing the coordinate to shift and the shift values
-     * @return the GridShift object supplied, with values updated.
      */
-    public NTV2GridShift interpolateGridShift(NTV2GridShift gs) {
+    public void interpolateGridShift(NTV2GridShift gs) {
         int lonIndex = (int)((gs.getLonPositiveWestSeconds() - minLon) / lonInterval);
         int latIndex = (int)((gs.getLatSeconds() - minLat) / latInterval);
 
-        double X = (gs.getLonPositiveWestSeconds() - (minLon + (lonInterval * lonIndex))) / lonInterval;
-        double Y = (gs.getLatSeconds() - (minLat + (latInterval * latIndex))) / latInterval;
+        double x = (gs.getLonPositiveWestSeconds() - (minLon + (lonInterval * lonIndex))) / lonInterval;
+        double y = (gs.getLatSeconds() - (minLat + (latInterval * latIndex))) / latInterval;
 
         // Find the nodes at the four corners of the cell
 
@@ -232,17 +238,17 @@ public class NTV2SubGrid implements Cloneable, Serializable {
         int indexD = indexC + 1;
 
         gs.setLonShiftPositiveWestSeconds(interpolate(
-                lonShift[indexA], lonShift[indexB], lonShift[indexC], lonShift[indexD], X, Y));
+                lonShift[indexA], lonShift[indexB], lonShift[indexC], lonShift[indexD], x, y));
 
         gs.setLatShiftSeconds(interpolate(
-                latShift[indexA], latShift[indexB], latShift[indexC], latShift[indexD], X, Y));
+                latShift[indexA], latShift[indexB], latShift[indexC], latShift[indexD], x, y));
 
         if (lonAccuracy == null) {
             gs.setLonAccuracyAvailable(false);
         } else {
             gs.setLonAccuracyAvailable(true);
             gs.setLonAccuracySeconds(interpolate(
-                    lonAccuracy[indexA], lonAccuracy[indexB], lonAccuracy[indexC], lonAccuracy[indexD], X, Y));
+                    lonAccuracy[indexA], lonAccuracy[indexB], lonAccuracy[indexC], lonAccuracy[indexD], x, y));
         }
 
         if (latAccuracy == null) {
@@ -250,9 +256,8 @@ public class NTV2SubGrid implements Cloneable, Serializable {
         } else {
             gs.setLatAccuracyAvailable(true);
             gs.setLatAccuracySeconds(interpolate(
-                    latAccuracy[indexA], latAccuracy[indexB], latAccuracy[indexC], latAccuracy[indexD], X, Y));
+                    latAccuracy[indexA], latAccuracy[indexB], latAccuracy[indexC], latAccuracy[indexD], x, y));
         }
-        return gs;
     }
 
     public String getParentSubGridName() {
@@ -293,29 +298,29 @@ public class NTV2SubGrid implements Cloneable, Serializable {
      * @return textual details about the sub grid
      */
     public String getDetails() {
-        StringBuilder buf = new StringBuilder("Sub Grid : ");
-        buf.append(subGridName);
-        buf.append("\nParent   : ");
-        buf.append(parentSubGridName);
-        buf.append("\nCreated  : ");
-        buf.append(created);
-        buf.append("\nUpdated  : ");
-        buf.append(updated);
-        buf.append("\nMin Lat  : ");
-        buf.append(minLat);
-        buf.append("\nMax Lat  : ");
-        buf.append(maxLat);
-        buf.append("\nMin Lon  : ");
-        buf.append(minLon);
-        buf.append("\nMax Lon  : ");
-        buf.append(maxLon);
-        buf.append("\nLat Intvl: ");
-        buf.append(latInterval);
-        buf.append("\nLon Intvl: ");
-        buf.append(lonInterval);
-        buf.append("\nNode Cnt : ");
-        buf.append(nodeCount);
-        return buf.toString();
+        StringBuilder buff = new StringBuilder("Sub Grid : ");
+        buff.append(subGridName)
+            .append("\nParent   : ")
+            .append(parentSubGridName)
+            .append("\nCreated  : ")
+            .append(created)
+            .append("\nUpdated  : ")
+            .append(updated)
+            .append("\nMin Lat  : ")
+            .append(minLat)
+            .append("\nMax Lat  : ")
+            .append(maxLat)
+            .append("\nMin Lon  : ")
+            .append(minLon)
+            .append("\nMax Lon  : ")
+            .append(maxLon)
+            .append("\nLat Intvl: ")
+            .append(latInterval)
+            .append("\nLon Intvl: ")
+            .append(lonInterval)
+            .append("\nNode Cnt : ")
+            .append(nodeCount);
+        return buff.toString();
     }
 
     /**

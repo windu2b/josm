@@ -10,7 +10,6 @@ import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.io.IOException;
 
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -57,12 +56,8 @@ public class Demo extends JFrame implements JMapViewerEventListener  {
         treeMap = new JMapViewerTree("Zones");
 
         // Listen to the map viewer for user operations so components will
-        // recieve events and update
+        // receive events and update
         map().addJMVListener(this);
-
-        // final JMapViewer map = new JMapViewer(new MemoryTileCache(),4);
-        // map.setTileLoader(new OsmFileCacheTileLoader(map));
-        // new DefaultMapController(map);
 
         setLayout(new BorderLayout());
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -93,19 +88,19 @@ public class Demo extends JFrame implements JMapViewerEventListener  {
                 map().setDisplayToFitMapMarkers();
             }
         });
-        JComboBox<TileSource> tileSourceSelector = new JComboBox<>(new TileSource[] { new OsmTileSource.Mapnik(),
-                new OsmTileSource.CycleMap(), new BingAerialTileSource(), new MapQuestOsmTileSource(), new MapQuestOpenAerialTileSource() });
+        JComboBox<TileSource> tileSourceSelector = new JComboBox<>(new TileSource[] {
+                new OsmTileSource.Mapnik(),
+                new OsmTileSource.CycleMap(),
+                new BingAerialTileSource(),
+                new MapQuestOsmTileSource(),
+                new MapQuestOpenAerialTileSource() });
         tileSourceSelector.addItemListener(new ItemListener() {
             public void itemStateChanged(ItemEvent e) {
                 map().setTileSource((TileSource) e.getItem());
             }
         });
         JComboBox<TileLoader> tileLoaderSelector;
-        try {
-            tileLoaderSelector = new JComboBox<>(new TileLoader[] { new OsmFileCacheTileLoader(map()), new OsmTileLoader(map()) });
-        } catch (IOException e) {
-            tileLoaderSelector = new JComboBox<>(new TileLoader[] { new OsmTileLoader(map()) });
-        }
+        tileLoaderSelector = new JComboBox<>(new TileLoader[] { new OsmTileLoader(map()) });
         tileLoaderSelector.addItemListener(new ItemListener() {
             public void itemStateChanged(ItemEvent e) {
                 map().setTileLoader((TileLoader) e.getItem());
@@ -148,7 +143,7 @@ public class Demo extends JFrame implements JMapViewerEventListener  {
         });
         panelBottom.add(showTileGrid);
         final JCheckBox showZoomControls = new JCheckBox("Show zoom controls");
-        showZoomControls.setSelected(map().getZoomContolsVisible());
+        showZoomControls.setSelected(map().getZoomControlsVisible());
         showZoomControls.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 map().setZoomContolsVisible(showZoomControls.isSelected());

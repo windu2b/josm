@@ -7,7 +7,8 @@ import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.util.HashMap;
+import java.util.EnumMap;
+import java.util.Locale;
 import java.util.Map;
 
 import javax.swing.ButtonGroup;
@@ -19,9 +20,9 @@ import javax.swing.event.ChangeListener;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.gui.widgets.JMultilineLabel;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 import org.openstreetmap.josm.gui.widgets.SelectAllOnFocusGainedDecorator;
 import org.openstreetmap.josm.plugins.PluginHandler;
-import org.openstreetmap.josm.gui.widgets.JosmTextField;
 
 /**
  * A panel for configuring whether JOSM shall update plugins at startup.
@@ -45,7 +46,7 @@ public class PluginUpdatePolicyPanel extends JPanel {
 
         static Policy fromPreferenceValue(String preferenceValue) {
             if (preferenceValue == null) return null;
-            preferenceValue = preferenceValue.trim().toLowerCase();
+            preferenceValue = preferenceValue.trim().toLowerCase(Locale.ENGLISH);
             for (Policy p: Policy.values()) {
                 if (p.getPreferencesValue().equals(preferenceValue))
                     return p;
@@ -54,8 +55,8 @@ public class PluginUpdatePolicyPanel extends JPanel {
         }
     }
 
-    private Map<Policy, JRadioButton> rbVersionBasedUpatePolicy;
-    private Map<Policy, JRadioButton> rbTimeBasedUpatePolicy;
+    private transient Map<Policy, JRadioButton> rbVersionBasedUpatePolicy;
+    private transient Map<Policy, JRadioButton> rbTimeBasedUpatePolicy;
     private JosmTextField tfUpdateInterval;
     private JLabel lblUpdateInterval;
 
@@ -67,7 +68,7 @@ public class PluginUpdatePolicyPanel extends JPanel {
         gc.weightx  =1.0;
 
         ButtonGroup bgVersionBasedUpdatePolicy = new ButtonGroup();
-        rbVersionBasedUpatePolicy = new HashMap<>();
+        rbVersionBasedUpatePolicy = new EnumMap<>(Policy.class);
         JRadioButton btn = new JRadioButton(tr("Ask before updating"));
         rbVersionBasedUpatePolicy.put(Policy.ASK, btn);
         bgVersionBasedUpdatePolicy.add(btn);
@@ -94,6 +95,7 @@ public class PluginUpdatePolicyPanel extends JPanel {
         JPanel pnl = new JPanel(new FlowLayout(FlowLayout.LEFT));
         pnl.add(lblUpdateInterval = new JLabel(tr("Update interval (in days):")));
         pnl.add(tfUpdateInterval = new JosmTextField(5));
+        lblUpdateInterval.setLabelFor(tfUpdateInterval);
         SelectAllOnFocusGainedDecorator.decorate(tfUpdateInterval);
         return pnl;
     }
@@ -108,7 +110,7 @@ public class PluginUpdatePolicyPanel extends JPanel {
         TimeBasedPolicyChangeListener changeListener = new TimeBasedPolicyChangeListener();
 
         ButtonGroup bgTimeBasedUpdatePolicy = new ButtonGroup();
-        rbTimeBasedUpatePolicy = new HashMap<>();
+        rbTimeBasedUpatePolicy = new EnumMap<>(Policy.class);
         JRadioButton btn = new JRadioButton(tr("Ask before updating"));
         btn.addChangeListener(changeListener);
         rbTimeBasedUpatePolicy.put(Policy.ASK, btn);
@@ -124,7 +126,8 @@ public class PluginUpdatePolicyPanel extends JPanel {
         rbTimeBasedUpatePolicy.put(Policy.NEVER, btn);
         bgTimeBasedUpdatePolicy.add(btn);
 
-        JMultilineLabel lbl = new JMultilineLabel(tr("Please decide whether JOSM shall automatically update active plugins after a certain period of time."));
+        JMultilineLabel lbl = new JMultilineLabel(
+                tr("Please decide whether JOSM shall automatically update active plugins after a certain period of time."));
         gc.gridy=0;
         pnl.add(lbl, gc);
         for (Policy p: Policy.values()) {

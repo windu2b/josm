@@ -68,15 +68,15 @@ public class NMEAImporter extends FileImporter {
     }
 
     private void showNmeaInfobox(boolean success, NmeaReader r) {
-        final StringBuilder msg = new StringBuilder().append("<html>");
-        msg.append(tr("Coordinates imported: {0}", r.getNumberOfCoordinates()) + "<br>");
-        msg.append(tr("Malformed sentences: {0}", r.getParserMalformed()) + "<br>");
-        msg.append(tr("Checksum errors: {0}", r.getParserChecksumErrors()) + "<br>");
+        final StringBuilder msg = new StringBuilder(160).append("<html>");
+        msg.append(tr("Coordinates imported: {0}", r.getNumberOfCoordinates())).append("<br>")
+           .append(tr("Malformed sentences: {0}", r.getParserMalformed())).append("<br>")
+           .append(tr("Checksum errors: {0}", r.getParserChecksumErrors())).append("<br>");
         if (!success) {
-            msg.append(tr("Unknown sentences: {0}", r.getParserUnknown()) + "<br>");
+            msg.append(tr("Unknown sentences: {0}", r.getParserUnknown())).append("<br>");
         }
-        msg.append(tr("Zero coordinates: {0}", r.getParserZeroCoordinates()));
-        msg.append("</html>");
+        msg.append(tr("Zero coordinates: {0}", r.getParserZeroCoordinates()))
+           .append("</html>");
         if (success) {
             SwingUtilities.invokeLater(new Runnable() {
                 @Override

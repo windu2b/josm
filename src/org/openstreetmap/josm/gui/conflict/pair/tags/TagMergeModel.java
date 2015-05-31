@@ -32,16 +32,19 @@ public class TagMergeModel extends DefaultTableModel {
     public static final String PROP_NUM_UNDECIDED_TAGS = TagMergeModel.class.getName() + ".numUndecidedTags";
 
     /** the list of tag merge items */
-    private final List<TagMergeItem> tagMergeItems;
+    private final transient List<TagMergeItem> tagMergeItems;
 
     /** the property change listeners */
-    private final List<PropertyChangeListener> listeners;
+    private final transient Set<PropertyChangeListener> listeners;
 
     private int numUndecidedTags = 0;
 
+    /**
+     * Constructs a new {@code TagMergeModel}.
+     */
     public TagMergeModel() {
         tagMergeItems = new ArrayList<>();
-        listeners = new ArrayList<>();
+        listeners = new HashSet<>();
     }
 
     public void addPropertyChangeListener(PropertyChangeListener listener) {

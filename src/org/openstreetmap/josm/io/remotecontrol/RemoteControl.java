@@ -1,6 +1,12 @@
 // License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.io.remotecontrol;
 
+import java.io.File;
+import java.net.InetAddress;
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.UnknownHostException;
+
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.preferences.BooleanProperty;
 import org.openstreetmap.josm.io.remotecontrol.handler.RequestHandler;
@@ -24,7 +30,8 @@ public class RemoteControl {
      * only HTTP access will be available.
      * @since 7335
      */
-    public static final BooleanProperty PROP_REMOTECONTROL_HTTPS_ENABLED = new BooleanProperty("remotecontrol.https.enabled", false);
+    public static final BooleanProperty PROP_REMOTECONTROL_HTTPS_ENABLED = new BooleanProperty(
+            "remotecontrol.https.enabled", false);
 
     /**
      * RemoteControl HTTP protocol version. Change minor number for compatible
@@ -32,7 +39,7 @@ public class RemoteControl {
      * changes.
      */
     static final int protocolMajorVersion = 1;
-    static final int protocolMinorVersion = 5;
+    static final int protocolMinorVersion = 7;
 
     /**
      * Starts the remote control server
@@ -68,6 +75,37 @@ public class RemoteControl {
      * @since 7335
      */
     public static String getRemoteControlDir() {
-        return Main.pref.getPreferencesDir() + "remotecontrol/";
+        return new File(Main.pref.getUserDataDirectory(), "remotecontrol").getAbsolutePath();
+    }
+
+    /**
+     * Returns the IPv6 address used for remote control.
+     * @return the IPv6 address used for remote control
+     * @throws UnknownHostException if the local host name could not be resolved into an address.
+     * @since 8337
+     */
+    public static InetAddress getInet6Address() throws UnknownHostException {
+        for(InetAddress a : InetAddress.getAllByName(Main.pref.get("remote.control.host.ipv6", "::1"))) {
+            if(a instanceof Inet6Address) {
+                return a;
+            }
+        };
+        throw new UnknownHostException();
+    }
+
+    /**
+     * Returns the IPv4 address used for remote control.
+     * @return the IPv4 address used for remote control
+     * @throws UnknownHostException if the local host name could not be resolved into an address.
+     * @since 8337
+     */
+    public static InetAddress getInet4Address() throws UnknownHostException {
+        // Return an address to the loopback interface by default
+        for(InetAddress a : InetAddress.getAllByName(Main.pref.get("remote.control.host.ipv4", "127.0.0.1"))) {
+            if(a instanceof Inet4Address) {
+                return a;
+            }
+        };
+        throw new UnknownHostException();
     }
 }

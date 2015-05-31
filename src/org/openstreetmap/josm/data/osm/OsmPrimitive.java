@@ -14,6 +14,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -160,7 +161,7 @@ public abstract class OsmPrimitive extends AbstractPrimitive implements Comparab
      * empty set if primitives is null or if there are no referring primitives
      */
     public static Set<OsmPrimitive> getReferrer(Collection<? extends OsmPrimitive> primitives) {
-        HashSet<OsmPrimitive> ret = new HashSet<>();
+        Set<OsmPrimitive> ret = new HashSet<>();
         if (primitives == null || primitives.isEmpty()) return ret;
         for (OsmPrimitive p: primitives) {
             ret.addAll(p.getReferrers());
@@ -172,13 +173,15 @@ public abstract class OsmPrimitive extends AbstractPrimitive implements Comparab
      * Some predicates, that describe conditions on primitives.
      */
     public static final Predicate<OsmPrimitive> isUsablePredicate = new Predicate<OsmPrimitive>() {
-        @Override public boolean evaluate(OsmPrimitive primitive) {
+        @Override
+        public boolean evaluate(OsmPrimitive primitive) {
             return primitive.isUsable();
         }
     };
 
     public static final Predicate<OsmPrimitive> isSelectablePredicate = new Predicate<OsmPrimitive>() {
-        @Override public boolean evaluate(OsmPrimitive primitive) {
+        @Override
+        public boolean evaluate(OsmPrimitive primitive) {
             return primitive.isSelectable();
         }
     };
@@ -246,9 +249,9 @@ public abstract class OsmPrimitive extends AbstractPrimitive implements Comparab
      *
      * @param id the id
      * @param allowNegativeId
-     * @throws IllegalArgumentException thrown if id &lt; 0 and allowNegativeId is false
+     * @throws IllegalArgumentException if id &lt; 0 and allowNegativeId is false
      */
-    protected OsmPrimitive(long id, boolean allowNegativeId) throws IllegalArgumentException {
+    protected OsmPrimitive(long id, boolean allowNegativeId) {
         if (allowNegativeId) {
             this.id = id;
         } else {
@@ -277,9 +280,9 @@ public abstract class OsmPrimitive extends AbstractPrimitive implements Comparab
      * @param id
      * @param version
      * @param allowNegativeId
-     * @throws IllegalArgumentException thrown if id &lt; 0 and allowNegativeId is false
+     * @throws IllegalArgumentException if id &lt; 0 and allowNegativeId is false
      */
-    protected OsmPrimitive(long id, int version, boolean allowNegativeId) throws IllegalArgumentException {
+    protected OsmPrimitive(long id, int version, boolean allowNegativeId) {
         this(id, allowNegativeId);
         this.version = (id > 0 ? version : 0);
         setIncomplete(id > 0 && version == 0);
@@ -295,8 +298,7 @@ public abstract class OsmPrimitive extends AbstractPrimitive implements Comparab
     /* This should not be called from outside. Fixing the UI to add relevant
        get/set functions calling this implicitely is preferred, so we can have
        transparent cache handling in the future. */
-    public void clearCachedStyle()
-    {
+    public void clearCachedStyle() {
         mappaintStyle = null;
     }
     /* end of mappaint data */
@@ -357,9 +359,9 @@ public abstract class OsmPrimitive extends AbstractPrimitive implements Comparab
      *
      * @param id the id. &gt; 0 required
      * @param version the version &gt; 0 required
-     * @throws IllegalArgumentException thrown if id &lt;= 0
-     * @throws IllegalArgumentException thrown if version &lt;= 0
-     * @throws DataIntegrityProblemException If id is changed and primitive was already added to the dataset
+     * @throws IllegalArgumentException if id &lt;= 0
+     * @throws IllegalArgumentException if version &lt;= 0
+     * @throws DataIntegrityProblemException if id is changed and primitive was already added to the dataset
      */
     @Override
     public void setOsmId(long id, int version) {
@@ -410,7 +412,7 @@ public abstract class OsmPrimitive extends AbstractPrimitive implements Comparab
     }
 
     @Override
-    public void setChangesetId(int changesetId) throws IllegalStateException, IllegalArgumentException {
+    public void setChangesetId(int changesetId) {
         boolean locked = writeLock();
         try {
             int old = this.changesetId;
@@ -438,7 +440,7 @@ public abstract class OsmPrimitive extends AbstractPrimitive implements Comparab
     /* FLAGS
     /* ------*/
 
-    private void updateFlagsNoLock (int flag, boolean value) {
+    private void updateFlagsNoLock(int flag, boolean value) {
         super.updateFlags(flag, value);
     }
 
@@ -516,7 +518,7 @@ public abstract class OsmPrimitive extends AbstractPrimitive implements Comparab
      * completely hidden on the map.
      */
     public boolean isDisabledAndHidden() {
-        return (((flags & FLAG_DISABLED) != 0) && ((flags & FLAG_HIDE_IF_DISABLED) != 0));
+        return ((flags & FLAG_DISABLED) != 0) && ((flags & FLAG_HIDE_IF_DISABLED) != 0);
     }
 
     /**
@@ -542,7 +544,7 @@ public abstract class OsmPrimitive extends AbstractPrimitive implements Comparab
     }
 
     @Override
-    public void setVisible(boolean visible) throws IllegalStateException {
+    public void setVisible(boolean visible) {
         boolean locked = writeLock();
         try {
             super.setVisible(visible);
@@ -589,6 +591,10 @@ public abstract class OsmPrimitive extends AbstractPrimitive implements Comparab
         return dataSet != null && dataSet.isSelected(this);
     }
 
+    /**
+     * Determines if this primitive is a member of a selected relation.
+     * @return {@code true} if this primitive is a member of a selected relation, {@code false} otherwise
+     */
     public boolean isMemberOfSelected() {
         if (referrers == null)
             return false;
@@ -597,6 +603,35 @@ public abstract class OsmPrimitive extends AbstractPrimitive implements Comparab
         for (OsmPrimitive ref : (OsmPrimitive[]) referrers) {
             if (ref instanceof Relation && ref.isSelected())
                 return true;
+        }
+        return false;
+    }
+
+    /**
+     * Determines if this primitive is an outer member of a selected multipolygon relation.
+     * @return {@code true} if this primitive is an outer member of a selected multipolygon relation, {@code false} otherwise
+     * @since 7621
+     */
+    public boolean isOuterMemberOfSelected() {
+        if (referrers == null)
+            return false;
+        if (referrers instanceof OsmPrimitive) {
+            return isOuterMemberOfMultipolygon((OsmPrimitive) referrers);
+        }
+        for (OsmPrimitive ref : (OsmPrimitive[]) referrers) {
+            if (isOuterMemberOfMultipolygon(ref))
+                return true;
+        }
+        return false;
+    }
+
+    private boolean isOuterMemberOfMultipolygon(OsmPrimitive ref) {
+        if (ref instanceof Relation && ref.isSelected() && ((Relation)ref).isMultipolygon()) {
+            for (RelationMember rm : ((Relation)ref).getMembersFor(Collections.singleton(this))) {
+                if ("outer".equals(rm.getRole())) {
+                    return true;
+                }
+            }
         }
         return false;
     }
@@ -631,7 +666,7 @@ public abstract class OsmPrimitive extends AbstractPrimitive implements Comparab
      */
     public static Collection<String> getUninterestingKeys() {
         if (uninteresting == null) {
-            LinkedList<String> l = new LinkedList<>(Arrays.asList(
+            List<String> l = new LinkedList<>(Arrays.asList(
                 "source", "source_ref", "source:", "comment",
                 "converted_by", "watch", "watch:",
                 "description", "attribution"));
@@ -756,7 +791,7 @@ public abstract class OsmPrimitive extends AbstractPrimitive implements Comparab
         String directionDefault = "oneway? | (aerialway=* aerialway!=station) | "+
                 "waterway=stream | waterway=river | waterway=canal | waterway=drain | waterway=rapids | "+
                 "\"piste:type\"=downhill | \"piste:type\"=sled | man_made=\"piste:halfpipe\" | "+
-                "junction=roundabout | (highway=motorway_link & -oneway=no)";
+                "junction=roundabout | (highway=motorway_link & -oneway=no & -oneway=reversible)";
 
         try {
             reversedDirectionKeys = SearchCompiler.compile(Main.pref.get("tags.reversed_direction", reversedDirectionDefault), false, false);
@@ -1098,9 +1133,9 @@ public abstract class OsmPrimitive extends AbstractPrimitive implements Comparab
      * have an assigend OSM id, the IDs have to be the same.
      *
      * @param other the other primitive. Must not be null.
-     * @throws IllegalArgumentException thrown if other is null.
-     * @throws DataIntegrityProblemException thrown if either this is new and other is not, or other is new and this is not
-     * @throws DataIntegrityProblemException thrown if other isn't new and other.getId() != this.getId()
+     * @throws IllegalArgumentException if other is null.
+     * @throws DataIntegrityProblemException if either this is new and other is not, or other is new and this is not
+     * @throws DataIntegrityProblemException if other isn't new and other.getId() != this.getId()
      */
     public void mergeFrom(OsmPrimitive other) {
         boolean locked = writeLock();
@@ -1249,19 +1284,19 @@ public abstract class OsmPrimitive extends AbstractPrimitive implements Comparab
 
         if (isDisabled()) {
             if (isDisabledAndHidden()) {
-                builder.append("h");
+                builder.append('h');
             } else {
-                builder.append("d");
+                builder.append('d');
             }
         }
         if (isTagged()) {
-            builder.append("T");
+            builder.append('T');
         }
         if (hasDirectionKeys()) {
             if (reversedDirection()) {
-                builder.append("<");
+                builder.append('<');
             } else {
-                builder.append(">");
+                builder.append('>');
             }
         }
         return builder.toString();
@@ -1307,7 +1342,7 @@ public abstract class OsmPrimitive extends AbstractPrimitive implements Comparab
     @Override
     public Object getTemplateValue(String name, boolean special) {
         if (special) {
-            String lc = name.toLowerCase();
+            String lc = name.toLowerCase(Locale.ENGLISH);
             if (SPECIAL_VALUE_ID.equals(lc))
                 return getId();
             else if (SPECIAL_VALUE_LOCAL_NAME.equals(lc))
@@ -1330,7 +1365,7 @@ public abstract class OsmPrimitive extends AbstractPrimitive implements Comparab
      * @return the set of referring relations
      */
     public static Set<Relation> getParentRelations(Collection<? extends OsmPrimitive> primitives) {
-        HashSet<Relation> ret = new HashSet<>();
+        Set<Relation> ret = new HashSet<>();
         for (OsmPrimitive w : primitives) {
             ret.addAll(OsmPrimitive.getFilteredList(w.getReferrers(), Relation.class));
         }

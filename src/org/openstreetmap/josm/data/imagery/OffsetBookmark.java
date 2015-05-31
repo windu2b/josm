@@ -70,7 +70,7 @@ public class OffsetBookmark {
         res.add(name);
         res.add(String.valueOf(dx));
         res.add(String.valueOf(dy));
-        if (this.centerX != 0 || this.centerY != 0) {
+        if (centerX != 0 || centerY != 0) {
             res.add(String.valueOf(centerX));
             res.add(String.valueOf(centerY));
         }
@@ -85,7 +85,7 @@ public class OffsetBookmark {
     }
 
     public static void saveBookmarks() {
-        LinkedList<Collection<String>> coll = new LinkedList<>();
+        List<Collection<String>> coll = new LinkedList<>();
         for (OffsetBookmark b : allBookmarks) {
             coll.add(b.getInfoArray());
         }

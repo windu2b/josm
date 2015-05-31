@@ -34,7 +34,7 @@ public class FixDataHook implements UploadHook {
     /**
      * Constructor for data initialization
      */
-    public FixDataHook () {
+    public FixDataHook() {
         deprecated.add(new FixDataSpace());
         deprecated.add(new FixDataKey("color",            "colour"));
         deprecated.add(new FixDataTag("highway", "ford",  "ford",    "yes"));
@@ -79,18 +79,17 @@ public class FixDataHook implements UploadHook {
             for (Entry<String, String> e : keys.entrySet()) {
                 String v = Tag.removeWhiteSpaces(e.getValue());
                 String k = Tag.removeWhiteSpaces(e.getKey());
+                boolean drop = k.isEmpty() || v.isEmpty();
                 if(!e.getKey().equals(k)) {
-                    boolean drop = k.isEmpty() || v.isEmpty();
                     if(drop || !keys.containsKey(k)) {
-                        newKeys.remove(e.getKey());
+                        newKeys.put(e.getKey(), null);
                         if(!drop)
                             newKeys.put(k, v);
                     }
                 } else if(!e.getValue().equals(v)) {
-                    if(v.isEmpty())
-                        newKeys.remove(k);
-                    else
-                        newKeys.put(k, v);
+                    newKeys.put(k, v.isEmpty() ? null : v);
+                } else if (drop) {
+                    newKeys.put(e.getKey(), null);
                 }
             }
             boolean changed = !keys.equals(newKeys);
@@ -107,9 +106,9 @@ public class FixDataHook implements UploadHook {
      */
     public static class FixDataKey implements FixData {
         /** key of wrong data */
-        String oldKey;
+        private String oldKey;
         /** key of correct data */
-        String newKey;
+        private String newKey;
 
         /**
          * Setup key check for wrong spelled keys
@@ -126,7 +125,10 @@ public class FixDataHook implements UploadHook {
         public boolean fixKeys(Map<String, String> keys, OsmPrimitive osm) {
             if(keys.containsKey(oldKey) && !keys.containsKey(newKey)) {
                 keys.put(newKey, keys.get(oldKey));
-                keys.remove(oldKey);
+                keys.put(oldKey, null);
+                return true;
+            } else if(keys.containsKey(oldKey) && keys.containsKey(newKey) && keys.get(oldKey).equals(keys.get(newKey))) {
+                keys.put(oldKey, null);
                 return true;
             }
             return false;
@@ -138,13 +140,13 @@ public class FixDataHook implements UploadHook {
      */
     public static class FixDataTag implements FixData {
         /** key of wrong data */
-        String oldKey;
+        private String oldKey;
         /** value of wrong data */
-        String oldValue;
+        private String oldValue;
         /** key of correct data */
-        String newKey;
+        private String newKey;
         /** value of correct data */
-        String newValue;
+        private String newValue;
 
         /**
          * Setup key check for wrong spelled keys
@@ -163,10 +165,11 @@ public class FixDataHook implements UploadHook {
 
         @Override
         public boolean fixKeys(Map<String, String> keys, OsmPrimitive osm) {
-            if(oldValue.equals(keys.get(oldKey)) && (newKey.equals(oldKey) || !keys.containsKey(newKey))) {
+            if(oldValue.equals(keys.get(oldKey)) && (newKey.equals(oldKey)
+            || !keys.containsKey(newKey) || keys.get(newKey).equals(newValue))) {
                 keys.put(newKey, newValue);
                 if(!newKey.equals(oldKey))
-                    keys.remove(oldKey);
+                    keys.put(oldKey, null);
                 return true;
             }
             return false;
@@ -186,7 +189,7 @@ public class FixDataHook implements UploadHook {
         Collection<Command> cmds = new LinkedList<>();
 
         for (OsmPrimitive osm : objectsToUpload) {
-            Map<String, String> keys = osm.getKeys();
+            Map<String, String> keys = new HashMap<>(osm.getKeys());
             if(!keys.isEmpty()) {
                 boolean modified = false;
                 for (FixData fix : deprecated) {
@@ -194,7 +197,7 @@ public class FixDataHook implements UploadHook {
                         modified = true;
                 }
                 if(modified)
-                    cmds.add(new ChangePropertyCommand(Collections.singleton(osm), new HashMap<>(keys)));
+                    cmds.add(new ChangePropertyCommand(Collections.singleton(osm), keys));
             }
         }
 

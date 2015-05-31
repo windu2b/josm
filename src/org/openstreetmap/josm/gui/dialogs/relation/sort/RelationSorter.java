@@ -28,6 +28,7 @@ public class RelationSorter {
         // first adequate sorter is used, so order matters
         additionalSorters.add(new AssociatedStreetRoleStreetSorter());
         additionalSorters.add(new AssociatedStreetRoleAddressHouseSorter());
+        additionalSorters.add(new PublicTransportRoleStopPlatformSorter());
     }
 
     /**
@@ -74,6 +75,24 @@ public class RelationSorter {
                     return AlphanumComparator.getInstance().compare(aDisplayName, bDisplayName);
                 }
             });
+            return list;
+        }
+    }
+
+    /**
+     * Class that sorts the {@code platform} and {@code stop} members of
+     * {@code type=public_transport} relations.
+     */
+    private static class PublicTransportRoleStopPlatformSorter implements AdditionalSorter {
+
+        @Override
+        public boolean acceptsMember(RelationMember m) {
+            return m.getRole() != null && (m.getRole().startsWith("platform") || m.getRole().startsWith("stop"));
+        }
+
+        @Override
+        public List<RelationMember> sortMembers(List<RelationMember> list) {
+            // Retain order from original relation
             return list;
         }
     }
@@ -155,7 +174,7 @@ public class RelationSorter {
             }
         }
 
-        for (LinkedList<Integer> tmpGroup : allGroups) {
+        for (List<Integer> tmpGroup : allGroups) {
             for (Integer p : tmpGroup) {
                 newMembers.add(defaultMembers.get(p));
             }

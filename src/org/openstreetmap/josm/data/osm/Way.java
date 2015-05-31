@@ -111,10 +111,10 @@ public final class Way extends OsmPrimitive implements IWay {
      * Replies the real number of nodes in this way (full number of nodes minus one if this way is closed)
      *
      * @return the real number of nodes in this way.
-     * @since 5847
      *
      * @see #getNodesCount()
      * @see #isClosed()
+     * @since 5847
      */
     public int getRealNodesCount() {
         int count = getNodesCount();
@@ -126,7 +126,7 @@ public final class Way extends OsmPrimitive implements IWay {
      *
      * @param index the position
      * @return  the node at position <code>index</code>
-     * @exception IndexOutOfBoundsException thrown if <code>index</code> &lt; 0
+     * @throws IndexOutOfBoundsException if <code>index</code> &lt; 0
      * or <code>index</code> &gt;= {@link #getNodesCount()}
      * @since 1862
      */
@@ -167,7 +167,7 @@ public final class Way extends OsmPrimitive implements IWay {
      * @since 4671
      */
     public Set<Node> getNeighbours(Node node) {
-        HashSet<Node> neigh = new HashSet<>();
+        Set<Node> neigh = new HashSet<>();
 
         if (node == null) return neigh;
 
@@ -261,7 +261,7 @@ public final class Way extends OsmPrimitive implements IWay {
      * @throws IllegalArgumentException if id &lt; 0
      * @since 343
      */
-    public Way(long id) throws IllegalArgumentException {
+    public Way(long id) {
         super(id, false);
     }
 
@@ -272,7 +272,7 @@ public final class Way extends OsmPrimitive implements IWay {
      * @throws IllegalArgumentException if id &lt; 0
      * @since 2620
      */
-    public Way(long id, int version) throws IllegalArgumentException {
+    public Way(long id, int version) {
         super(id, version, false);
     }
 
@@ -284,13 +284,18 @@ public final class Way extends OsmPrimitive implements IWay {
 
             WayData wayData = (WayData) data;
 
+            if (!wayData.getNodes().isEmpty() && getDataSet() == null) {
+                throw new AssertionError("Data consistency problem - way without dataset detected");
+            }
+
             List<Node> newNodes = new ArrayList<>(wayData.getNodes().size());
             for (Long nodeId : wayData.getNodes()) {
                 Node node = (Node)getDataSet().getPrimitiveById(nodeId, OsmPrimitiveType.NODE);
                 if (node != null) {
                     newNodes.add(node);
-                } else
+                } else {
                     throw new AssertionError("Data consistency problem - way with missing node detected");
+                }
             }
             setNodes(newNodes);
         } finally {
@@ -345,7 +350,7 @@ public final class Way extends OsmPrimitive implements IWay {
     public int compareTo(OsmPrimitive o) {
         if (o instanceof Relation)
             return 1;
-        return o instanceof Way ? Long.valueOf(getUniqueId()).compareTo(o.getUniqueId()) : -1;
+        return o instanceof Way ? Long.compare(getUniqueId(), o.getUniqueId()) : -1;
     }
 
     /**
@@ -357,7 +362,7 @@ public final class Way extends OsmPrimitive implements IWay {
         if (n == null || isIncomplete()) return;
         boolean locked = writeLock();
         try {
-            boolean closed = (lastNode() == n && firstNode() == n);
+            boolean closed = lastNode() == n && firstNode() == n;
             int i;
             List<Node> copy = getNodes();
             while ((i = copy.indexOf(n)) >= 0) {
@@ -385,7 +390,7 @@ public final class Way extends OsmPrimitive implements IWay {
         if (selection == null || isIncomplete()) return;
         boolean locked = writeLock();
         try {
-            boolean closed = (lastNode() == firstNode() && selection.contains(lastNode()));
+            boolean closed = lastNode() == firstNode() && selection.contains(lastNode());
             List<Node> copy = new ArrayList<>();
 
             for (Node n: nodes) {
@@ -413,11 +418,11 @@ public final class Way extends OsmPrimitive implements IWay {
      * Adds a node to the end of the list of nodes. Ignored, if n is null.
      *
      * @param n the node. Ignored, if null
-     * @throws IllegalStateException thrown, if this way is marked as incomplete. We can't add a node
+     * @throws IllegalStateException if this way is marked as incomplete. We can't add a node
      * to an incomplete way
      * @since 1313
      */
-    public void addNode(Node n) throws IllegalStateException {
+    public void addNode(Node n) {
         if (n==null) return;
 
         boolean locked = writeLock();
@@ -439,12 +444,12 @@ public final class Way extends OsmPrimitive implements IWay {
      *
      * @param offs the offset
      * @param n the node. Ignored, if null.
-     * @throws IllegalStateException thrown, if this way is marked as incomplete. We can't add a node
+     * @throws IllegalStateException if this way is marked as incomplete. We can't add a node
      * to an incomplete way
-     * @throws IndexOutOfBoundsException thrown if offs is out of bounds
+     * @throws IndexOutOfBoundsException if offs is out of bounds
      * @since 1313
      */
-    public void addNode(int offs, Node n) throws IllegalStateException, IndexOutOfBoundsException {
+    public void addNode(int offs, Node n) throws IndexOutOfBoundsException {
         if (n==null) return;
 
         boolean locked = writeLock();
@@ -595,7 +600,7 @@ public final class Way extends OsmPrimitive implements IWay {
             }
             if (Main.pref.getBoolean("debug.checkNullCoor", true)) {
                 for (Node n: nodes) {
-                    if (n.isVisible() && !n.isIncomplete() && (n.getCoor() == null || n.getEastNorth() == null))
+                    if (n.isVisible() && !n.isIncomplete() && !n.isLatLonKnown())
                         throw new DataIntegrityProblemException("Complete visible node with null coordinates: " + toString(),
                                 "<html>" + tr("Complete node {0} with null coordinates in way {1}",
                                 DefaultNameFormatter.getInstance().formatAsHtmlUnorderedList(n),
@@ -613,7 +618,7 @@ public final class Way extends OsmPrimitive implements IWay {
     }
 
     @Override
-    public void setDataset(DataSet dataSet) {
+    void setDataset(DataSet dataSet) {
         super.setDataset(dataSet);
         checkNodes();
     }
@@ -671,6 +676,30 @@ public final class Way extends OsmPrimitive implements IWay {
                 LatLon coor = n.getCoor();
                 if (lastNcoor != null && coor != null) {
                     length += coor.greatCircleDistance(lastNcoor);
+                }
+            }
+            lastN = n;
+        }
+        return length;
+    }
+
+    /**
+     * Replies the length of the longest segment of the way, in metres, as computed by {@link LatLon#greatCircleDistance}.
+     * @return The length of the segment, in metres
+     * @since 8320
+     */
+    public double getLongestSegmentLength() {
+        double length = 0;
+        Node lastN = null;
+        for (Node n:nodes) {
+            if (lastN != null) {
+                LatLon lastNcoor = lastN.getCoor();
+                LatLon coor = n.getCoor();
+                if (lastNcoor != null && coor != null) {
+                    double l = coor.greatCircleDistance(lastNcoor);
+                    if (l > length) {
+                        length = l;
+                    }
                 }
             }
             lastN = n;
@@ -738,9 +767,12 @@ public final class Way extends OsmPrimitive implements IWay {
     @Override
     protected void keysChangedImpl(Map<String, String> originalKeys) {
         super.keysChangedImpl(originalKeys);
+        clearCachedNodeStyles();
+    }
+
+    public final void clearCachedNodeStyles() {
         for (final Node n : nodes) {
             n.clearCachedStyle();
         }
     }
-    
 }

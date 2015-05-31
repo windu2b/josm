@@ -1,11 +1,11 @@
 // License: GPL. For details, see Readme.txt file.
 package org.openstreetmap.gui.jmapviewer.tilesources;
 
-import java.util.Map;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
-import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class TemplatedTMSTileSource extends TMSTileSource {
 
@@ -13,6 +13,7 @@ public class TemplatedTMSTileSource extends TMSTileSource {
     private String[] randomParts = null;
     private Map<String, String> headers = new HashMap<>();
 
+    public static final String COOKIE_HEADER   = "Cookie";
     public static final String PATTERN_ZOOM    = "\\{(?:(\\d+)-)?z(?:oom)?([+-]\\d+)?\\}";
     public static final String PATTERN_X       = "\\{x\\}";
     public static final String PATTERN_Y       = "\\{y\\}";
@@ -26,13 +27,11 @@ public class TemplatedTMSTileSource extends TMSTileSource {
         PATTERN_SWITCH
     };
 
-    public TemplatedTMSTileSource(String name, String url, int maxZoom) {
-        super(name, url, maxZoom);
-        handleTemplate();
-    }
-
-    public TemplatedTMSTileSource(String name, String url, int minZoom, int maxZoom) {
-        super(name, url, minZoom, maxZoom);
+    public TemplatedTMSTileSource(TileSourceInfo info) {
+        super(info);
+        if (info.getCookies() != null) {
+            headers.put(COOKIE_HEADER, info.getCookies());
+        }
         handleTemplate();
     }
 

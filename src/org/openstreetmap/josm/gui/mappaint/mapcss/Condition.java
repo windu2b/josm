@@ -3,16 +3,19 @@ package org.openstreetmap.josm.gui.mappaint.mapcss;
 
 import java.text.MessageFormat;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.osm.Node;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.osm.Relation;
 import org.openstreetmap.josm.data.osm.Tag;
 import org.openstreetmap.josm.data.osm.Way;
+import org.openstreetmap.josm.data.osm.visitor.paint.relations.MultipolygonCache;
 import org.openstreetmap.josm.gui.mappaint.Cascade;
 import org.openstreetmap.josm.gui.mappaint.ElemStyles;
 import org.openstreetmap.josm.gui.mappaint.Environment;
@@ -80,7 +83,7 @@ public abstract class Condition {
         EQ, NEQ, GREATER_OR_EQUAL, GREATER, LESS_OR_EQUAL, LESS,
         REGEX, NREGEX, ONE_OF, BEGINS_WITH, ENDS_WITH, CONTAINS;
 
-        private static final Set<Op> NEGATED_OPS = EnumSet.of(NEQ, NREGEX);
+        public static final Set<Op> NEGATED_OPS = EnumSet.of(NEQ, NREGEX);
 
         public boolean eval(String testString, String prototypeString) {
             if (testString == null && !NEGATED_OPS.contains(this))
@@ -141,9 +144,6 @@ public abstract class Condition {
          */
         LINK
     }
-
-    public static final EnumSet<Op> COMPARISON_OPERATERS =
-        EnumSet.of(Op.GREATER_OR_EQUAL, Op.GREATER, Op.LESS_OR_EQUAL, Op.LESS);
 
     /**
      * Most common case of a KeyValueCondition.
@@ -219,7 +219,7 @@ public abstract class Condition {
     public static class KeyValueRegexpCondition extends KeyValueCondition {
 
         public final Pattern pattern;
-        public static final EnumSet<Op> SUPPORTED_OPS = EnumSet.of(Op.REGEX, Op.NREGEX);
+        public static final Set<Op> SUPPORTED_OPS = EnumSet.of(Op.REGEX, Op.NREGEX);
 
         public KeyValueRegexpCondition(String k, String v, Op op, boolean considerValAsKey) {
             super(k, v, op, considerValAsKey);
@@ -270,7 +270,11 @@ public abstract class Condition {
         @Override
         public boolean applies(Environment env) {
             if (env.index == null) return false;
-            return op.eval(Integer.toString(env.index + 1), index);
+            if (index.startsWith("-")) {
+                return env.count != null && op.eval(Integer.toString(env.index - env.count), index);
+            } else {
+                return op.eval(Integer.toString(env.index + 1), index);
+            }
         }
     }
 
@@ -333,8 +337,15 @@ public abstract class Condition {
             }
         }
 
-        public Tag asTag() {
-            return new Tag(label);
+        public Tag asTag(OsmPrimitive p) {
+            String key = label;
+            if (KeyMatchType.REGEX.equals(matchType)) {
+                final Collection<String> matchingKeys = Utils.filter(p.keySet(), containsPattern);
+                if (!matchingKeys.isEmpty()) {
+                    key = matchingKeys.iterator().next();
+                }
+            }
+            return new Tag(key, p.get(key));
         }
 
         @Override
@@ -399,11 +410,19 @@ public abstract class Condition {
             case "sameTags":
                 return e.osm.hasSameInterestingTags(Utils.firstNonNull(e.child, e.parent));
             case "areaStyle":
+                // only for validator
                 return ElemStyles.hasAreaElemStyle(e.osm, false);
             case "unconnected":
                 return e.osm instanceof Node && OsmPrimitive.getFilteredList(e.osm.getReferrers(), Way.class).isEmpty();
             case "righthandtraffic":
                 return ExpressionFactory.Functions.is_right_hand_traffic(e);
+            case "unclosed_multipolygon":
+                return e.osm instanceof Relation && ((Relation) e.osm).isMultipolygon() &&
+                        !e.osm.isIncomplete() && !((Relation) e.osm).hasIncompleteMembers() &&
+                        !MultipolygonCache.getInstance().get(Main.map.mapView, (Relation) e.osm).getOpenEnds().isEmpty();
+            case "open_end":
+                // handling at org.openstreetmap.josm.gui.mappaint.mapcss.Selector.ChildOrParentSelector.MultipolygonOpenEndFinder
+                return true;
             }
             return false;
         }

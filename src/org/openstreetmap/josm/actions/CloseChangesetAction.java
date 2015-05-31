@@ -22,14 +22,18 @@ import org.openstreetmap.josm.gui.PleaseWaitRunnable;
 import org.openstreetmap.josm.gui.io.CloseChangesetDialog;
 import org.openstreetmap.josm.gui.io.CloseChangesetTask;
 import org.openstreetmap.josm.io.ChangesetQuery;
+import org.openstreetmap.josm.io.OnlineResource;
 import org.openstreetmap.josm.io.OsmServerChangesetReader;
 import org.openstreetmap.josm.io.OsmServerUserInfoReader;
 import org.openstreetmap.josm.io.OsmTransferException;
 import org.openstreetmap.josm.tools.Shortcut;
 import org.xml.sax.SAXException;
 
-public class CloseChangesetAction extends JosmAction{
+public class CloseChangesetAction extends JosmAction {
 
+    /**
+     * Constructs a new {@code CloseChangesetAction}.
+     */
     public CloseChangesetAction() {
         super(tr("Close open changesets"),
             "closechangeset",
@@ -40,6 +44,7 @@ public class CloseChangesetAction extends JosmAction{
             true
         );
         putValue("help", ht("/Action/CloseChangeset"));
+        setEnabled(!Main.isOffline(OnlineResource.OSM_API));
 
     }
     @Override
@@ -70,7 +75,7 @@ public class CloseChangesetAction extends JosmAction{
         Main.worker.submit(closeChangesetTask);
     }
 
-    private class DownloadOpenChangesetsTask extends PleaseWaitRunnable {
+    private final class DownloadOpenChangesetsTask extends PleaseWaitRunnable {
 
         private boolean canceled;
         private OsmServerChangesetReader reader;
@@ -78,8 +83,8 @@ public class CloseChangesetAction extends JosmAction{
         private Exception lastException;
         private UserInfo userInfo;
 
-        public DownloadOpenChangesetsTask() {
-            super(tr("Downloading open changesets ...", false /* don't ignore exceptions */));
+        private DownloadOpenChangesetsTask() {
+            super(tr("Downloading open changesets ..."), false /* don't ignore exceptions */);
         }
 
         @Override
@@ -111,7 +116,7 @@ public class CloseChangesetAction extends JosmAction{
          * the users id yet
          *
          * @return the user info
-         * @throws OsmTransferException thrown in case of any communication exception
+         * @throws OsmTransferException in case of any communication exception
          */
         protected UserInfo fetchUserInfo() throws OsmTransferException {
             OsmServerUserInfoReader reader = new OsmServerUserInfoReader();

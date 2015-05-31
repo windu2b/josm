@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.actions.mapmode;
 
 import static org.openstreetmap.josm.gui.help.HelpUtil.ht;
@@ -20,9 +20,9 @@ import javax.swing.JOptionPane;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.Bounds;
-import org.openstreetmap.josm.data.SystemOfMeasurement;
 import org.openstreetmap.josm.data.Preferences.PreferenceChangeEvent;
 import org.openstreetmap.josm.data.Preferences.PreferenceChangedListener;
+import org.openstreetmap.josm.data.SystemOfMeasurement;
 import org.openstreetmap.josm.data.coor.EastNorth;
 import org.openstreetmap.josm.data.osm.Node;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
@@ -101,11 +101,11 @@ public class ParallelWayAction extends MapMode implements ModifierListener, MapV
     private double snapDistanceChinese;
     private double snapDistanceNautical;
 
-    private ModifiersSpec snapModifierCombo;
-    private ModifiersSpec copyTagsModifierCombo;
-    private ModifiersSpec addToSelectionModifierCombo;
-    private ModifiersSpec toggleSelectedModifierCombo;
-    private ModifiersSpec setSelectedModifierCombo;
+    private transient ModifiersSpec snapModifierCombo;
+    private transient ModifiersSpec copyTagsModifierCombo;
+    private transient ModifiersSpec addToSelectionModifierCombo;
+    private transient ModifiersSpec toggleSelectedModifierCombo;
+    private transient ModifiersSpec setSelectedModifierCombo;
 
     private int initialMoveDelay;
 
@@ -117,16 +117,20 @@ public class ParallelWayAction extends MapMode implements ModifierListener, MapV
     private long mousePressedTime;
     private boolean mouseHasBeenDragged;
 
-    private WaySegment referenceSegment;
-    private ParallelWays pWays;
-    private Set<Way> sourceWays;
+    private transient WaySegment referenceSegment;
+    private transient ParallelWays pWays;
+    private transient Set<Way> sourceWays;
     private EastNorth helperLineStart;
     private EastNorth helperLineEnd;
 
-    Stroke helpLineStroke;
-    Stroke refLineStroke;
-    Color mainColor;
+    private transient Stroke helpLineStroke;
+    private transient Stroke refLineStroke;
+    private Color mainColor;
 
+    /**
+     * Constructs a new {@code ParallelWayAction}.
+     * @param mapFrame Map frame
+     */
     public ParallelWayAction(MapFrame mapFrame) {
         super(tr("Parallel"), "parallel", tr("Make parallel copies of ways"),
             Shortcut.registerShortcut("mapmode:parallel", tr("Mode: {0}",
@@ -203,7 +207,7 @@ public class ParallelWayAction extends MapMode implements ModifierListener, MapV
 
     private void updateModeLocalPreferences() {
         // @formatter:off
-        snapThreshold        = Main.pref.getDouble (prefKey("snap-threshold-percent"), 0.70);
+        snapThreshold        = Main.pref.getDouble(prefKey("snap-threshold-percent"), 0.70);
         snapDefault          = Main.pref.getBoolean(prefKey("snap-default"),      true);
         copyTagsDefault      = Main.pref.getBoolean(prefKey("copy-tags-default"), true);
         initialMoveDelay     = Main.pref.getInteger(prefKey("initial-move-delay"), 200);
@@ -240,7 +244,7 @@ public class ParallelWayAction extends MapMode implements ModifierListener, MapV
     private boolean updateModifiersState(int modifiers) {
         boolean oldAlt = alt, oldShift = shift, oldCtrl = ctrl;
         updateKeyModifiers(modifiers);
-        return (oldAlt != alt || oldShift != shift || oldCtrl != ctrl);
+        return oldAlt != alt || oldShift != shift || oldCtrl != ctrl;
     }
 
     private void updateCursor() {
@@ -283,7 +287,7 @@ public class ParallelWayAction extends MapMode implements ModifierListener, MapV
             mv.isActiveLayerDrawable() &&
             ((Boolean) this.getValue("active"));
         // @formatter:on
-        assert (areWeSane); // mad == bad
+        assert areWeSane; // mad == bad
         return areWeSane;
     }
 
@@ -302,8 +306,8 @@ public class ParallelWayAction extends MapMode implements ModifierListener, MapV
         updateFlagsChangeableAlways();
 
         // Since the created way is left selected, we need to unselect again here
-        if (pWays != null && pWays.ways != null) {
-            getCurrentDataSet().clearSelection(pWays.ways);
+        if (pWays != null && pWays.getWays() != null) {
+            getCurrentDataSet().clearSelection(pWays.getWays());
             pWays = null;
         }
 
@@ -493,21 +497,21 @@ public class ParallelWayAction extends MapMode implements ModifierListener, MapV
 
     //// We keep the source ways and the selection in sync so the user can see the source way's tags
     private void addSourceWay(Way w) {
-        assert (sourceWays != null);
+        assert sourceWays != null;
         getCurrentDataSet().addSelected(w);
         w.setHighlighted(true);
         sourceWays.add(w);
     }
 
     private void removeSourceWay(Way w) {
-        assert (sourceWays != null);
+        assert sourceWays != null;
         getCurrentDataSet().clearSelection(w);
         w.setHighlighted(false);
         sourceWays.remove(w);
     }
 
     private void clearSourceWays() {
-        assert (sourceWays != null);
+        assert sourceWays != null;
         getCurrentDataSet().clearSelection(sourceWays);
         for (Way w : sourceWays) {
             w.setHighlighted(false);
@@ -544,7 +548,7 @@ public class ParallelWayAction extends MapMode implements ModifierListener, MapV
             }
             pWays = new ParallelWays(sourceWays, copyTags, referenceWayIndex);
             pWays.commit();
-            getCurrentDataSet().setSelected(pWays.ways);
+            getCurrentDataSet().setSelected(pWays.getWays());
             return true;
         } catch (IllegalArgumentException e) {
             // TODO: Not ideal feedback. Maybe changing the cursor could be a good mechanism?

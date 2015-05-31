@@ -147,21 +147,21 @@ public final class CopyList<E> extends AbstractList<E> implements RandomAccess, 
         /**
          * Index of element to be returned by subsequent call to next.
          */
-        int cursor = 0;
+        private int cursor = 0;
 
         /**
          * Index of element returned by most recent call to next or
          * previous.  Reset to -1 if this element is deleted by a call
          * to remove.
          */
-        int lastRet = -1;
+        private int lastRet = -1;
 
         /**
          * The modCount value that the iterator believes that the backing
          * List should have.  If this expectation is violated, the iterator
          * has detected concurrent modification.
          */
-        int expectedModCount = modCount;
+        private int expectedModCount = modCount;
 
         @Override
         public boolean hasNext() {
@@ -177,7 +177,7 @@ public final class CopyList<E> extends AbstractList<E> implements RandomAccess, 
                 return next;
             } catch (IndexOutOfBoundsException e) {
                 checkForComodification();
-                throw new NoSuchElementException();
+                throw new NoSuchElementException(e.getMessage());
             }
         }
 
@@ -195,7 +195,7 @@ public final class CopyList<E> extends AbstractList<E> implements RandomAccess, 
                 lastRet = -1;
                 expectedModCount = modCount;
             } catch (IndexOutOfBoundsException e) {
-                throw new ConcurrentModificationException();
+                throw new ConcurrentModificationException(e);
             }
         }
 

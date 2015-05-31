@@ -9,6 +9,7 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
@@ -28,9 +29,15 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.SortedSet;
 import java.util.TreeSet;
 
+import javax.swing.AbstractButton;
+import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
+import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
@@ -52,6 +59,7 @@ import org.openstreetmap.josm.data.preferences.BooleanProperty;
 import org.openstreetmap.josm.gui.tagging.ac.AutoCompletingTextField;
 import org.openstreetmap.josm.gui.tagging.ac.AutoCompletionItemPriority;
 import org.openstreetmap.josm.gui.tagging.ac.AutoCompletionList;
+import org.openstreetmap.josm.gui.tagging.ac.AutoCompletionManager;
 import org.openstreetmap.josm.gui.widgets.JosmComboBox;
 import org.openstreetmap.josm.gui.widgets.JosmTextField;
 import org.openstreetmap.josm.gui.widgets.QuadStateCheckBox;
@@ -71,12 +79,13 @@ public final class TaggingPresetItems {
     }
 
     private static int auto_increment_selected = 0;
+    /** Translatation of "&lt;different&gt;". Use in combo boxes to display en entry matching several different values. */
     public static final String DIFFERENT = tr("<different>");
 
     private static final BooleanProperty PROP_FILL_DEFAULT = new BooleanProperty("taggingpreset.fill-default-for-tagged-primitives", false);
 
     // cache the parsing of types using a LRU cache (http://java-planet.blogspot.com/2005/08/how-to-set-up-simple-lru-cache-using.html)
-    private static final Map<String,EnumSet<TaggingPresetType>> TYPE_CACHE = new LinkedHashMap<>(16, 1.1f, true);
+    private static final Map<String,Set<TaggingPresetType>> TYPE_CACHE = new LinkedHashMap<>(16, 1.1f, true);
 
     /**
      * Last value of each key used in presets, used for prefilling corresponding fields
@@ -85,12 +94,17 @@ public final class TaggingPresetItems {
 
     public static class PresetListEntry {
         public String value;
+        /** The context used for translating {@link #value} */
         public String value_context;
         public String display_value;
         public String short_description;
+        /** The location of icon file to display */
         public String icon;
+        /** The size of displayed icon. If not set, default is size from icon file */
         public String icon_size;
+        /** The localized version of {@link #display_value}. */
         public String locale_display_value;
+        /** The localized version of {@link #short_description}. */
         public String locale_short_description;
         private final File zipIcons = TaggingPresetReader.getZipIcons();
 
@@ -106,32 +120,28 @@ public final class TaggingPresetItems {
                 return "&nbsp;";
 
             final StringBuilder res = new StringBuilder("<b>");
-            res.append(getDisplayValue(true));
-            res.append("</b>");
+            res.append(getDisplayValue(true).replaceAll("<", "&lt;").replaceAll(">", "&gt;"))
+               .append("</b>");
             if (getShortDescription(true) != null) {
                 // wrap in table to restrict the text width
-                res.append("<div style=\"width:300px; padding:0 0 5px 5px\">");
-                res.append(getShortDescription(true));
-                res.append("</div>");
+                res.append("<div style=\"width:300px; padding:0 0 5px 5px\">")
+                   .append(getShortDescription(true))
+                   .append("</div>");
             }
             return res.toString();
         }
 
+        /**
+         * Returns the entry icon, if any.
+         * @return the entry icon, or {@code null}
+         */
         public ImageIcon getIcon() {
             return icon == null ? null : loadImageIcon(icon, zipIcons, parseInteger(icon_size));
         }
 
-        private Integer parseInteger(String str) {
-            if (str == null || str.isEmpty())
-                return null;
-            try {
-                return Integer.parseInt(str);
-            } catch (Exception e) {
-                //
-            }
-            return null;
-        }
-
+        /**
+         * Constructs a new {@code PresetListEntry}, uninitialized.
+         */
         public PresetListEntry() {
         }
 
@@ -161,10 +171,13 @@ public final class TaggingPresetItems {
     }
 
     public static class Role {
-        public EnumSet<TaggingPresetType> types;
+        public Set<TaggingPresetType> types;
         public String key;
+        /** The text to display */
         public String text;
+        /** The context used for translating {@link #text} */
         public String text_context;
+        /** The localized version of {@link #text}. */
         public String locale_text;
         public SearchCompiler.Match memberExpression;
 
@@ -210,7 +223,7 @@ public final class TaggingPresetItems {
 
         public boolean addToPanel(JPanel p, Collection<OsmPrimitive> sel) {
             String cstring;
-            if(count > 0 && !required) {
+            if (count > 0 && !required) {
                 cstring = "0,"+count;
             } else if(count > 0) {
                 cstring = String.valueOf(count);
@@ -219,19 +232,13 @@ public final class TaggingPresetItems {
             } else {
                 cstring = "1-...";
             }
-            if(locale_text == null) {
-                if (text != null) {
-                    if(text_context != null) {
-                        locale_text = trc(text_context, fixPresetString(text));
-                    } else {
-                        locale_text = tr(fixPresetString(text));
-                    }
-                }
+            if (locale_text == null) {
+                locale_text = getLocaleText(text, text_context, null);
             }
             p.add(new JLabel(locale_text+":"), GBC.std().insets(0,0,10,0));
             p.add(new JLabel(key), GBC.std().insets(0,0,10,0));
             p.add(new JLabel(cstring), types == null ? GBC.eol() : GBC.std().insets(0,0,10,0));
-            if(types != null){
+            if (types != null) {
                 JPanel pp = new JPanel();
                 for(TaggingPresetType t : types) {
                     pp.add(new JLabel(ImageProvider.get(t.getIconName())));
@@ -247,22 +254,16 @@ public final class TaggingPresetItems {
      */
     public static enum MatchType {
 
-        /**
-         * Neutral, i.e., do not consider this item for matching.
-         */
+        /** Neutral, i.e., do not consider this item for matching. */
         NONE("none"),
-        /**
-         * Positive if key matches, neutral otherwise.
-         */
+        /** Positive if key matches, neutral otherwise. */
         KEY("key"),
-        /**
-         * Positive if key matches, negative otherwise.
-         */
+        /** Positive if key matches, negative otherwise. */
         KEY_REQUIRED("key!"),
-        /**
-         * Positive if key and value matches, negative otherwise.
-         */
-        KEY_VALUE("keyvalue");
+        /** Positive if key and value matches, neutral otherwise. */
+        KEY_VALUE("keyvalue"),
+        /** Positive if key and value matches, negative otherwise. */
+        KEY_VALUE_REQUIRED("keyvalue!");
 
         private final String value;
 
@@ -270,10 +271,19 @@ public final class TaggingPresetItems {
             this.value = value;
         }
 
+        /**
+         * Replies the associated textual value.
+         * @return the associated textual value
+         */
         public String getValue() {
             return value;
         }
 
+        /**
+         * Determines the {@code MatchType} for the given textual value.
+         * @param type the textual value
+         * @return the {@code MatchType} for the given textual value
+         */
         public static MatchType ofString(String type) {
             for (MatchType i : EnumSet.allOf(MatchType.class)) {
                 if (i.getValue().equals(type))
@@ -284,9 +294,10 @@ public final class TaggingPresetItems {
     }
 
     public static class Usage {
-        TreeSet<String> values;
-        boolean hadKeys = false;
-        boolean hadEmpty = false;
+        private SortedSet<String> values;
+        private boolean hadKeys = false;
+        private boolean hadEmpty = false;
+
         public boolean hasUniqueValue() {
             return values.size() == 1 && !hadEmpty;
         }
@@ -294,6 +305,7 @@ public final class TaggingPresetItems {
         public boolean unused() {
             return values.isEmpty();
         }
+
         public String getFirst() {
             return values.first();
         }
@@ -309,30 +321,18 @@ public final class TaggingPresetItems {
      */
     public abstract static class TaggingPresetTextItem extends TaggingPresetItem {
 
-        /**
-         * The text to display
-         */
+        /** The text to display */
         public String text;
 
-        /**
-         * The context used for translating {@link #text}
-         */
+        /** The context used for translating {@link #text} */
         public String text_context;
 
-        /**
-         * The localized version of {@link #text}
-         */
+        /** The localized version of {@link #text} */
         public String locale_text;
 
         protected final void initializeLocaleText(String defaultText) {
             if (locale_text == null) {
-                if (text == null) {
-                    locale_text = defaultText;
-                } else if (text_context != null) {
-                    locale_text = trc(text_context, fixPresetString(text));
-                } else {
-                    locale_text = tr(fixPresetString(text));
-                }
+                locale_text = getLocaleText(text, text_context, defaultText);
             }
         }
 
@@ -352,30 +352,52 @@ public final class TaggingPresetItems {
         }
     }
 
+    /**
+     * Label type.
+     */
     public static class Label extends TaggingPresetTextItem {
+
+        /** The location of icon file to display (optional) */
+        public String icon;
+        /** The size of displayed icon. If not set, default is 16px */
+        public String icon_size;
 
         @Override
         public boolean addToPanel(JPanel p, Collection<OsmPrimitive> sel, boolean presetInitiallyMatches) {
             initializeLocaleText(null);
-            addLabel(p, locale_text);
-            return false;
+            addLabel(p, getIcon(), locale_text);
+            return true;
         }
 
-        public static void addLabel(JPanel p, String label) {
-            p.add(new JLabel(label), GBC.eol());
+        /**
+         * Adds a new {@code JLabel} to the given panel.
+         * @param p The panel
+         * @param icon the icon (optional, can be null)
+         * @param label The text label
+         */
+        public static void addLabel(JPanel p, Icon icon, String label) {
+            p.add(new JLabel(label, icon, JLabel.LEADING), GBC.eol().fill(GBC.HORIZONTAL));
+        }
+
+        /**
+         * Returns the label icon, if any.
+         * @return the label icon, or {@code null}
+         */
+        public ImageIcon getIcon() {
+            Integer size = parseInteger(icon_size);
+            return icon == null ? null : loadImageIcon(icon, TaggingPresetReader.getZipIcons(), size != null ? size : 16);
         }
     }
 
+    /**
+     * Hyperlink type.
+     */
     public static class Link extends TaggingPresetTextItem {
 
-        /**
-         * The link to display
-         */
+        /** The link to display. */
         public String href;
 
-        /**
-         * The localized version of {@link #href}
-         */
+        /** The localized version of {@link #href}. */
         public String locale_href;
 
         @Override
@@ -386,7 +408,7 @@ public final class TaggingPresetItems {
                 url = href;
             }
             if (url != null) {
-                p.add(new UrlLabel(url, locale_text, 2), GBC.eol().insets(0, 10, 0, 0));
+                p.add(new UrlLabel(url, locale_text, 2), GBC.eol().insets(0, 10, 0, 0).fill(GBC.HORIZONTAL));
             }
             return false;
         }
@@ -468,6 +490,9 @@ public final class TaggingPresetItems {
         }
     }
 
+    /**
+     * Horizontal separator type.
+     */
     public static class Space extends TaggingPresetItem {
 
         @Override
@@ -508,10 +533,15 @@ public final class TaggingPresetItems {
         }
     }
 
+    /**
+     * Preset item associated to an OSM key.
+     */
     public abstract static class KeyedItem extends TaggingPresetItem {
 
         public String key;
+        /** The text to display */
         public String text;
+        /** The context used for translating {@link #text} */
         public String text_context;
         public String match = getDefaultMatch().getValue();
 
@@ -524,11 +554,13 @@ public final class TaggingPresetItems {
             case NONE:
                 return null;
             case KEY:
-                return tags.containsKey(key) ? true : null;
+                return tags.containsKey(key) ? Boolean.TRUE : null;
             case KEY_REQUIRED:
                 return tags.containsKey(key);
             case KEY_VALUE:
-                return tags.containsKey(key) && (getValues().contains(tags.get(key)));
+                return tags.containsKey(key) && getValues().contains(tags.get(key)) ? Boolean.TRUE : null;
+            case KEY_VALUE_REQUIRED:
+                return tags.containsKey(key) && getValues().contains(tags.get(key));
             default:
                 throw new IllegalStateException();
             }
@@ -542,8 +574,12 @@ public final class TaggingPresetItems {
         }
     }
 
+    /**
+     * Invisible type allowing to hardcode an OSM key/value from the preset definition.
+     */
     public static class Key extends KeyedItem {
 
+        /** The hardcoded value for key */
         public String value;
 
         @Override
@@ -558,7 +594,7 @@ public final class TaggingPresetItems {
 
         @Override
         public MatchType getDefaultMatch() {
-            return MatchType.KEY_VALUE;
+            return MatchType.KEY_VALUE_REQUIRED;
         }
 
         @Override
@@ -574,8 +610,12 @@ public final class TaggingPresetItems {
         }
     }
 
+    /**
+     * Text field type.
+     */
     public static class Text extends KeyedItem {
 
+        /** The localized version of {@link #text}. */
         public String locale_text;
         public String default_;
         public String originalValue;
@@ -586,7 +626,8 @@ public final class TaggingPresetItems {
 
         private JComponent value;
 
-        @Override public boolean addToPanel(JPanel p, Collection<OsmPrimitive> sel, boolean presetInitiallyMatches) {
+        @Override
+        public boolean addToPanel(JPanel p, Collection<OsmPrimitive> sel, boolean presetInitiallyMatches) {
 
             // find out if our key is already used in the selection.
             Usage usage = determineTextUsage(sel, key);
@@ -595,6 +636,9 @@ public final class TaggingPresetItems {
                 initAutoCompletionField(textField, (key + "," + alternative_autocomplete_keys).split(","));
             } else {
                 initAutoCompletionField(textField, key);
+            }
+            if (Main.pref.getBoolean("taggingpreset.display-keys-as-hint", true)) {
+                textField.setHint(key);
             }
             if (length != null && !length.isEmpty()) {
                 textField.setMaxChars(Integer.valueOf(length));
@@ -606,8 +650,7 @@ public final class TaggingPresetItems {
                     } catch (NumberFormatException ex) {
                         // Ignore - cannot auto-increment if last was non-numeric
                     }
-                }
-                else if (!usage.hadKeys() || PROP_FILL_DEFAULT.get() || "force".equals(use_last_as_default)) {
+                } else if (!usage.hadKeys() || PROP_FILL_DEFAULT.get() || "force".equals(use_last_as_default)) {
                     // selected osm primitives are untagged or filling default values feature is enabled
                     if (!"false".equals(use_last_as_default) && LAST_VALUES.containsKey(key) && !presetInitiallyMatches) {
                         textField.setText(LAST_VALUES.get(key));
@@ -635,13 +678,7 @@ public final class TaggingPresetItems {
                 originalValue = DIFFERENT;
             }
             if (locale_text == null) {
-                if (text != null) {
-                    if (text_context != null) {
-                        locale_text = trc(text_context, fixPresetString(text));
-                    } else {
-                        locale_text = tr(fixPresetString(text));
-                    }
-                }
+                locale_text = getLocaleText(text, text_context, null);
             }
 
             // if there's an auto_increment setting, then wrap the text field
@@ -660,6 +697,7 @@ public final class TaggingPresetItems {
                     aibutton.setToolTipText(tr("Select auto-increment of {0} for this field", ai));
                     aibutton.setMargin(new java.awt.Insets(0,0,0,0));
                     aibutton.setFocusable(false);
+                    saveHorizontalSpace(aibutton);
                     bg.add(aibutton);
                     try {
                         // TODO there must be a better way to parse a number like "+3" than this.
@@ -696,12 +734,22 @@ public final class TaggingPresetItems {
                         clearbutton.setSelected(true);
                     }
                 });
+                saveHorizontalSpace(releasebutton);
                 pnl.add(releasebutton, GBC.eol());
                 value = pnl;
             }
             p.add(new JLabel(locale_text+":"), GBC.std().insets(0,0,10,0));
             p.add(value, GBC.eol().fill(GBC.HORIZONTAL));
             return true;
+        }
+
+        private static void saveHorizontalSpace(AbstractButton button) {
+            Insets insets = button.getBorder().getBorderInsets(button);
+            // Ensure the current look&feel does not waste horizontal space (as seen in Nimbus & Aqua)
+            if (insets != null && insets.left+insets.right > insets.top+insets.bottom) {
+                int min = Math.min(insets.top, insets.bottom);
+                button.setBorder(BorderFactory.createEmptyBorder(insets.top, min, insets.bottom, min));
+            }
         }
 
         private static String getValue(Component comp) {
@@ -731,10 +779,11 @@ public final class TaggingPresetItems {
             if (!"false".equals(use_last_as_default) || auto_increment != null) {
                 LAST_VALUES.put(key, v);
             }
-            if (v.equals(originalValue) || (originalValue == null && v.length() == 0))
+            if (v.equals(originalValue) || (originalValue == null && v.isEmpty()))
                 return;
 
             changedTags.add(new Tag(key, v));
+            AutoCompletionManager.rememberUserInput(key, v, true);
         }
 
         @Override
@@ -798,38 +847,43 @@ public final class TaggingPresetItems {
         }
     }
 
+    /**
+     * Checkbox type.
+     */
     public static class Check extends KeyedItem {
 
+        /** The localized version of {@link #text}. */
         public String locale_text;
+        /** the value to set when checked (default is "yes") */
         public String value_on = OsmUtils.trueval;
+        /** the value to set when unchecked (default is "no") */
         public String value_off = OsmUtils.falseval;
+        /** whether the off value is disabled in the dialog, i.e., only unset or yes are provided */
         public boolean disable_off = false;
+        /** ticked on/off (default is "off") */
         public boolean default_ = false; // only used for tagless objects
 
         private QuadStateCheckBox check;
         private QuadStateCheckBox.State initialState;
         private boolean def;
 
-        @Override public boolean addToPanel(JPanel p, Collection<OsmPrimitive> sel, boolean presetInitiallyMatches) {
+        @Override
+        public boolean addToPanel(JPanel p, Collection<OsmPrimitive> sel, boolean presetInitiallyMatches) {
 
             // find out if our key is already used in the selection.
             final Usage usage = determineBooleanUsage(sel, key);
             final String oneValue = usage.values.isEmpty() ? null : usage.values.last();
             def = default_;
 
-            if(locale_text == null) {
-                if(text_context != null) {
-                    locale_text = trc(text_context, fixPresetString(text));
-                } else {
-                    locale_text = tr(fixPresetString(text));
-                }
+            if (locale_text == null) {
+                locale_text = getLocaleText(text, text_context, null);
             }
 
             if (usage.values.size() < 2 && (oneValue == null || value_on.equals(oneValue) || value_off.equals(oneValue))) {
                 if (def && !PROP_FILL_DEFAULT.get()) {
                     // default is set and filling default values feature is disabled - check if all primitives are untagged
                     for (OsmPrimitive s : sel)
-                        if(s.hasKeys()) {
+                        if (s.hasKeys()) {
                             def = false;
                         }
                 }
@@ -865,7 +919,8 @@ public final class TaggingPresetItems {
             return true;
         }
 
-        @Override public void addCommands(List<Tag> changedTags) {
+        @Override
+        public void addCommands(List<Tag> changedTags) {
             // if the user hasn't changed anything, don't create a command.
             if (check.getState() == initialState && !def) return;
 
@@ -875,7 +930,11 @@ public final class TaggingPresetItems {
                         check.getState() == QuadStateCheckBox.State.NOT_SELECTED ? value_off :
                             null));
         }
-        @Override boolean requestFocusInWindow() {return check.requestFocusInWindow();}
+
+        @Override
+        boolean requestFocusInWindow() {
+            return check.requestFocusInWindow();
+        }
 
         @Override
         public MatchType getDefaultMatch() {
@@ -900,15 +959,22 @@ public final class TaggingPresetItems {
         }
     }
 
+    /**
+     * Abstract superclass for combo box and multi-select list types.
+     */
     public abstract static class ComboMultiSelect extends KeyedItem {
 
+        /** The localized version of {@link #text}. */
         public String locale_text;
         public String values;
         public String values_from;
+        /** The context used for translating {@link #values} */
         public String values_context;
         public String display_values;
+        /** The localized version of {@link #display_values}. */
         public String locale_display_values;
         public String short_descriptions;
+        /** The localized version of {@link #short_descriptions}. */
         public String locale_short_descriptions;
         public String default_;
         public String delimiter = ";";
@@ -992,7 +1058,7 @@ public final class TaggingPresetItems {
                 }
             }
             if (locale_text == null) {
-                locale_text = trc(text_context, fixPresetString(text));
+                locale_text = getLocaleText(text, text_context, null);
             }
             initialized = true;
         }
@@ -1074,10 +1140,10 @@ public final class TaggingPresetItems {
             }
 
             if (display != null) {
-                for (String val : lhm.keySet()) {
-                    String k = lhm.get(val).toString();
+                for (Entry<String, PresetListEntry> entry : lhm.entrySet()) {
+                    String k = entry.getValue().toString();
                     if (k != null && k.equals(display)) {
-                        value = val;
+                        value = entry.getKey();
                         break;
                     }
                 }
@@ -1091,7 +1157,7 @@ public final class TaggingPresetItems {
 
             // no change if same as before
             if (originalValue == null) {
-                if (value.length() == 0)
+                if (value.isEmpty())
                     return;
             } else if (value.equals(originalValue.toString()))
                 return;
@@ -1119,7 +1185,7 @@ public final class TaggingPresetItems {
 
         private static final ListCellRenderer<PresetListEntry> RENDERER = new ListCellRenderer<PresetListEntry>() {
 
-            JLabel lbl = new JLabel();
+            private JLabel lbl = new JLabel();
 
             @Override
             public Component getListCellRendererComponent(
@@ -1179,6 +1245,9 @@ public final class TaggingPresetItems {
         }
     }
 
+    /**
+     * Combobox type.
+     */
     public static class Combo extends ComboMultiSelect {
 
         public boolean editable = true;
@@ -1213,6 +1282,9 @@ public final class TaggingPresetItems {
             combo.reinitialize(lhm.values());
             AutoCompletingTextField tf = new AutoCompletingTextField();
             initAutoCompletionField(tf, key);
+            if (Main.pref.getBoolean("taggingpreset.display-keys-as-hint", true)) {
+                tf.setHint(key);
+            }
             if (length != null && !length.isEmpty()) {
                 tf.setMaxChars(Integer.valueOf(length));
             }
@@ -1266,9 +1338,16 @@ public final class TaggingPresetItems {
                 return null;
         }
     }
+
+    /**
+     * Multi-select list type.
+     */
     public static class MultiSelect extends ComboMultiSelect {
 
-        public long rows = -1;
+        /**
+         * Number of rows to display (positive integer, optional).
+         */
+        public String rows;
         protected ConcatenatingJList list;
 
         @Override
@@ -1295,14 +1374,12 @@ public final class TaggingPresetItems {
             JScrollPane sp = new JScrollPane(list);
             // if a number of rows has been specified in the preset,
             // modify preferred height of scroll pane to match that row count.
-            if (rows != -1) {
+            if (rows != null) {
                 double height = renderer.getListCellRendererComponent(list,
-                        new PresetListEntry("x"), 0, false, false).getPreferredSize().getHeight() * rows;
+                        new PresetListEntry("x"), 0, false, false).getPreferredSize().getHeight() * Integer.parseInt(rows);
                 sp.setPreferredSize(new Dimension((int) sp.getPreferredSize().getWidth(), (int) height));
             }
             p.add(sp, GBC.eol().fill(GBC.HORIZONTAL));
-
-
         }
 
         @Override
@@ -1335,20 +1412,22 @@ public final class TaggingPresetItems {
                 clearSelection();
             } else {
                 String s = o.toString();
-                TreeSet<String> parts = new TreeSet<>(Arrays.asList(s.split(delimiter)));
+                Set<String> parts = new TreeSet<>(Arrays.asList(s.split(delimiter)));
                 ListModel<PresetListEntry> lm = getModel();
                 int[] intParts = new int[lm.getSize()];
                 int j = 0;
                 for (int i = 0; i < lm.getSize(); i++) {
-                    if (parts.contains((lm.getElementAt(i).value))) {
+                    final String value = lm.getElementAt(i).value;
+                    if (parts.contains(value)) {
                         intParts[j++]=i;
+                        parts.remove(value);
                     }
                 }
                 setSelectedIndices(Arrays.copyOf(intParts, j));
                 // check if we have actually managed to represent the full
                 // value with our presets. if not, cop out; we will not offer
                 // a selection list that threatens to ruin the value.
-                setEnabled(Utils.join(delimiter, parts).equals(getSelectedItem()));
+                setEnabled(parts.isEmpty());
             }
         }
 
@@ -1366,10 +1445,10 @@ public final class TaggingPresetItems {
         }
     }
 
-    public static EnumSet<TaggingPresetType> getType(String types) throws SAXException {
+    public static Set<TaggingPresetType> getType(String types) throws SAXException {
         if (TYPE_CACHE.containsKey(types))
             return TYPE_CACHE.get(types);
-        EnumSet<TaggingPresetType> result = EnumSet.noneOf(TaggingPresetType.class);
+        Set<TaggingPresetType> result = EnumSet.noneOf(TaggingPresetType.class);
         for (String type : Arrays.asList(types.split(","))) {
             try {
                 TaggingPresetType presetType = TaggingPresetType.fromString(type);
@@ -1384,6 +1463,16 @@ public final class TaggingPresetItems {
 
     static String fixPresetString(String s) {
         return s == null ? s : s.replaceAll("'","''");
+    }
+
+    private static String getLocaleText(String text, String text_context, String defaultText) {
+        if (text == null) {
+            return defaultText;
+        } else if (text_context != null) {
+            return trc(text_context, fixPresetString(text));
+        } else {
+            return tr(fixPresetString(text));
+        }
     }
 
     /**
@@ -1419,7 +1508,6 @@ public final class TaggingPresetItems {
         return result.toArray(new String[result.size()]);
     }
 
-
     static Usage determineTextUsage(Collection<OsmPrimitive> sel, String key) {
         Usage returnValue = new Usage();
         returnValue.values = new TreeSet<>();
@@ -1436,6 +1524,7 @@ public final class TaggingPresetItems {
         }
         return returnValue;
     }
+
     static Usage determineBooleanUsage(Collection<OsmPrimitive> sel, String key) {
 
         Usage returnValue = new Usage();
@@ -1448,6 +1537,7 @@ public final class TaggingPresetItems {
         }
         return returnValue;
     }
+
     protected static ImageIcon loadImageIcon(String iconName, File zipIcons, Integer maxSize) {
         final Collection<String> s = Main.pref.getCollection("taggingpreset.icon.sources", null);
         ImageProvider imgProv = new ImageProvider(iconName).setDirs(s).setId("presets").setArchive(zipIcons).setOptional(true);
@@ -1455,5 +1545,18 @@ public final class TaggingPresetItems {
             imgProv.setMaxSize(maxSize);
         }
         return imgProv.get();
+    }
+
+    protected static Integer parseInteger(String str) {
+        if (str == null || str.isEmpty())
+            return null;
+        try {
+            return Integer.valueOf(str);
+        } catch (Exception e) {
+            if (Main.isTraceEnabled()) {
+                Main.trace(e.getMessage());
+            }
+        }
+        return null;
     }
 }

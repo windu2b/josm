@@ -8,7 +8,6 @@ import static org.openstreetmap.josm.tools.I18n.trc;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.Font;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
@@ -23,6 +22,7 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.swing.ButtonGroup;
 import javax.swing.JCheckBox;
@@ -109,7 +109,7 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
         while (searchHistory.size() > maxsize) {
             searchHistory.removeLast();
         }
-        LinkedHashSet<String> savedHistory = new LinkedHashSet<>(searchHistory.size());
+        Set<String> savedHistory = new LinkedHashSet<>(searchHistory.size());
         for (SearchSetting item: searchHistory) {
             savedHistory.add(item.writeToString());
         }
@@ -124,7 +124,7 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
         return ret;
     }
 
-    private static SearchSetting lastSearch = null;
+    private static volatile SearchSetting lastSearch = null;
 
     /**
      * Constructs a new {@code SearchAction}.
@@ -153,7 +153,7 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
 
     private static class DescriptionTextBuilder {
 
-        StringBuilder s = new StringBuilder(4096);
+        private final StringBuilder s = new StringBuilder(4096);
 
         public StringBuilder append(String string) {
             return s.append(string);
@@ -223,17 +223,17 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
         }
         // -- prepare the combo box with the search expressions
         //
-        JLabel label = new JLabel( initialValues instanceof Filter ? tr("Filter string:") : tr("Search string:"));
+        JLabel label = new JLabel(initialValues instanceof Filter ? tr("Filter string:") : tr("Search string:"));
         final HistoryComboBox hcbSearchString = new HistoryComboBox();
         hcbSearchString.setText(initialValues.text);
         hcbSearchString.setToolTipText(tr("Enter the search expression"));
-        // we have to reverse the history, because ComboBoxHistory will reverse it again
-        // in addElement()
+        // we have to reverse the history, because ComboBoxHistory will reverse it again in addElement()
         //
         List<String> searchExpressionHistory = getSearchExpressionHistory();
         Collections.reverse(searchExpressionHistory);
         hcbSearchString.setPossibleItems(searchExpressionHistory);
         hcbSearchString.setPreferredSize(new Dimension(40, hcbSearchString.getPreferredSize().height));
+        label.setLabelFor(hcbSearchString);
 
         JRadioButton replace = new JRadioButton(tr("replace selection"), initialValues.mode == SearchMode.replace);
         JRadioButton add = new JRadioButton(tr("add to selection"), initialValues.mode == SearchMode.add);
@@ -260,21 +260,15 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
         left.add(remove, GBC.eol());
         left.add(in_selection, GBC.eop());
         left.add(caseSensitive, GBC.eol());
-        if(Main.pref.getBoolean("expert", false))
-        {
+        if(Main.pref.getBoolean("expert", false)) {
             left.add(allElements, GBC.eol());
             left.add(regexSearch, GBC.eol());
             left.add(addOnToolbar, GBC.eol());
         }
 
         final JPanel right;
-        if (Main.pref.getBoolean("dialog.search.new", true)) {
-            right = new JPanel(new GridBagLayout());
-            buildHintsNew(right, hcbSearchString);
-        } else {
-            right = new JPanel();
-            buildHints(right);
-        }
+        right = new JPanel(new GridBagLayout());
+        buildHints(right, hcbSearchString);
 
         final JPanel p = new JPanel(new GridBagLayout());
         p.add(top, GBC.eol().fill(GBC.HORIZONTAL).insets(5, 5, 5, 0));
@@ -305,7 +299,7 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
                 }
             }
         };
-        dialog.setButtonIcons(new String[] {"dialogs/search.png", "cancel.png"});
+        dialog.setButtonIcons(new String[] {"dialogs/search", "cancel"});
         dialog.configureContextsensitiveHelp("/Action/Search", true /* show help button */);
         dialog.setContent(p);
         dialog.showDialog();
@@ -338,54 +332,7 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
         return initialValues;
     }
 
-    private static void buildHints(JPanel right) {
-        DescriptionTextBuilder descriptionText = new DescriptionTextBuilder();
-        descriptionText.append("<html><style>li.header{font-size:110%; list-style-type:none; margin-top:5px;}</style><ul>");
-        descriptionText.appendItem(tr("<b>Baker Street</b> - ''Baker'' and ''Street'' in any key"));
-        descriptionText.appendItem(tr("<b>\"Baker Street\"</b> - ''Baker Street'' in any key"));
-        descriptionText.appendItem(tr("<b>key:Bak</b> - ''Bak'' anywhere in the key ''key''"));
-        descriptionText.appendItem(tr("<b>-key:Bak</b> - ''Bak'' nowhere in the key ''key''"));
-        descriptionText.appendItem(tr("<b>key=value</b> - key ''key'' with value exactly ''value''"));
-        descriptionText.appendItem(tr("<b>key=*</b> - key ''key'' with any value. Try also <b>*=value</b>, <b>key=</b>, <b>*=*</b>, <b>*=</b>"));
-        descriptionText.appendItem(tr("<b>key:</b> - key ''key'' set to any value"));
-        descriptionText.appendItem(tr("<b>key?</b> - key ''key'' with the value ''yes'', ''true'', ''1'' or ''on''"));
-        if(Main.pref.getBoolean("expert", false))
-        {
-            descriptionText.appendItemHeader(tr("Special targets"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>type:</b>... - objects with corresponding type (<b>node</b>, <b>way</b>, <b>relation</b>)"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>user:</b>... - objects changed by user"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>user:anonymous</b> - objects changed by anonymous users"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>id:</b>... - objects with given ID (0 for new objects)"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>version:</b>... - objects with given version (0 objects without an assigned version)"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>changeset:</b>... - objects with given changeset ID (0 objects without an assigned changeset)"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>nodes:</b>... - objects with given number of nodes (<b>nodes:</b>count, <b>nodes:</b>min-max, <b>nodes:</b>min- or <b>nodes:</b>-max)"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>tags:</b>... - objects with given number of tags (<b>tags:</b>count, <b>tags:</b>min-max, <b>tags:</b>min- or <b>tags:</b>-max)"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>role:</b>... - objects with given role in a relation"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>timestamp:</b>timestamp - objects with this last modification timestamp (2009-11-12T14:51:09Z, 2009-11-12 or T14:51 ...)"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>timestamp:</b>min/max - objects with last modification within range"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>areasize:</b>... - closed ways with given area in m\u00b2 (<b>areasize:</b>min-max or <b>areasize:</b>max)"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>modified</b> - all changed objects"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>selected</b> - all selected objects"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>incomplete</b> - all incomplete objects"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>untagged</b> - all untagged objects"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>closed</b> - all closed ways (a node is not considered closed)"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>child <i>expr</i></b> - all children of objects matching the expression"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>parent <i>expr</i></b> - all parents of objects matching the expression"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>(all)indownloadedarea</b> - objects (and all its way nodes / relation members) in downloaded area"));
-            /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("<b>(all)inview</b> - objects (and all its way nodes / relation members) in current view"));
-        }
-        /* I18n: don't translate the bold text keyword */ descriptionText.appendItem(tr("Use <b>|</b> or <b>OR</b> to combine with logical or"));
-        descriptionText.appendItem(tr("Use <b>\"</b> to quote operators (e.g. if key contains <b>:</b>)")
-                + "<br/>"
-                + tr("Within quoted strings the <b>\"</b> and <b>\\</b> characters need to be escaped by a preceding <b>\\</b> (e.g. <b>\\\"</b> and <b>\\\\</b>)."));
-        descriptionText.appendItem(tr("Use <b>(</b> and <b>)</b> to group expressions"));
-        descriptionText.append("</ul></html>");
-        JLabel description = new JLabel(descriptionText.toString());
-        description.setFont(description.getFont().deriveFont(Font.PLAIN));
-        right.add(description);
-    }
-
-    private static void buildHintsNew(JPanel right, HistoryComboBox hcbSearchString) {
+    private static void buildHints(JPanel right, HistoryComboBox hcbSearchString) {
         right.add(new SearchKeywordRow(hcbSearchString)
                 .addTitle(tr("basic examples"))
                 .addKeyword(tr("Baker Street"), null, tr("''Baker'' and ''Street'' in any key"))
@@ -400,6 +347,7 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
                 .addKeyword("*=<i>value</i>", null, tr("''value'' in any key"))
                 .addKeyword("<i>key</i>=", null, tr("matches if ''key'' exists"))
                 .addKeyword("<i>key</i>><i>value</i>", null, tr("matches if ''key'' is greater than ''value'' (analogously, less than)"))
+                .addKeyword("\"key\"=\"value\"", "\"\"=\"\"", tr("to quote operators.<br>Within quoted strings the <b>\"</b> and <b>\\</b> characters need to be escaped by a preceding <b>\\</b> (e.g. <b>\\\"</b> and <b>\\\\</b>)."), "\"addr:street\"")
                 , GBC.eol());
         right.add(new SearchKeywordRow(hcbSearchString)
                 .addTitle(tr("combinators"))
@@ -408,7 +356,6 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
                 .addKeyword("<i>expr</i> OR <i>expr</i>", "OR ", tr("logical or (at least one expression has to be satisfied)"))
                 .addKeyword("-<i>expr</i>", null, tr("logical not"))
                 .addKeyword("(<i>expr</i>)", "()", tr("use parenthesis to group expressions"))
-                .addKeyword("\"key\"=\"value\"", "\"\"=\"\"", tr("to quote operators.<br>Within quoted strings the <b>\"</b> and <b>\\</b> characters need to be escaped by a preceding <b>\\</b> (e.g. <b>\\\"</b> and <b>\\\\</b>)."), "\"addr:street\"")
                 , GBC.eol());
 
         if (Main.pref.getBoolean("expert", false)) {
@@ -430,10 +377,12 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
                 , GBC.eol());
             right.add(new SearchKeywordRow(hcbSearchString)
                 .addTitle(tr("properties"))
-                .addKeyword("nodes:<i>20-</i>", "nodes:", tr("objects with at least 20 nodes"))
+                .addKeyword("nodes:<i>20-</i>", "nodes:", tr("ways with at least 20 nodes, or relations containing at least 20 nodes"))
+                .addKeyword("ways:<i>3-</i>", "ways:", tr("nodes with at least 3 referring ways, or relations containing at least 3 ways"))
                 .addKeyword("tags:<i>5-10</i>", "tags:", tr("objects having 5 to 10 tags"))
                 .addKeyword("role:", "role:", tr("objects with given role in a relation"))
                 .addKeyword("areasize:<i>-100</i>", "areasize:", tr("closed ways with an area of 100 m\u00b2"))
+                .addKeyword("waylength:<i>200-</i>", "waylength:", tr("ways with a length of 200 m or more"))
                 , GBC.eol());
             right.add(new SearchKeywordRow(hcbSearchString)
                 .addTitle(tr("state"))
@@ -446,7 +395,7 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
                 .addTitle(tr("related objects"))
                 .addKeyword("child <i>expr</i>", "child ", tr("all children of objects matching the expression"), "child building")
                 .addKeyword("parent <i>expr</i>", "parent ", tr("all parents of objects matching the expression"), "parent bus_stop")
-                .addKeyword("nth:<i>7</i>", "nth: ", tr("n-th member of relation and/or n-th node of way"), "nth:5 (child type:relation)")
+                .addKeyword("nth:<i>7</i>", "nth: ", tr("n-th member of relation and/or n-th node of way"), "nth:5 (child type:relation)", "nth:-1")
                 .addKeyword("nth%:<i>7</i>", "nth%: ", tr("every n-th member of relation and/or every n-th node of way"), "nth%:100 (child waterway)")
                 , GBC.eol());
             right.add(new SearchKeywordRow(hcbSearchString)
@@ -495,6 +444,8 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
 
             if (s.mode == SearchMode.replace) {
                 sel.clear();
+            } else if (s.mode == SearchMode.in_selection) {
+                foundMatches = sel.size();
             }
 
             Collection<OsmPrimitive> all;
@@ -503,6 +454,7 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
             } else {
                 all = Main.main.getCurrentDataSet().allNonDeletedCompletePrimitives();
             }
+
             for (OsmPrimitive osm : all) {
                 if (s.mode == SearchMode.replace) {
                     if (matcher.match(osm)) {
@@ -515,9 +467,9 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
                 } else if (s.mode == SearchMode.remove && p.evaluate(osm) && matcher.match(osm)) {
                     sel.remove(osm);
                     ++foundMatches;
-                } else if (s.mode == SearchMode.in_selection &&  p.evaluate(osm) && !matcher.match(osm)) {
+                } else if (s.mode == SearchMode.in_selection && p.evaluate(osm) && !matcher.match(osm)) {
                     sel.remove(osm);
-                    ++foundMatches;
+                    --foundMatches;
                 }
             }
         } catch (SearchCompiler.ParseError e) {
@@ -551,16 +503,16 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
             for (OsmPrimitive osm : all) {
                 if (s.mode == SearchMode.replace) {
                     if (matcher.match(osm)) {
-                        p.set(osm, true);
+                        p.set(osm, Boolean.TRUE);
                     } else {
-                        p.set(osm, false);
+                        p.set(osm, Boolean.FALSE);
                     }
                 } else if (s.mode == SearchMode.add && !p.get(osm) && matcher.match(osm)) {
-                    p.set(osm, true);
+                    p.set(osm, Boolean.TRUE);
                 } else if (s.mode == SearchMode.remove && p.get(osm) && matcher.match(osm)) {
-                    p.set(osm, false);
+                    p.set(osm, Boolean.FALSE);
                 } else if (s.mode == SearchMode.in_selection && p.get(osm) && !matcher.match(osm)) {
-                    p.set(osm, false);
+                    p.set(osm, Boolean.FALSE);
                 }
             }
         } catch (SearchCompiler.ParseError e) {
@@ -569,7 +521,6 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
                     e.getMessage(),
                     tr("Error"),
                     JOptionPane.ERROR_MESSAGE
-
             );
         }
     }
@@ -620,6 +571,9 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
         public boolean regexSearch;
         public boolean allElements;
 
+        /**
+         * Constructs a new {@code SearchSetting}.
+         */
         public SearchSetting() {
             this("", SearchMode.replace, false /* case insensitive */,
                     false /* no regexp */, false /* only useful primitives */);
@@ -644,10 +598,10 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
             String cs = caseSensitive ?
                     /*case sensitive*/  trc("search", "CS") :
                         /*case insensitive*/  trc("search", "CI");
-                    String rx = regexSearch ? (", " +
-                            /*regex search*/ trc("search", "RX")) : "";
-                    String all = allElements ? (", " +
-                            /*all elements*/ trc("search", "A")) : "";
+                    String rx = regexSearch ? ", " +
+                            /*regex search*/ trc("search", "RX") : "";
+                    String all = allElements ? ", " +
+                            /*all elements*/ trc("search", "A") : "";
                     return "\"" + text + "\" (" + cs + rx + all + ", " + mode + ")";
         }
 
@@ -656,11 +610,11 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
             if(!(other instanceof SearchSetting))
                 return false;
             SearchSetting o = (SearchSetting) other;
-            return (o.caseSensitive == this.caseSensitive
+            return o.caseSensitive == this.caseSensitive
                     && o.regexSearch == this.regexSearch
                     && o.allElements == this.allElements
                     && o.mode.equals(this.mode)
-                    && o.text.equals(this.text));
+                    && o.text.equals(this.text);
         }
 
         @Override
@@ -669,7 +623,7 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
         }
 
         public static SearchSetting readFromString(String s) {
-            if (s.length() == 0)
+            if (s.isEmpty())
                 return null;
 
             SearchSetting result = new SearchSetting();
@@ -708,7 +662,7 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
         }
 
         public String writeToString() {
-            if (text == null || text.length() == 0)
+            if (text == null || text.isEmpty())
                 return "";
 
             StringBuilder result = new StringBuilder();
@@ -722,8 +676,8 @@ public class SearchAction extends JosmAction implements ParameterizedAction {
             if (allElements) {
                 result.append('A');
             }
-            result.append(' ');
-            result.append(text);
+            result.append(' ')
+                  .append(text);
             return result.toString();
         }
     }

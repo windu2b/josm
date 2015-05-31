@@ -99,7 +99,7 @@ public class CombinePrimitiveResolverDialog extends JDialog {
      * @deprecated use {@link #launchIfNecessary} instead.
      */
     @Deprecated
-    public static CombinePrimitiveResolverDialog getInstance() {
+    public static synchronized CombinePrimitiveResolverDialog getInstance() {
         if (instance == null) {
             GuiHelper.runInEDTAndWait(new Runnable() {
                 @Override public void run() {
@@ -112,10 +112,10 @@ public class CombinePrimitiveResolverDialog extends JDialog {
 
     private AutoAdjustingSplitPane spTagConflictTypes;
     private TagConflictResolver pnlTagConflictResolver;
-    private RelationMemberConflictResolver pnlRelationMemberConflictResolver;
+    protected RelationMemberConflictResolver pnlRelationMemberConflictResolver;
     private boolean canceled;
     private JPanel pnlButtons;
-    private OsmPrimitive targetPrimitive;
+    protected transient OsmPrimitive targetPrimitive;
 
     /** the private help action */
     private ContextSensitiveHelpAction helpAction;
@@ -186,15 +186,19 @@ public class CombinePrimitiveResolverDialog extends JDialog {
     }
 
     protected JPanel buildRelationMemberConflictResolverPanel() {
-        pnlRelationMemberConflictResolver = new RelationMemberConflictResolver();
+        pnlRelationMemberConflictResolver = new RelationMemberConflictResolver(new RelationMemberConflictResolverModel());
         return pnlRelationMemberConflictResolver;
+    }
+
+    protected ApplyAction buildApplyAction() {
+        return new ApplyAction();
     }
 
     protected JPanel buildButtonPanel() {
         JPanel pnl = new JPanel(new FlowLayout(FlowLayout.CENTER));
 
         // -- apply button
-        ApplyAction applyAction = new ApplyAction();
+        ApplyAction applyAction = buildApplyAction();
         pnlTagConflictResolver.getModel().addPropertyChangeListener(applyAction);
         pnlRelationMemberConflictResolver.getModel().addPropertyChangeListener(applyAction);
         btnApply = new SideButton(applyAction);
@@ -248,7 +252,7 @@ public class CombinePrimitiveResolverDialog extends JDialog {
     }
 
     protected List<Command> buildTagChangeCommand(OsmPrimitive primitive, TagCollection tc) {
-        LinkedList<Command> cmds = new LinkedList<>();
+        List<Command> cmds = new LinkedList<>();
         for (String key : tc.getKeys()) {
             if (tc.hasUniqueEmptyValue(key)) {
                 if (primitive.get(key) != null) {
@@ -294,9 +298,7 @@ public class CombinePrimitiveResolverDialog extends JDialog {
     }
 
     protected void prepareDefaultTagDecisions() {
-        TagConflictResolverModel model = getTagConflictResolverModel();
-        model.prepareDefaultTagDecisions();
-        model.rebuild();
+        getTagConflictResolverModel().prepareDefaultTagDecisions();
     }
 
     protected void prepareDefaultRelationDecisions() {
@@ -416,7 +418,7 @@ public class CombinePrimitiveResolverDialog extends JDialog {
         }
     }
 
-    class ApplyAction extends AbstractAction implements PropertyChangeListener {
+    protected class ApplyAction extends AbstractAction implements PropertyChangeListener {
 
         public ApplyAction() {
             putValue(Action.SHORT_DESCRIPTION, tr("Apply resolved conflicts"));
@@ -479,7 +481,7 @@ public class CombinePrimitiveResolverDialog extends JDialog {
 
         @Override
         public void propertyChange(PropertyChangeEvent evt) {
-            if (evt.getPropertyName().equals(JSplitPane.DIVIDER_LOCATION_PROPERTY)) {
+            if (JSplitPane.DIVIDER_LOCATION_PROPERTY.equals(evt.getPropertyName())) {
                 int newVal = (Integer) evt.getNewValue();
                 if (getHeight() != 0) {
                     dividerLocation = (double) newVal / (double) getHeight();

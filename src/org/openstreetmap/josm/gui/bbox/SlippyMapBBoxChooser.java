@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui.bbox;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -11,8 +11,10 @@ import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -25,6 +27,7 @@ import org.openstreetmap.gui.jmapviewer.MapMarkerDot;
 import org.openstreetmap.gui.jmapviewer.MemoryTileCache;
 import org.openstreetmap.gui.jmapviewer.OsmTileLoader;
 import org.openstreetmap.gui.jmapviewer.interfaces.MapMarker;
+import org.openstreetmap.gui.jmapviewer.interfaces.TileLoader;
 import org.openstreetmap.gui.jmapviewer.interfaces.TileSource;
 import org.openstreetmap.gui.jmapviewer.tilesources.MapQuestOpenAerialTileSource;
 import org.openstreetmap.gui.jmapviewer.tilesources.MapQuestOsmTileSource;
@@ -48,7 +51,7 @@ public class SlippyMapBBoxChooser extends JMapViewer implements BBoxChooser {
      * TMS TileSource provider for the slippymap chooser
      */
     public static class TMSTileSourceProvider implements TileSourceProvider {
-        static final Set<String> existingSlippyMapUrls = new HashSet<>();
+        private static final Set<String> existingSlippyMapUrls = new HashSet<>();
         static {
             // Urls that already exist in the slippymap chooser and shouldn't be copied from TMS layer list
             existingSlippyMapUrls.add("https://{switch:a,b,c}.tile.openstreetmap.org/{zoom}/{x}/{y}.png");      // Mapnik
@@ -113,16 +116,16 @@ public class SlippyMapBBoxChooser extends JMapViewer implements BBoxChooser {
     private static final StringProperty PROP_MAPSTYLE = new StringProperty("slippy_map_chooser.mapstyle", "Mapnik");
     public static final String RESIZE_PROP = SlippyMapBBoxChooser.class.getName() + ".resize";
 
-    private OsmTileLoader cachedLoader;
-    private OsmTileLoader uncachedLoader;
+    private transient TileLoader cachedLoader;
+    private transient OsmTileLoader uncachedLoader;
 
     private final SizeButton iSizeButton;
     private final SourceButton iSourceButton;
-    private Bounds bbox;
+    private transient Bounds bbox;
 
     // upper left and lower right corners of the selection rectangle (x/y on ZOOM_MAX)
-    Point iSelectionRectStart;
-    Point iSelectionRectEnd;
+    private Coordinate iSelectionRectStart;
+    private Coordinate iSelectionRectEnd;
 
     /**
      * Constructs a new {@code SlippyMapBBoxChooser}.
@@ -131,11 +134,14 @@ public class SlippyMapBBoxChooser extends JMapViewer implements BBoxChooser {
         debug = Main.isDebugEnabled();
         SpringLayout springLayout = new SpringLayout();
         setLayout(springLayout);
-        TMSLayer.setMaxWorkers();
-        cachedLoader = TMSLayer.loaderFactory.makeTileLoader(this);
+
+        Map<String, String> headers = new HashMap<>();
+        headers.put("User-Agent", Version.getInstance().getFullAgentString());
+
+        cachedLoader = TMSLayer.loaderFactory.makeTileLoader(this, headers);
 
         uncachedLoader = new OsmTileLoader(this);
-        uncachedLoader.headers.put("User-Agent", Version.getInstance().getFullAgentString());
+        uncachedLoader.headers.putAll(headers);
         setZoomContolsVisible(Main.pref.getBoolean("slippy_map_chooser.zoomcontrols",false));
         setMapMarkerVisible(false);
         setMinimumSize(new Dimension(350, 350 / 2));
@@ -203,21 +209,14 @@ public class SlippyMapBBoxChooser extends JMapViewer implements BBoxChooser {
 
             // draw selection rectangle
             if (iSelectionRectStart != null && iSelectionRectEnd != null) {
+                Rectangle box = new Rectangle(getMapPosition(iSelectionRectStart, false));
+                box.add(getMapPosition(iSelectionRectEnd, false));
 
-                int zoomDiff = MAX_ZOOM - zoom;
-                Point tlc = getTopLeftCoordinates();
-                int x_min = (iSelectionRectStart.x >> zoomDiff) - tlc.x;
-                int y_min = (iSelectionRectStart.y >> zoomDiff) - tlc.y;
-                int x_max = (iSelectionRectEnd.x >> zoomDiff) - tlc.x;
-                int y_max = (iSelectionRectEnd.y >> zoomDiff) - tlc.y;
-
-                int w = x_max - x_min;
-                int h = y_max - y_min;
                 g.setColor(new Color(0.9f, 0.7f, 0.7f, 0.6f));
-                g.fillRect(x_min, y_min, w, h);
+                g.fillRect(box.x, box.y, box.width, box.height);
 
                 g.setColor(Color.BLACK);
-                g.drawRect(x_min, y_min, w, h);
+                g.drawRect(box.x, box.y, box.width, box.height);
             }
         } catch (Exception e) {
             Main.error(e);
@@ -250,29 +249,17 @@ public class SlippyMapBBoxChooser extends JMapViewer implements BBoxChooser {
         Point p_max = new Point(Math.max(aEnd.x, aStart.x), Math.max(aEnd.y, aStart.y));
         Point p_min = new Point(Math.min(aEnd.x, aStart.x), Math.min(aEnd.y, aStart.y));
 
-        Point tlc = getTopLeftCoordinates();
-        int zoomDiff = MAX_ZOOM - zoom;
-        Point pEnd = new Point(p_max.x + tlc.x, p_max.y + tlc.y);
-        Point pStart = new Point(p_min.x + tlc.x, p_min.y + tlc.y);
+        iSelectionRectStart = getPosition(p_min);
+        iSelectionRectEnd =   getPosition(p_max);
 
-        pEnd.x <<= zoomDiff;
-        pEnd.y <<= zoomDiff;
-        pStart.x <<= zoomDiff;
-        pStart.y <<= zoomDiff;
-
-        iSelectionRectStart = pStart;
-        iSelectionRectEnd = pEnd;
-
-        Coordinate l1 = getPosition(p_max); // lon may be outside [-180,180]
-        Coordinate l2 = getPosition(p_min); // lon may be outside [-180,180]
         Bounds b = new Bounds(
                 new LatLon(
-                        Math.min(l2.getLat(), l1.getLat()),
-                        LatLon.toIntervalLon(Math.min(l1.getLon(), l2.getLon()))
+                        Math.min(iSelectionRectStart.getLat(), iSelectionRectEnd.getLat()),
+                        LatLon.toIntervalLon(Math.min(iSelectionRectStart.getLon(), iSelectionRectEnd.getLon()))
                         ),
                         new LatLon(
-                                Math.max(l2.getLat(), l1.getLat()),
-                                LatLon.toIntervalLon(Math.max(l1.getLon(), l2.getLon())))
+                                Math.max(iSelectionRectStart.getLat(), iSelectionRectEnd.getLat()),
+                                LatLon.toIntervalLon(Math.max(iSelectionRectStart.getLon(), iSelectionRectEnd.getLon())))
                 );
         Bounds oldValue = this.bbox;
         this.bbox = b;
@@ -308,8 +295,8 @@ public class SlippyMapBBoxChooser extends JMapViewer implements BBoxChooser {
      */
     @Override
     public void setBoundingBox(Bounds bbox) {
-        if (bbox == null || (bbox.getMinLat() == 0.0 && bbox.getMinLon() == 0.0
-                && bbox.getMaxLat() == 0.0 && bbox.getMaxLon() == 0.0)) {
+        if (bbox == null || (bbox.getMinLat() == 0 && bbox.getMinLon() == 0
+                && bbox.getMaxLat() == 0 && bbox.getMaxLon() == 0)) {
             this.bbox = null;
             iSelectionRectStart = null;
             iSelectionRectEnd = null;
@@ -318,28 +305,16 @@ public class SlippyMapBBoxChooser extends JMapViewer implements BBoxChooser {
         }
 
         this.bbox = bbox;
-        double minLon = bbox.getMinLon();
-        double maxLon = bbox.getMaxLon();
-
-        if (bbox.crosses180thMeridian()) {
-            minLon -= 360.0;
-        }
-
-        int y1 = tileSource.LatToY(bbox.getMinLat(), MAX_ZOOM);
-        int y2 = tileSource.LatToY(bbox.getMaxLat(), MAX_ZOOM);
-        int x1 = tileSource.LonToX(minLon, MAX_ZOOM);
-        int x2 = tileSource.LonToX(maxLon, MAX_ZOOM);
-
-        iSelectionRectStart = new Point(Math.min(x1, x2), Math.min(y1, y2));
-        iSelectionRectEnd = new Point(Math.max(x1, x2), Math.max(y1, y2));
+        iSelectionRectStart = new Coordinate(bbox.getMinLat(), bbox.getMinLon());
+        iSelectionRectEnd = new Coordinate(bbox.getMaxLat(), bbox.getMaxLon());
 
         // calc the screen coordinates for the new selection rectangle
-        MapMarkerDot xmin_ymin = new MapMarkerDot(bbox.getMinLat(), bbox.getMinLon());
-        MapMarkerDot xmax_ymax = new MapMarkerDot(bbox.getMaxLat(), bbox.getMaxLon());
+        MapMarkerDot min = new MapMarkerDot(bbox.getMinLat(), bbox.getMinLon());
+        MapMarkerDot max = new MapMarkerDot(bbox.getMaxLat(), bbox.getMaxLon());
 
         List<MapMarker> marker = new ArrayList<>(2);
-        marker.add(xmin_ymin);
-        marker.add(xmax_ymax);
+        marker.add(min);
+        marker.add(max);
         setMapMarkerList(marker);
         setDisplayToFitMapMarkers();
         zoomOut();

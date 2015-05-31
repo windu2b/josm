@@ -1,4 +1,4 @@
-//License: GPL. For details, see LICENSE file.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.command;
 
 import java.awt.GridBagLayout;
@@ -59,9 +59,9 @@ public abstract class Command extends PseudoCommand {
      */
     public static class OldNodeState {
 
-        final LatLon latlon;
-        final EastNorth eastNorth; // cached EastNorth to be used for applying exact displacement
-        final boolean modified;
+        private final LatLon latlon;
+        private final EastNorth eastNorth; // cached EastNorth to be used for applying exact displacement
+        private final boolean modified;
 
         /**
          * Constructs a new {@code OldNodeState} for the given node.
@@ -71,6 +71,33 @@ public abstract class Command extends PseudoCommand {
             latlon = node.getCoor();
             eastNorth = node.getEastNorth();
             modified = node.isModified();
+        }
+
+        /**
+         * Returns old lat/lon.
+         * @return old lat/lon
+         * @see Node#getCoor()
+         */
+        public final LatLon getLatlon() {
+            return latlon;
+        }
+
+        /**
+         * Returns old east/north.
+         * @return old east/north
+         * @see Node#getEastNorth()
+         */
+        public final EastNorth getEastNorth() {
+            return eastNorth;
+        }
+
+        /**
+         * Returns old modified state.
+         * @return old modified state
+         * @see Node #isModified()
+         */
+        public final boolean isModified() {
+            return modified;
         }
     }
 
@@ -91,9 +118,9 @@ public abstract class Command extends PseudoCommand {
      * Creates a new command in the context of a specific data layer
      *
      * @param layer the data layer. Must not be null.
-     * @throws IllegalArgumentException thrown if layer is null
+     * @throws IllegalArgumentException if layer is null
      */
-    public Command(OsmDataLayer layer) throws IllegalArgumentException {
+    public Command(OsmDataLayer layer) {
         CheckParameterUtil.ensureParameterNotNull(layer, "layer");
         this.layer = layer;
     }

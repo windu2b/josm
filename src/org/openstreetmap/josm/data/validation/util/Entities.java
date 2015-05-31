@@ -333,7 +333,7 @@ public class Entities {
         {"euro", "8364"}, // -- euro sign, U+20AC NEW -->
     };
 
-    private static Map<String, String> mapNameToValue = null;
+    private static volatile Map<String, String> mapNameToValue = null;
 
     public String unescape(String str) {
         int firstAmp = str.indexOf('&');
@@ -381,8 +381,7 @@ public class Entities {
                             }
                         }
                     } else { // escaped value content is an entity name
-                        if(mapNameToValue == null)
-                        {
+                        if(mapNameToValue == null) {
                             mapNameToValue = new HashMap<>();
                             for (String[] pair : ARRAY)
                                 mapNameToValue.put(pair[0], pair[1]);

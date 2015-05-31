@@ -34,6 +34,7 @@ import javax.swing.DefaultListSelectionModel;
 import javax.swing.JCheckBox;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
+import javax.swing.JMenu;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
@@ -65,17 +66,22 @@ import org.openstreetmap.josm.gui.PleaseWaitRunnable;
 import org.openstreetmap.josm.gui.SideButton;
 import org.openstreetmap.josm.gui.mappaint.MapPaintStyles;
 import org.openstreetmap.josm.gui.mappaint.MapPaintStyles.MapPaintSylesUpdateListener;
+import org.openstreetmap.josm.gui.mappaint.StyleSetting;
 import org.openstreetmap.josm.gui.mappaint.StyleSource;
 import org.openstreetmap.josm.gui.mappaint.mapcss.MapCSSStyleSource;
 import org.openstreetmap.josm.gui.preferences.SourceEntry;
 import org.openstreetmap.josm.gui.preferences.map.MapPaintPreference;
 import org.openstreetmap.josm.gui.util.FileFilterAllFiles;
+import org.openstreetmap.josm.gui.util.GuiHelper;
+import org.openstreetmap.josm.gui.widgets.AbstractFileChooser;
+import org.openstreetmap.josm.gui.widgets.FileChooserManager;
 import org.openstreetmap.josm.gui.widgets.HtmlPanel;
-import org.openstreetmap.josm.gui.widgets.JFileChooserManager;
 import org.openstreetmap.josm.gui.widgets.JosmTextArea;
 import org.openstreetmap.josm.gui.widgets.PopupMenuLauncher;
 import org.openstreetmap.josm.tools.GBC;
+import org.openstreetmap.josm.tools.ImageOverlay;
 import org.openstreetmap.josm.tools.ImageProvider;
+import org.openstreetmap.josm.tools.ImageProvider.ImageSizes;
 import org.openstreetmap.josm.tools.InputMapUtils;
 import org.openstreetmap.josm.tools.Shortcut;
 import org.openstreetmap.josm.tools.Utils;
@@ -92,8 +98,11 @@ public class MapPaintDialog extends ToggleDialog {
     protected MoveUpDownAction downAction;
     protected JCheckBox cbWireframe;
 
+    /**
+     * Action that opens the map paint preferences.
+     */
     public static final JosmAction PREFERENCE_ACTION = PreferencesAction.forPreferenceSubTab(
-            tr("Map paint preferences"), null, MapPaintPreference.class, "dialogs/mappaintpreference");
+            tr("Map paint preferences"), null, MapPaintPreference.class, /* ICON */ "dialogs/mappaintpreference");
 
     /**
      * Constructs a new {@code MapPaintDialog}.
@@ -111,6 +120,7 @@ public class MapPaintDialog extends ToggleDialog {
         cbWireframe = new JCheckBox();
         JLabel wfLabel = new JLabel(tr("Wireframe View"), ImageProvider.get("dialogs/mappaint", "wireframe_small"), JLabel.HORIZONTAL);
         wfLabel.setFont(wfLabel.getFont().deriveFont(Font.PLAIN));
+        wfLabel.setLabelFor(cbWireframe);
 
         cbWireframe.setModel(new DefaultButtonModel() {
             @Override
@@ -133,7 +143,7 @@ public class MapPaintDialog extends ToggleDialog {
         tblStyles = new StylesTable(model);
         tblStyles.setSelectionModel(selectionModel= new DefaultListSelectionModel());
         tblStyles.addMouseListener(new PopupMenuHandler());
-        tblStyles.putClientProperty("terminateEditOnFocusLost", true);
+        tblStyles.putClientProperty("terminateEditOnFocusLost", Boolean.TRUE);
         tblStyles.setBackground(UIManager.getColor("Panel.background"));
         tblStyles.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         tblStyles.setTableHeader(null);
@@ -201,8 +211,13 @@ public class MapPaintDialog extends ToggleDialog {
 
     protected class StylesModel extends AbstractTableModel implements MapPaintSylesUpdateListener {
 
-        List<StyleSource> data = new ArrayList<>();
+        private final Class<?>[] columnClasses = {Boolean.class, StyleSource.class};
 
+        private transient List<StyleSource> data = new ArrayList<>();
+
+        /**
+         * Constructs a new {@code StylesModel}.
+         */
         public StylesModel() {
             data = new ArrayList<>(MapPaintStyles.getStyles().getStyleSources());
         }
@@ -233,8 +248,6 @@ public class MapPaintDialog extends ToggleDialog {
         public boolean isCellEditable(int row, int column) {
             return column == 0;
         }
-
-        Class<?>[] columnClasses = {Boolean.class, StyleSource.class};
 
         @Override
         public Class<?> getColumnClass(int column) {
@@ -279,6 +292,9 @@ public class MapPaintDialog extends ToggleDialog {
 
     private class MyCheckBoxRenderer extends JCheckBox implements TableCellRenderer {
 
+        /**
+         * Constructs a new {@code MyCheckBoxRenderer}.
+         */
         public MyCheckBoxRenderer() {
             setHorizontalAlignment(SwingConstants.CENTER);
             setVerticalAlignment(SwingConstants.CENTER);
@@ -311,6 +327,9 @@ public class MapPaintDialog extends ToggleDialog {
     }
 
     protected class OnOffAction extends AbstractAction implements ListSelectionListener {
+        /**
+         * Constructs a new {@code OnOffAction}.
+         */
         public OnOffAction() {
             putValue(NAME, tr("On/Off"));
             putValue(SHORT_DESCRIPTION, tr("Turn selected styles on or off"));
@@ -343,8 +362,12 @@ public class MapPaintDialog extends ToggleDialog {
      */
     protected class MoveUpDownAction extends AbstractAction implements ListSelectionListener {
 
-        final int increment;
+        private final int increment;
 
+        /**
+         * Constructs a new {@code MoveUpDownAction}.
+         * @param isDown {@code true} to move the entry down, {@code false} to move it up
+         */
         public MoveUpDownAction(boolean isDown) {
             increment = isDown ? 1 : -1;
             putValue(NAME, isDown?tr("Down"):tr("Up"));
@@ -377,6 +400,9 @@ public class MapPaintDialog extends ToggleDialog {
     }
 
     protected class ReloadAction extends AbstractAction implements ListSelectionListener {
+        /**
+         * Constructs a new {@code ReloadAction}.
+         */
         public ReloadAction() {
             putValue(NAME, tr("Reload from file"));
             putValue(SHORT_DESCRIPTION, tr("reload selected styles from file"));
@@ -418,7 +444,6 @@ public class MapPaintDialog extends ToggleDialog {
                             }
                         }
                     });
-
                 }
             });
         }
@@ -426,6 +451,9 @@ public class MapPaintDialog extends ToggleDialog {
 
     protected class SaveAsAction extends AbstractAction {
 
+        /**
+         * Constructs a new {@code SaveAsAction}.
+         */
         public SaveAsAction() {
             putValue(NAME, tr("Save as..."));
             putValue(SHORT_DESCRIPTION, tr("Save a copy of this Style to file and add it to the list"));
@@ -440,7 +468,7 @@ public class MapPaintDialog extends ToggleDialog {
                 return;
             final StyleSource s = model.getRow(sel);
 
-            JFileChooserManager fcm = new JFileChooserManager(false, "mappaint.clone-style.lastDirectory", System.getProperty("user.home"));
+            FileChooserManager fcm = new FileChooserManager(false, "mappaint.clone-style.lastDirectory", System.getProperty("user.home"));
             String suggestion = fcm.getInitialDirectory() + File.separator + s.getFileNamePart();
 
             FileFilter ff;
@@ -451,7 +479,7 @@ public class MapPaintDialog extends ToggleDialog {
             }
             fcm.createFileChooser(false, null, Arrays.asList(ff, FileFilterAllFiles.getInstance()), ff, JFileChooser.FILES_ONLY)
                     .getFileChooser().setSelectedFile(new File(suggestion));
-            JFileChooser fc = fcm.openFileChooser();
+            AbstractFileChooser fc = fcm.openFileChooser();
             if (fc == null)
                 return;
             Main.worker.submit(new SaveToFileTask(s, fc.getSelectedFile()));
@@ -516,11 +544,17 @@ public class MapPaintDialog extends ToggleDialog {
         }
     }
 
+    /**
+     * Displays information about selected paint style in a new dialog.
+     */
     protected class InfoAction extends AbstractAction {
 
-        boolean errorsTabLoaded;
-        boolean sourceTabLoaded;
+        private boolean errorsTabLoaded;
+        private boolean sourceTabLoaded;
 
+        /**
+         * Constructs a new {@code InfoAction}.
+         */
         public InfoAction() {
             putValue(NAME, tr("Info"));
             putValue(SHORT_DESCRIPTION, tr("view meta information, error log and source definition"));
@@ -599,8 +633,8 @@ public class MapPaintDialog extends ToggleDialog {
             if (s.getBackgroundColorOverride() != null) {
                 text.append(tableRow(tr("Background:"), Utils.toString(s.getBackgroundColorOverride())));
             }
-            text.append(tableRow(tr("Style is currently active?"), s.active ? tr("Yes") : tr("No")));
-            text.append("</table>");
+            text.append(tableRow(tr("Style is currently active?"), s.active ? tr("Yes") : tr("No")))
+                .append("</table>");
             p.add(new JScrollPane(new HtmlPanel(text.toString())), GBC.eol().fill(GBC.BOTH));
             return p;
         }
@@ -611,7 +645,7 @@ public class MapPaintDialog extends ToggleDialog {
 
         private void buildSourcePanel(StyleSource s, JPanel p) {
             JosmTextArea txtSource = new JosmTextArea();
-            txtSource.setFont(new Font("Monospaced", txtSource.getFont().getStyle(), txtSource.getFont().getSize()));
+            txtSource.setFont(GuiHelper.getMonospacedFont(txtSource));
             txtSource.setEditable(false);
             p.add(new JScrollPane(txtSource), GBC.std().fill());
 
@@ -632,11 +666,11 @@ public class MapPaintDialog extends ToggleDialog {
 
         private void buildErrorsPanel(StyleSource s, JPanel p) {
             JosmTextArea txtErrors = new JosmTextArea();
-            txtErrors.setFont(new Font("Monospaced", txtErrors.getFont().getStyle(), txtErrors.getFont().getSize()));
+            txtErrors.setFont(GuiHelper.getMonospacedFont(txtErrors));
             txtErrors.setEditable(false);
             p.add(new JScrollPane(txtErrors), GBC.std().fill());
             for (Throwable t : s.getErrors()) {
-                txtErrors.append(t.toString() + "\n");
+                txtErrors.append(t + "\n");
             }
         }
     }
@@ -666,6 +700,26 @@ public class MapPaintDialog extends ToggleDialog {
         public MapPaintPopup() {
             add(reloadAction);
             add(new SaveAsAction());
+
+            JMenu setMenu = new JMenu(tr("Style settings"));
+            setMenu.setIcon(new ImageProvider("preference").setMaxSize(ImageSizes.POPUPMENU).addOverlay(
+                new ImageOverlay(new ImageProvider("dialogs/mappaint", "pencil"), 0.5, 0.5, 1.0, 1.0)).get());
+            setMenu.setToolTipText(tr("Customize the style"));
+            add(setMenu);
+
+            int sel = tblStyles.getSelectionModel().getLeadSelectionIndex();
+            StyleSource style = null;
+            if (sel >= 0 && sel < model.getRowCount()) {
+                style = model.getRow(sel);
+            }
+            if (style == null || style.settings.isEmpty()) {
+                setMenu.setEnabled(false);
+            } else {
+                for (StyleSetting s : style.settings) {
+                    s.addMenuEntry(setMenu);
+                }
+            }
+
             addSeparator();
             add(new InfoAction());
         }

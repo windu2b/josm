@@ -1,4 +1,13 @@
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui.tagging;
+
+import static org.openstreetmap.josm.tools.I18n.tr;
+
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.actions.JosmAction;
@@ -6,13 +15,6 @@ import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.gui.ExtendedDialog;
 import org.openstreetmap.josm.tools.Shortcut;
 import org.openstreetmap.josm.tools.Utils;
-
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.KeyEvent;
-import java.util.HashSet;
-
-import static org.openstreetmap.josm.tools.I18n.tr;
 
 /**
  * A dialog that allows to select a preset and then selects all matching OSM objects.
@@ -28,7 +30,7 @@ public final class TaggingPresetSearchPrimitiveDialog extends ExtendedDialog {
      * Returns the unique instance of {@code TaggingPresetSearchPrimitiveDialog}.
      * @return the unique instance of {@code TaggingPresetSearchPrimitiveDialog}.
      */
-    public static TaggingPresetSearchPrimitiveDialog getInstance() {
+    public static synchronized TaggingPresetSearchPrimitiveDialog getInstance() {
         if (instance == null) {
             instance = new TaggingPresetSearchPrimitiveDialog();
         }
@@ -61,7 +63,7 @@ public final class TaggingPresetSearchPrimitiveDialog extends ExtendedDialog {
         if (buttonIndex == 0) {
             TaggingPreset preset = selector.getSelectedPreset();
             if (preset != null) {
-                final HashSet<OsmPrimitive> matching = new HashSet<>(Utils.filter(Main.main.getCurrentDataSet().allPrimitives(), preset));
+                final Set<OsmPrimitive> matching = new HashSet<>(Utils.filter(Main.main.getCurrentDataSet().allPrimitives(), preset));
                 Main.main.getCurrentDataSet().setSelected(matching);
             }
         }

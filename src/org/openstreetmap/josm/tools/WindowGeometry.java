@@ -5,14 +5,18 @@ import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
+import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.awt.Window;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import javax.swing.JComponent;
 
 import org.openstreetmap.josm.Main;
 
@@ -148,22 +152,29 @@ public class WindowGeometry {
             Pattern p = Pattern.compile(field + "=(-?\\d+)",Pattern.CASE_INSENSITIVE);
             Matcher m = p.matcher(preferenceValue);
             if (!m.find())
-                throw new WindowGeometryException(tr("Preference with key ''{0}'' does not include ''{1}''. Cannot restore window geometry from preferences.", preferenceKey, field));
+                throw new WindowGeometryException(
+                        tr("Preference with key ''{0}'' does not include ''{1}''. Cannot restore window geometry from preferences.",
+                                preferenceKey, field));
             v = m.group(1);
             return Integer.parseInt(v);
         } catch(WindowGeometryException e) {
             throw e;
         } catch(NumberFormatException e) {
-            throw new WindowGeometryException(tr("Preference with key ''{0}'' does not provide an int value for ''{1}''. Got {2}. Cannot restore window geometry from preferences.", preferenceKey, field, v));
+            throw new WindowGeometryException(
+                    tr("Preference with key ''{0}'' does not provide an int value for ''{1}''. Got {2}. Cannot restore window geometry from preferences.",
+                            preferenceKey, field, v), e);
         } catch(Exception e) {
-            throw new WindowGeometryException(tr("Failed to parse field ''{1}'' in preference with key ''{0}''. Exception was: {2}. Cannot restore window geometry from preferences.", preferenceKey, field, e.toString()), e);
+            throw new WindowGeometryException(
+                    tr("Failed to parse field ''{1}'' in preference with key ''{0}''. Exception was: {2}. Cannot restore window geometry from preferences.",
+                            preferenceKey, field, e.toString()), e);
         }
     }
 
     protected final void initFromPreferences(String preferenceKey) throws WindowGeometryException {
         String value = Main.pref.get(preferenceKey);
         if (value == null || value.isEmpty())
-            throw new WindowGeometryException(tr("Preference with key ''{0}'' does not exist. Cannot restore window geometry from preferences.", preferenceKey));
+            throw new WindowGeometryException(
+                    tr("Preference with key ''{0}'' does not exist. Cannot restore window geometry from preferences.", preferenceKey));
         topLeft = new Point();
         extent = new Dimension();
         topLeft.x = parseField(preferenceKey, value, "x");
@@ -182,12 +193,12 @@ public class WindowGeometry {
         if (arg != null) {
             final Matcher m = Pattern.compile("(\\d+)x(\\d+)(([+-])(\\d+)([+-])(\\d+))?").matcher(arg);
             if (m.matches()) {
-                int w = Integer.valueOf(m.group(1));
-                int h = Integer.valueOf(m.group(2));
+                int w = Integer.parseInt(m.group(1));
+                int h = Integer.parseInt(m.group(2));
                 int x = screenDimension.x, y = screenDimension.y;
                 if (m.group(3) != null) {
-                    x = Integer.valueOf(m.group(5));
-                    y = Integer.valueOf(m.group(7));
+                    x = Integer.parseInt(m.group(5));
+                    y = Integer.parseInt(m.group(7));
                     if ("-".equals(m.group(4))) {
                         x = screenDimension.x + screenDimension.width - x - w;
                     }
@@ -217,7 +228,7 @@ public class WindowGeometry {
      * key <code>preferenceKey</code>
      *
      * @param preferenceKey the preference key
-     * @throws WindowGeometryException thrown if no such key exist or if the preference value has
+     * @throws WindowGeometryException if no such key exist or if the preference value has
      * an illegal format
      */
     public WindowGeometry(String preferenceKey) throws WindowGeometryException {
@@ -248,10 +259,8 @@ public class WindowGeometry {
      */
     public void remember(String preferenceKey) {
         StringBuilder value = new StringBuilder();
-        value.append("x=").append(topLeft.x).append(",")
-        .append("y=").append(topLeft.y).append(",")
-        .append("width=").append(extent.width).append(",")
-        .append("height=").append(extent.height);
+        value.append("x=").append(topLeft.x).append(",y=").append(topLeft.y)
+             .append(",width=").append(extent.width).append(",height=").append(extent.height);
         Main.pref.put(preferenceKey, value.toString());
     }
 
@@ -366,6 +375,31 @@ public class WindowGeometry {
             }
         }
         return virtualBounds;
+    }
+
+    /**
+     * Computes the maximum dimension for a component to fit in screen displaying {@code component}.
+     * @param component The component to get current screen info from. Must not be {@code null}
+     * @return the maximum dimension for a component to fit in current screen
+     * @throws IllegalArgumentException if {@code component} is null
+     * @since 7463
+     */
+    public static Dimension getMaxDimensionOnScreen(JComponent component) {
+        CheckParameterUtil.ensureParameterNotNull(component, "component");
+        // Compute max dimension of current screen
+        Dimension result = new Dimension();
+        GraphicsConfiguration gc = component.getGraphicsConfiguration();
+        if (gc == null && Main.parent != null) {
+            gc = Main.parent.getGraphicsConfiguration();
+        }
+        if (gc != null) {
+            // Max displayable dimension (max screen dimension - insets)
+            Rectangle bounds = gc.getBounds();
+            Insets insets = component.getToolkit().getScreenInsets(gc);
+            result.width  = bounds.width  - insets.left - insets.right;
+            result.height = bounds.height - insets.top - insets.bottom;
+        }
+        return result;
     }
 
     /**

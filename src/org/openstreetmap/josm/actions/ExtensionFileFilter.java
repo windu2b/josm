@@ -7,15 +7,17 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ServiceConfigurationError;
 
-import javax.swing.JFileChooser;
 import javax.swing.filechooser.FileFilter;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.gui.MapView;
+import org.openstreetmap.josm.gui.widgets.AbstractFileChooser;
 import org.openstreetmap.josm.io.AllFormatsImporter;
 import org.openstreetmap.josm.io.FileExporter;
 import org.openstreetmap.josm.io.FileImporter;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * A file filter that filters after the extension. Also includes a list of file
@@ -51,6 +53,7 @@ public class ExtensionFileFilter extends FileFilter implements java.io.FileFilte
                 "org.openstreetmap.josm.io.OsmChangeImporter",
                 "org.openstreetmap.josm.io.GpxImporter",
                 "org.openstreetmap.josm.io.NMEAImporter",
+                "org.openstreetmap.josm.io.NoteImporter",
                 "org.openstreetmap.josm.io.OsmBzip2Importer",
                 "org.openstreetmap.josm.io.JpgImporter",
                 "org.openstreetmap.josm.io.WMSLayerImporter",
@@ -64,7 +67,25 @@ public class ExtensionFileFilter extends FileFilter implements java.io.FileFilte
                 importers.add(importer);
                 MapView.addLayerChangeListener(importer);
             } catch (Exception e) {
-                Main.debug(e.getMessage());
+                if (Main.isDebugEnabled()) {
+                    Main.debug(e.getMessage());
+                }
+            } catch (ServiceConfigurationError e) {
+                // error seen while initializing WMSLayerImporter in plugin unit tests:
+                // -
+                // ServiceConfigurationError: javax.imageio.spi.ImageWriterSpi:
+                // Provider com.sun.media.imageioimpl.plugins.jpeg.CLibJPEGImageWriterSpi could not be instantiated
+                // Caused by: java.lang.IllegalArgumentException: vendorName == null!
+                //      at javax.imageio.spi.IIOServiceProvider.<init>(IIOServiceProvider.java:76)
+                //      at javax.imageio.spi.ImageReaderWriterSpi.<init>(ImageReaderWriterSpi.java:231)
+                //      at javax.imageio.spi.ImageWriterSpi.<init>(ImageWriterSpi.java:213)
+                //      at com.sun.media.imageioimpl.plugins.jpeg.CLibJPEGImageWriterSpi.<init>(CLibJPEGImageWriterSpi.java:84)
+                // -
+                // This is a very strange behaviour of JAI:
+                // http://thierrywasyl.wordpress.com/2009/07/24/jai-how-to-solve-vendorname-null-exception/
+                // -
+                // that can lead to various problems, see #8583 comments
+                Main.error(e);
             }
         }
 
@@ -76,7 +97,8 @@ public class ExtensionFileFilter extends FileFilter implements java.io.FileFilte
                 "org.openstreetmap.josm.io.OsmGzipExporter",
                 "org.openstreetmap.josm.io.OsmBzip2Exporter",
                 "org.openstreetmap.josm.io.GeoJSONExporter",
-                "org.openstreetmap.josm.io.WMSLayerExporter"
+                "org.openstreetmap.josm.io.WMSLayerExporter",
+                "org.openstreetmap.josm.io.NoteExporter"
         };
 
         for (String classname : exporterNames) {
@@ -85,7 +107,12 @@ public class ExtensionFileFilter extends FileFilter implements java.io.FileFilte
                 exporters.add(exporter);
                 MapView.addLayerChangeListener(exporter);
             } catch (Exception e) {
-                Main.debug(e.getMessage());
+                if (Main.isDebugEnabled()) {
+                    Main.debug(e.getMessage());
+                }
+            } catch (ServiceConfigurationError e) {
+                // see above in importers initialization
+                Main.error(e);
             }
         }
     }
@@ -137,7 +164,7 @@ public class ExtensionFileFilter extends FileFilter implements java.io.FileFilte
      */
     public static List<ExtensionFileFilter> getImportExtensionFileFilters() {
         updateAllFormatsImporter();
-        LinkedList<ExtensionFileFilter> filters = new LinkedList<>();
+        List<ExtensionFileFilter> filters = new LinkedList<>();
         for (FileImporter importer : importers) {
             filters.add(importer.filter);
         }
@@ -154,7 +181,7 @@ public class ExtensionFileFilter extends FileFilter implements java.io.FileFilte
      * @since 2029
      */
     public static List<ExtensionFileFilter> getExportExtensionFileFilters() {
-        LinkedList<ExtensionFileFilter> filters = new LinkedList<>();
+        List<ExtensionFileFilter> filters = new LinkedList<>();
         for (FileExporter exporter : exporters) {
             if (filters.contains(exporter.filter) || !exporter.isEnabled()) {
                 continue;
@@ -198,7 +225,7 @@ public class ExtensionFileFilter extends FileFilter implements java.io.FileFilte
     }
 
     /**
-     * Applies the choosable {@link FileFilter} to a {@link JFileChooser} before using the
+     * Applies the choosable {@link FileFilter} to a {@link AbstractFileChooser} before using the
      * file chooser for selecting a file for reading.
      *
      * @param fileChooser the file chooser
@@ -207,7 +234,7 @@ public class ExtensionFileFilter extends FileFilter implements java.io.FileFilte
      *                 If false, only the file filters that include {@code extension} will be proposed
      * @since 5438
      */
-    public static void applyChoosableImportFileFilters(JFileChooser fileChooser, String extension, boolean allTypes) {
+    public static void applyChoosableImportFileFilters(AbstractFileChooser fileChooser, String extension, boolean allTypes) {
         for (ExtensionFileFilter filter: getImportExtensionFileFilters()) {
             if (allTypes || filter.acceptName("file."+extension)) {
                 fileChooser.addChoosableFileFilter(filter);
@@ -217,7 +244,7 @@ public class ExtensionFileFilter extends FileFilter implements java.io.FileFilte
     }
 
     /**
-     * Applies the choosable {@link FileFilter} to a {@link JFileChooser} before using the
+     * Applies the choosable {@link FileFilter} to a {@link AbstractFileChooser} before using the
      * file chooser for selecting a file for writing.
      *
      * @param fileChooser the file chooser
@@ -226,7 +253,7 @@ public class ExtensionFileFilter extends FileFilter implements java.io.FileFilte
      *                 If false, only the file filters that include {@code extension} will be proposed
      * @since 5438
      */
-    public static void applyChoosableExportFileFilters(JFileChooser fileChooser, String extension, boolean allTypes) {
+    public static void applyChoosableExportFileFilters(AbstractFileChooser fileChooser, String extension, boolean allTypes) {
         for (ExtensionFileFilter filter: getExportExtensionFileFilters()) {
             if (allTypes || filter.acceptName("file."+extension)) {
                 fileChooser.addChoosableFileFilter(filter);
@@ -255,11 +282,7 @@ public class ExtensionFileFilter extends FileFilter implements java.io.FileFilte
      * @since 1169
      */
     public boolean acceptName(String filename) {
-        String name = filename.toLowerCase();
-        for (String ext : extensions.split(","))
-            if (name.endsWith("."+ext))
-                return true;
-        return false;
+        return Utils.hasExtension(filename, extensions.split(","));
     }
 
     @Override

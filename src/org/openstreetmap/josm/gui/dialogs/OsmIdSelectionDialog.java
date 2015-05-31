@@ -50,7 +50,7 @@ public class OsmIdSelectionDialog extends ExtendedDialog implements WindowListen
     protected final OsmPrimitiveTypesComboBox cbType = new OsmPrimitiveTypesComboBox();
     protected final OsmIdTextField tfId = new OsmIdTextField();
     protected final HistoryComboBox cbId = new HistoryComboBox();
-    protected final GroupLayout layout = new GroupLayout(panel);
+    protected final transient GroupLayout layout = new GroupLayout(panel);
 
     public OsmIdSelectionDialog(Component parent, String title, String[] buttonTexts) {
         super(parent, title, buttonTexts);
@@ -70,10 +70,12 @@ public class OsmIdSelectionDialog extends ExtendedDialog implements WindowListen
         layout.setAutoCreateContainerGaps(true);
 
         JLabel lbl1 = new JLabel(tr("Object type:"));
+        lbl1.setLabelFor(cbType);
 
         cbType.addItem(trc("osm object types", "mixed"));
         cbType.setToolTipText(tr("Choose the OSM object type"));
         JLabel lbl2 = new JLabel(tr("Object ID:"));
+        lbl2.setLabelFor(cbId);
 
         cbId.setEditor(new BasicComboBoxEditor() {
             @Override
@@ -200,7 +202,7 @@ public class OsmIdSelectionDialog extends ExtendedDialog implements WindowListen
 
     protected void tryToPasteFromClipboard(OsmIdTextField tfId, OsmPrimitiveTypesComboBox cbType) {
         String buf = Utils.getClipboardContent();
-        if (buf == null || buf.length()==0) return;
+        if (buf == null || buf.isEmpty()) return;
         if (buf.length() > Main.pref.getInteger("downloadprimitive.max-autopaste-length", 2000)) return;
         final List<SimplePrimitiveId> ids = SimplePrimitiveId.fuzzyParse(buf);
         if (!ids.isEmpty()) {

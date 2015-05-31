@@ -5,9 +5,12 @@ import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 
 import org.openstreetmap.josm.data.Bounds;
+import org.openstreetmap.josm.data.DataSource;
 import org.openstreetmap.josm.data.gpx.GpxData;
+import org.openstreetmap.josm.data.notes.Note;
 import org.openstreetmap.josm.data.osm.DataSet;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
@@ -41,11 +44,12 @@ public class BoundingBoxDownloader extends OsmServerReader {
         this.crosses180th = downloadArea.crosses180thMeridian();
     }
 
-    private GpxData downloadRawGps(String url, ProgressMonitor progressMonitor) throws IOException, OsmTransferException, SAXException {
+    private GpxData downloadRawGps(Bounds b, ProgressMonitor progressMonitor) throws IOException, OsmTransferException, SAXException {
         boolean done = false;
         GpxData result = null;
+        String url = "trackpoints?bbox="+b.getMinLon()+","+b.getMinLat()+","+b.getMaxLon()+","+b.getMaxLat()+"&page=";
         for (int i = 0;!done;++i) {
-            progressMonitor.subTask(tr("Downloading points {0} to {1}...", i * 5000, ((i + 1) * 5000)));
+            progressMonitor.subTask(tr("Downloading points {0} to {1}...", i * 5000, (i + 1) * 5000));
             try (InputStream in = getInputStream(url+i, progressMonitor.createSubTaskMonitor(1, true))) {
                 if (in == null) {
                     break;
@@ -66,6 +70,7 @@ public class BoundingBoxDownloader extends OsmServerReader {
         }
         if (result != null) {
             result.fromServer = true;
+            result.dataSources.add(new DataSource(b, "OpenStreetMap server"));
         }
         return result;
     }
@@ -77,12 +82,12 @@ public class BoundingBoxDownloader extends OsmServerReader {
             progressMonitor.indeterminateSubTask(tr("Contacting OSM Server..."));
             if (crosses180th) {
                 // API 0.6 does not support requests crossing the 180th meridian, so make two requests
-                GpxData result = downloadRawGps("trackpoints?bbox="+lon1+","+lat1+",180.0,"+lat2+"&page=", progressMonitor);
-                result.mergeFrom(downloadRawGps("trackpoints?bbox=-180.0,"+lat1+","+lon2+","+lat2+"&page=", progressMonitor));
+                GpxData result = downloadRawGps(new Bounds(lat1, lon1, lat2, 180.0), progressMonitor);
+                result.mergeFrom(downloadRawGps(new Bounds(lat1, -180.0, lat2, lon2), progressMonitor));
                 return result;
             } else {
                 // Simple request
-                return downloadRawGps("trackpoints?bbox="+lon1+","+lat1+","+lon2+","+lat2+"&page=", progressMonitor);
+                return downloadRawGps(new Bounds(lat1, lon1, lat2, lon2), progressMonitor);
             }
         } catch (IllegalArgumentException e) {
             // caused by HttpUrlConnection in case of illegal stuff in the response
@@ -153,4 +158,49 @@ public class BoundingBoxDownloader extends OsmServerReader {
             activeConnection = null;
         }
     }
+
+    @Override
+    public List<Note> parseNotes(int noteLimit, int daysClosed, ProgressMonitor progressMonitor) throws OsmTransferException, MoreNotesException {
+        progressMonitor.beginTask("Downloading notes");
+        CheckParameterUtil.ensureThat(noteLimit > 0, "Requested note limit is less than 1.");
+        // see result_limit in https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/notes_controller.rb
+        CheckParameterUtil.ensureThat(noteLimit <= 10000, "Requested note limit is over API hard limit of 10000.");
+        CheckParameterUtil.ensureThat(daysClosed >= -1, "Requested note limit is less than -1.");
+        String url = "notes?limit=" + noteLimit + "&closed=" + daysClosed + "&bbox=" + lon1 + "," + lat1 + "," + lon2 + "," + lat2;
+        try {
+            InputStream is = getInputStream(url, progressMonitor.createSubTaskMonitor(1, false));
+            NoteReader reader = new NoteReader(is);
+            final List<Note> notes = reader.parse();
+            if (notes.size() == noteLimit) {
+                throw new MoreNotesException(notes, noteLimit);
+            }
+            return notes;
+        } catch (IOException e) {
+            throw new OsmTransferException(e);
+        } catch (SAXException e) {
+            throw new OsmTransferException(e);
+        } finally {
+            progressMonitor.finishTask();
+        }
+    }
+
+    /**
+     * Indicates that the number of fetched notes equals the specified limit. Thus there might be more notes to download.
+     */
+    public static class MoreNotesException extends RuntimeException{
+        /**
+         * The downloaded notes
+         */
+        public final transient List<Note> notes;
+        /**
+         * The download limit sent to the server.
+         */
+        public final int limit;
+
+        public MoreNotesException(List<Note> notes, int limit) {
+            this.notes = notes;
+            this.limit = limit;
+        }
+    }
+
 }

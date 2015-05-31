@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.data.validation.tests;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -77,7 +77,7 @@ public class OpeningHourTest extends Test.TagTest {
 
     static enum CheckMode {
         TIME_RANGE(0), POINTS_IN_TIME(1), BOTH(2);
-        final int code;
+        private final int code;
 
         CheckMode(int code) {
             this.code = code;
@@ -107,8 +107,9 @@ public class OpeningHourTest extends Test.TagTest {
      * An error concerning invalid syntax for an "opening_hours"-like tag.
      */
     public class OpeningHoursTestError {
-        final Severity severity;
-        final String message, prettifiedValue;
+        private final Severity severity;
+        private final String message;
+        private final String prettifiedValue;
 
         /**
          * Constructs a new {@code OpeningHoursTestError} with a known pretiffied value.
@@ -129,7 +130,7 @@ public class OpeningHourTest extends Test.TagTest {
          * @return The real test error given to JOSM validator. Can be fixable or not if a prettified values has been determined.
          */
         public TestError getTestError(final OsmPrimitive p, final String key) {
-            if (prettifiedValue == null) {
+            if (prettifiedValue == null || prettifiedValue.equals(p.get(key))) {
                 return new TestError(OpeningHourTest.this, severity, message, 2901, p);
             } else {
                 return new FixableTestError(OpeningHourTest.this, severity, message, 2901, p,

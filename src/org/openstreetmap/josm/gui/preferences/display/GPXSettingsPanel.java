@@ -47,7 +47,7 @@ public class GPXSettingsPanel extends JPanel implements ValidationListener {
     private JRadioButton drawRawGpsLinesAll = new JRadioButton(tr("All"));
     private JRadioButton drawRawGpsLinesLocal = new JRadioButton(tr("Local files"));
     private JRadioButton drawRawGpsLinesNone = new JRadioButton(tr("None"));
-    private ActionListener drawRawGpsLinesActionListener;
+    private transient ActionListener drawRawGpsLinesActionListener;
     private JosmTextField drawRawGpsMaxLineLength = new JosmTextField(8);
     private JosmTextField drawRawGpsMaxLineLengthLocal = new JosmTextField(8);
     private JosmTextField drawLineWidth = new JosmTextField(2);
@@ -278,6 +278,7 @@ public class GPXSettingsPanel extends JPanel implements ValidationListener {
             // waypointLabel
             label = new JLabel(tr("Waypoint labelling"));
             add(label, GBC.std().insets(20,0,0,0));
+            label.setLabelFor(waypointLabel);
             add(waypointLabel, GBC.eol().fill(GBC.HORIZONTAL).insets(5,0,0,5));
             waypointLabel.addActionListener(new ActionListener() {
                 @Override
@@ -298,6 +299,7 @@ public class GPXSettingsPanel extends JPanel implements ValidationListener {
 
             label = new JLabel(tr("Audio waypoint labelling"));
             add(label, GBC.std().insets(20,0,0,0));
+            label.setLabelFor(audioWaypointLabel);
             add(audioWaypointLabel, GBC.eol().fill(GBC.HORIZONTAL).insets(5,0,0,5));
             audioWaypointLabel.addActionListener(new ActionListener() {
                 @Override
@@ -318,7 +320,7 @@ public class GPXSettingsPanel extends JPanel implements ValidationListener {
     /**
      * Loads preferences to UI controls
      */
-    public final void loadPreferences () {
+    public final void loadPreferences() {
         makeAutoMarkers.setSelected(Main.pref.getBoolean("marker.makeautomarkers", true));
         if(layerName!=null && Main.pref.get("draw.rawgps.lines."+layerName).isEmpty()
                 && Main.pref.get("draw.rawgps.lines.local."+layerName).isEmpty()){

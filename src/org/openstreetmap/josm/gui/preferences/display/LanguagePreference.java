@@ -26,6 +26,7 @@ import org.openstreetmap.josm.gui.preferences.TabPreferenceSetting;
 import org.openstreetmap.josm.gui.widgets.JosmComboBox;
 import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.I18n;
+import org.openstreetmap.josm.tools.LanguageInfo;
 
 /**
  * Language preferences.
@@ -71,7 +72,7 @@ public class LanguagePreference implements SubPreferenceSetting {
             return Main.pref.put("language", null);
         else
             return Main.pref.put("language",
-                    ((Locale)langCombo.getSelectedItem()).toString());
+                    LanguageInfo.getJOSMLocaleCode((Locale)langCombo.getSelectedItem()));
     }
 
     private static class LanguageComboBoxModel extends DefaultComboBoxModel<Locale> {
@@ -85,6 +86,7 @@ public class LanguagePreference implements SubPreferenceSetting {
         public void selectLanguage(String language) {
             setSelectedItem(null);
             if (language != null) {
+                language = LanguageInfo.getJavaLocaleCode(language);
                 for (Locale locale: data) {
                     if (locale == null) {
                         continue;
@@ -114,11 +116,13 @@ public class LanguagePreference implements SubPreferenceSetting {
             this.dispatch = new DefaultListCellRenderer();
         }
         @Override
-        public Component getListCellRendererComponent(JList<? extends Locale> list, Locale l, 
+        public Component getListCellRendererComponent(JList<? extends Locale> list, Locale l,
                 int index, boolean isSelected, boolean cellHasFocus) {
             return dispatch.getListCellRendererComponent(list,
-                    l == null ? tr("Default (Auto determined)") : l.getDisplayName(l),
-                            index, isSelected, cellHasFocus);
+                    l == null
+                            ? tr("Default (Auto determined)")
+                            : LanguageInfo.getDisplayName(l),
+                    index, isSelected, cellHasFocus);
         }
     }
 

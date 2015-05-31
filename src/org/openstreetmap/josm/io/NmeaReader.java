@@ -1,7 +1,8 @@
-//License: GPL. See README for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.io;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -14,6 +15,7 @@ import java.util.Date;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.coor.LatLon;
+import org.openstreetmap.josm.data.gpx.GpxConstants;
 import org.openstreetmap.josm.data.gpx.GpxData;
 import org.openstreetmap.josm.data.gpx.ImmutableGpxTrack;
 import org.openstreetmap.josm.data.gpx.WayPoint;
@@ -151,10 +153,10 @@ public class NmeaReader {
         return ps.unknown;
     }
     public int getParserZeroCoordinates() {
-        return ps.zero_coord;
+        return ps.zeroCoord;
     }
     public int getParserChecksumErrors() {
-        return ps.checksum_errors+ps.no_checksum;
+        return ps.checksumErrors+ps.noChecksum;
     }
     public int getParserMalformed() {
         return ps.malformed;
@@ -163,7 +165,7 @@ public class NmeaReader {
         return ps.success;
     }
 
-    public NmeaReader(InputStream source) {
+    public NmeaReader(InputStream source) throws IOException {
 
         // create the data tree
         data = new GpxData();
@@ -177,7 +179,7 @@ public class NmeaReader {
                 //TODO tell user about the problem?
                 return;
             sb.append((char)loopstart_char);
-            ps.p_Date="010100"; // TODO date problem
+            ps.pDate="010100"; // TODO date problem
             while(true) {
                 // don't load unparsable files completely to memory
                 if(sb.length()>=1020) {
@@ -199,23 +201,23 @@ public class NmeaReader {
             currentTrack.add(ps.waypoints);
             data.tracks.add(new ImmutableGpxTrack(currentTrack, Collections.<String, Object>emptyMap()));
 
-        } catch (Exception e) {
+        } catch (IllegalDataException e) {
             Main.warn(e);
         }
     }
 
     private static class NMEAParserState {
         protected Collection<WayPoint> waypoints = new ArrayList<>();
-        protected String p_Time;
-        protected String p_Date;
-        protected WayPoint p_Wp;
+        protected String pTime;
+        protected String pDate;
+        protected WayPoint pWp;
 
-        protected int success = 0; // number of successfully parsend sentences
+        protected int success = 0; // number of successfully parsed sentences
         protected int malformed = 0;
-        protected int checksum_errors = 0;
-        protected int no_checksum = 0;
+        protected int checksumErrors = 0;
+        protected int noChecksum = 0;
         protected int unknown = 0;
-        protected int zero_coord = 0;
+        protected int zeroCoord = 0;
     }
 
     // Parses split up sentences into WayPoints which are stored
@@ -232,27 +234,26 @@ public class NmeaReader {
             // if there is no * or other meanities it will throw
             // and result in a malformed packet.
             String[] chkstrings = s.split("\\*");
-            if(chkstrings.length > 1)
-            {
+            if (chkstrings.length > 1) {
                 byte[] chb = chkstrings[0].getBytes(StandardCharsets.UTF_8);
                 int chk=0;
                 for (int i = 1; i < chb.length; i++) {
                     chk ^= chb[i];
                 }
                 if (Integer.parseInt(chkstrings[1].substring(0,2),16) != chk) {
-                    ps.checksum_errors++;
-                    ps.p_Wp=null;
+                    ps.checksumErrors++;
+                    ps.pWp=null;
                     return false;
                 }
             } else {
-                ps.no_checksum++;
+                ps.noChecksum++;
             }
             // now for the content
             String[] e = chkstrings[0].split(",");
             String accu;
 
-            WayPoint currentwp = ps.p_Wp;
-            String currentDate = ps.p_Date;
+            WayPoint currentwp = ps.pWp;
+            String currentDate = ps.pDate;
 
             // handle the packet content
             if("$GPGGA".equals(e[0]) || "$GNGGA".equals(e[0])) {
@@ -267,8 +268,8 @@ public class NmeaReader {
                     throw new IllegalDataException("Malformed lat/lon");
                 }
 
-                if ((latLon.lat()==0.0) && (latLon.lon()==0.0)) {
-                    ps.zero_coord++;
+                if (LatLon.ZERO.equals(latLon)) {
+                    ps.zeroCoord++;
                     return false;
                 }
 
@@ -276,17 +277,17 @@ public class NmeaReader {
                 accu = e[GPGGA.TIME.position];
                 Date d = readTime(currentDate+accu);
 
-                if((ps.p_Time==null) || (currentwp==null) || !ps.p_Time.equals(accu)) {
+                if((ps.pTime==null) || (currentwp==null) || !ps.pTime.equals(accu)) {
                     // this node is newer than the previous, create a new waypoint.
                     // no matter if previous WayPoint was null, we got something
                     // better now.
-                    ps.p_Time=accu;
+                    ps.pTime=accu;
                     currentwp = new WayPoint(latLon);
                 }
                 if(!currentwp.attr.containsKey("time")) {
                     // As this sentence has no complete time only use it
                     // if there is no time so far
-                    currentwp.attr.put("time", DateUtils.fromDate(d));
+                    currentwp.put(GpxConstants.PT_TIME, DateUtils.fromDate(d));
                 }
                 // elevation
                 accu=e[GPGGA.HEIGHT_UNTIS.position];
@@ -298,7 +299,7 @@ public class NmeaReader {
                         // if it throws it's malformed; this should only happen if the
                         // device sends nonstandard data.
                         if(!accu.isEmpty()) { // FIX ? same check
-                            currentwp.attr.put("ele", accu);
+                            currentwp.put(GpxConstants.PT_ELE, accu);
                         }
                     }
                 }
@@ -307,12 +308,12 @@ public class NmeaReader {
                 int sat = 0;
                 if(!accu.isEmpty()) {
                     sat = Integer.parseInt(accu);
-                    currentwp.attr.put("sat", accu);
+                    currentwp.put(GpxConstants.PT_SAT, accu);
                 }
                 // h-dilution
                 accu=e[GPGGA.HDOP.position];
                 if(!accu.isEmpty()) {
-                    currentwp.attr.put("hdop", Float.parseFloat(accu));
+                    currentwp.put(GpxConstants.PT_HDOP, Float.valueOf(accu));
                 }
                 // fix
                 accu=e[GPGGA.QUALITY.position];
@@ -320,17 +321,17 @@ public class NmeaReader {
                     int fixtype = Integer.parseInt(accu);
                     switch(fixtype) {
                     case 0:
-                        currentwp.attr.put("fix", "none");
+                        currentwp.put(GpxConstants.PT_FIX, "none");
                         break;
                     case 1:
                         if(sat < 4) {
-                            currentwp.attr.put("fix", "2d");
+                            currentwp.put(GpxConstants.PT_FIX, "2d");
                         } else {
-                            currentwp.attr.put("fix", "3d");
+                            currentwp.put(GpxConstants.PT_FIX, "3d");
                         }
                         break;
                     case 2:
-                        currentwp.attr.put("fix", "dgps");
+                        currentwp.put(GpxConstants.PT_FIX, "dgps");
                         break;
                     default:
                         break;
@@ -344,7 +345,7 @@ public class NmeaReader {
                     accu = e[GPVTG.COURSE.position];
                     if(!accu.isEmpty()) {
                         Double.parseDouble(accu);
-                        currentwp.attr.put("course", accu);
+                        currentwp.put("course", accu);
                     }
                 }
                 // SPEED
@@ -354,27 +355,26 @@ public class NmeaReader {
                     if(!accu.isEmpty()) {
                         double speed = Double.parseDouble(accu);
                         speed /= 3.6; // speed in m/s
-                        currentwp.attr.put("speed", Double.toString(speed));
+                        currentwp.put("speed", Double.toString(speed));
                     }
                 }
             } else if("$GPGSA".equals(e[0]) || "$GNGSA".equals(e[0])) {
                 // vdop
                 accu=e[GPGSA.VDOP.position];
                 if(!accu.isEmpty()) {
-                    currentwp.attr.put("vdop", Float.parseFloat(accu));
+                    currentwp.put(GpxConstants.PT_VDOP, Float.valueOf(accu));
                 }
                 // hdop
                 accu=e[GPGSA.HDOP.position];
                 if(!accu.isEmpty()) {
-                    currentwp.attr.put("hdop", Float.parseFloat(accu));
+                    currentwp.put(GpxConstants.PT_HDOP, Float.valueOf(accu));
                 }
                 // pdop
                 accu=e[GPGSA.PDOP.position];
                 if(!accu.isEmpty()) {
-                    currentwp.attr.put("pdop", Float.parseFloat(accu));
+                    currentwp.put(GpxConstants.PT_PDOP, Float.valueOf(accu));
                 }
-            }
-            else if("$GPRMC".equals(e[0]) || "$GNRMC".equals(e[0])) {
+            } else if("$GPRMC".equals(e[0]) || "$GNRMC".equals(e[0])) {
                 // coordinates
                 LatLon latLon = parseLatLon(
                         e[GPRMC.WIDTH_NORTH_NAME.position],
@@ -382,8 +382,8 @@ public class NmeaReader {
                         e[GPRMC.WIDTH_NORTH.position],
                         e[GPRMC.LENGTH_EAST.position]
                 );
-                if((latLon.lat()==0.0) && (latLon.lon()==0.0)) {
-                    ps.zero_coord++;
+                if (LatLon.ZERO.equals(latLon)) {
+                    ps.zeroCoord++;
                     return false;
                 }
                 // time
@@ -392,25 +392,25 @@ public class NmeaReader {
 
                 Date d = readTime(currentDate+time);
 
-                if((ps.p_Time==null) || (currentwp==null) || !ps.p_Time.equals(time)) {
+                if(ps.pTime==null || currentwp==null || !ps.pTime.equals(time)) {
                     // this node is newer than the previous, create a new waypoint.
-                    ps.p_Time=time;
+                    ps.pTime=time;
                     currentwp = new WayPoint(latLon);
                 }
                 // time: this sentence has complete time so always use it.
-                currentwp.attr.put("time", DateUtils.fromDate(d));
+                currentwp.put(GpxConstants.PT_TIME, DateUtils.fromDate(d));
                 // speed
                 accu = e[GPRMC.SPEED.position];
                 if(!accu.isEmpty() && !currentwp.attr.containsKey("speed")) {
                     double speed = Double.parseDouble(accu);
                     speed *= 0.514444444; // to m/s
-                    currentwp.attr.put("speed", Double.toString(speed));
+                    currentwp.put("speed", Double.toString(speed));
                 }
                 // course
                 accu = e[GPRMC.COURSE.position];
                 if(!accu.isEmpty() && !currentwp.attr.containsKey("course")) {
                     Double.parseDouble(accu);
-                    currentwp.attr.put("course", accu);
+                    currentwp.put("course", accu);
                 }
 
                 // TODO fix?
@@ -424,12 +424,12 @@ public class NmeaReader {
                 ps.unknown++;
                 return false;
             }
-            ps.p_Date = currentDate;
-            if(ps.p_Wp != currentwp) {
-                if(ps.p_Wp!=null) {
-                    ps.p_Wp.setTime();
+            ps.pDate = currentDate;
+            if(ps.pWp != currentwp) {
+                if(ps.pWp!=null) {
+                    ps.pWp.setTime();
                 }
-                ps.p_Wp = currentwp;
+                ps.pWp = currentwp;
                 ps.waypoints.add(currentwp);
                 ps.success++;
                 return true;
@@ -439,7 +439,7 @@ public class NmeaReader {
         } catch (RuntimeException x) {
             // out of bounds and such
             ps.malformed++;
-            ps.p_Wp=null;
+            ps.pWp=null;
             return false;
         }
     }

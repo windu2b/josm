@@ -37,7 +37,7 @@ import org.openstreetmap.josm.tools.Utils;
  * A panel displaying the list of known plugins.
  */
 public class PluginListPanel extends VerticallyScrollablePanel {
-    private PluginPreferencesModel model;
+    private transient PluginPreferencesModel model;
 
     /**
      * Constructs a new {@code PluginListPanel} with a default model.
@@ -62,7 +62,7 @@ public class PluginListPanel extends VerticallyScrollablePanel {
         } else {
             sb.append(pi.version);
             if (pi.oldmode) {
-                sb.append("*");
+                sb.append('*');
             }
         }
         return sb.toString();
@@ -109,7 +109,7 @@ public class PluginListPanel extends VerticallyScrollablePanel {
      *
      */
     private class JPluginCheckBox extends JCheckBox {
-        public final PluginInformation pi;
+        public final transient PluginInformation pi;
         public JPluginCheckBox(final PluginInformation pi, boolean selected) {
             this.pi = pi;
             setSelected(selected);
@@ -147,9 +147,8 @@ public class PluginListPanel extends VerticallyScrollablePanel {
                 selectRequiredPlugins(cb.pi);
                 // Alert user if plugin requirements are not met
                 PluginHandler.checkRequiredPluginsPreconditions(PluginListPanel.this, model.getAvailablePlugins(), cb.pi, false);
-            }
-            // If the plugin has been unselected, was it required by other plugins still selected ?
-            else if (!cb.isSelected()) {
+            } else if (!cb.isSelected()) {
+                // If the plugin has been unselected, was it required by other plugins still selected ?
                 Set<String> otherPlugins = new HashSet<>();
                 for (PluginInformation pi : model.getAvailablePlugins()) {
                     if (!pi.equals(cb.pi) && pi.requires != null && model.isSelectedPlugin(pi.getName())) {
@@ -178,15 +177,14 @@ public class PluginListPanel extends VerticallyScrollablePanel {
      */
     private static void alertPluginStillRequired(Component parent, String plugin, Set<String> otherPlugins) {
         StringBuilder sb = new StringBuilder();
-        sb.append("<html>");
-        sb.append(trn("Plugin {0} is still required by this plugin:",
+        sb.append("<html>")
+          .append(trn("Plugin {0} is still required by this plugin:",
                 "Plugin {0} is still required by these {1} plugins:",
                 otherPlugins.size(),
                 plugin,
-                otherPlugins.size()
-        ));
-        sb.append(Utils.joinAsHtmlUnorderedList(otherPlugins));
-        sb.append("</html>");
+                otherPlugins.size()))
+          .append(Utils.joinAsHtmlUnorderedList(otherPlugins))
+          .append("</html>");
         JOptionPane.showMessageDialog(
                 parent,
                 sb.toString(),
@@ -257,6 +255,7 @@ public class PluginListPanel extends VerticallyScrollablePanel {
                     }
                 }
             });
+            lblPlugin.setLabelFor(description);
 
             gbc.gridx = 1;
             gbc.gridy = ++row;

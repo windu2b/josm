@@ -1,4 +1,4 @@
-// License: GPL.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.tools;
 
 //// Taken from http://www.bmsi.com/java/#diff
@@ -15,7 +15,7 @@ package org.openstreetmap.josm.tools;
  * Test new direct equivalence API
  *
  * Revision 1.13  2009/12/07 17:43:17  stuart
- * Compute equiv_max for int[] ctor
+ * Compute equivMax for int[] ctor
  *
  * Revision 1.12  2009/12/07 17:34:46  stuart
  * Ctor with int[].
@@ -101,7 +101,7 @@ public class Diff {
 
     /** 1 more than the maximum equivalence value used for this or its
      sibling file. */
-    private int equiv_max = 1;
+    private int equivMax = 1;
 
     /** When set to true, the comparison uses a heuristic to speed it up.
     With this heuristic, for files with a constant small density
@@ -110,7 +110,7 @@ public class Diff {
 
     /** When set to true, the algorithm returns a guarranteed minimal
       set of changes.  This makes things slower, sometimes much slower. */
-    public boolean no_discards = false;
+    public boolean noDiscards = false;
 
     private int[] xvec, yvec; /* Vectors being compared. */
     private int[] fdiag;      /* Vector, indexed by diagonal, containing
@@ -151,7 +151,7 @@ public class Diff {
      the worst this can do is cause suboptimal diff output.
      It cannot cause incorrect diff output.  */
 
-    private int diag (int xoff, int xlim, int yoff, int ylim) {
+    private int diag(int xoff, int xlim, int yoff, int ylim) {
         final int[] fd = fdiag; // Give the compiler a chance.
         final int[] bd = bdiag; // Additional help for the compiler.
         final int[] xv = xvec;      // Still more help for the compiler.
@@ -169,8 +169,7 @@ public class Diff {
         fd[fdiagoff + fmid] = xoff;
         bd[bdiagoff + bmid] = xlim;
 
-        for (int c = 1;; ++c)
-        {
+        for (int c = 1;; ++c) {
             int d;          /* Active diagonal. */
             boolean big_snake = false;
 
@@ -185,8 +184,7 @@ public class Diff {
             } else {
                 --fmax;
             }
-            for (d = fmax; d >= fmin; d -= 2)
-            {
+            for (d = fmax; d >= fmin; d -= 2) {
                 int x, y, oldx, tlo = fd[fdiagoff + d - 1], thi = fd[fdiagoff + d + 1];
 
                 if (tlo >= thi) {
@@ -203,8 +201,7 @@ public class Diff {
                     big_snake = true;
                 }
                 fd[fdiagoff + d] = x;
-                if (odd && bmin <= d && d <= bmax && bd[bdiagoff + d] <= fd[fdiagoff + d])
-                {
+                if (odd && bmin <= d && d <= bmax && bd[bdiagoff + d] <= fd[fdiagoff + d]) {
                     cost = 2 * c - 1;
                     return d;
                 }
@@ -221,8 +218,7 @@ public class Diff {
             } else {
                 --bmax;
             }
-            for (d = bmax; d >= bmin; d -= 2)
-            {
+            for (d = bmax; d >= bmin; d -= 2) {
                 int x, y, oldx, tlo = bd[bdiagoff + d - 1], thi = bd[bdiagoff + d + 1];
 
                 if (tlo < thi) {
@@ -239,8 +235,7 @@ public class Diff {
                     big_snake = true;
                 }
                 bd[bdiagoff + d] = x;
-                if (!odd && fmin <= d && d <= fmax && bd[bdiagoff + d] <= fd[fdiagoff + d])
-                {
+                if (!odd && fmin <= d && d <= fmax && bd[bdiagoff + d] <= fd[fdiagoff + d]) {
                     cost = 2 * c;
                     return d;
                 }
@@ -254,30 +249,25 @@ public class Diff {
        With this heuristic, for files with a constant small density
        of changes, the algorithm is linear in the file size.  */
 
-            if (c > 200 && big_snake && heuristic)
-            {
+            if (c > 200 && big_snake && heuristic) {
                 int best = 0;
                 int bestpos = -1;
 
-                for (d = fmax; d >= fmin; d -= 2)
-                {
+                for (d = fmax; d >= fmin; d -= 2) {
                     int dd = d - fmid;
                     int x = fd[fdiagoff + d];
                     int y = x - d;
                     int v = (x - xoff) * 2 - dd;
-                    if (v > 12 * (c + (dd < 0 ? -dd : dd)))
-                    {
+                    if (v > 12 * (c + (dd < 0 ? -dd : dd))) {
                         if (v > best
                                 && xoff + SNAKE_LIMIT <= x && x < xlim
-                                && yoff + SNAKE_LIMIT <= y && y < ylim)
-                        {
+                                && yoff + SNAKE_LIMIT <= y && y < ylim) {
                             /* We have a good enough best diagonal.
                                now insist that it end with a significant snake.  */
                             int k;
 
                             for (k = 1; xvec[x - k] == yvec[y - k]; k++)
-                                if (k == SNAKE_LIMIT)
-                                {
+                                if (k == SNAKE_LIMIT) {
                                     best = v;
                                     bestpos = d;
                                     break;
@@ -285,32 +275,27 @@ public class Diff {
                         }
                     }
                 }
-                if (best > 0)
-                {
+                if (best > 0) {
                     cost = 2 * c - 1;
                     return bestpos;
                 }
 
                 best = 0;
-                for (d = bmax; d >= bmin; d -= 2)
-                {
+                for (d = bmax; d >= bmin; d -= 2) {
                     int dd = d - bmid;
                     int x = bd[bdiagoff + d];
                     int y = x - d;
                     int v = (xlim - x) * 2 + dd;
-                    if (v > 12 * (c + (dd < 0 ? -dd : dd)))
-                    {
+                    if (v > 12 * (c + (dd < 0 ? -dd : dd))) {
                         if (v > best
                                 && xoff < x && x <= xlim - SNAKE_LIMIT
-                                && yoff < y && y <= ylim - SNAKE_LIMIT)
-                        {
+                                && yoff < y && y <= ylim - SNAKE_LIMIT) {
                             /* We have a good enough best diagonal.
                                now insist that it end with a significant snake.  */
                             int k;
 
                             for (k = 0; xvec[x + k] == yvec[y + k]; k++)
-                                if (k == SNAKE_LIMIT)
-                                {
+                                if (k == SNAKE_LIMIT) {
                                     best = v;
                                     bestpos = d;
                                     break;
@@ -318,8 +303,7 @@ public class Diff {
                         }
                     }
                 }
-                if (best > 0)
-                {
+                if (best > 0) {
                     cost = 2 * c - 1;
                     return bestpos;
                 }
@@ -338,7 +322,7 @@ public class Diff {
      Note that XLIM, YLIM are exclusive bounds.
      All line numbers are origin-0 and discarded lines are not counted.  */
 
-    private void compareseq (int xoff, int xlim, int yoff, int ylim) {
+    private void compareseq(int xoff, int xlim, int yoff, int ylim) {
         /* Slide down the bottom initial diagonal. */
         while (xoff < xlim && yoff < ylim && xvec[xoff] == yvec[yoff]) {
             ++xoff; ++yoff;
@@ -351,16 +335,16 @@ public class Diff {
         /* Handle simple cases. */
         if (xoff == xlim) {
             while (yoff < ylim) {
-                filevec[1].changed_flag[1+filevec[1].realindexes[yoff++]] = true;
+                filevec[1].changedFlag[1+filevec[1].realindexes[yoff++]] = true;
             }
         } else if (yoff == ylim) {
             while (xoff < xlim) {
-                filevec[0].changed_flag[1+filevec[0].realindexes[xoff++]] = true;
+                filevec[0].changedFlag[1+filevec[0].realindexes[xoff++]] = true;
             }
         } else {
             /* Find a point of correspondence in the middle of the files.  */
 
-            int d = diag (xoff, xlim, yoff, ylim);
+            int d = diag(xoff, xlim, yoff, ylim);
             int c = cost;
             int b = bdiag[bdiagoff + d];
 
@@ -370,15 +354,14 @@ public class Diff {
                    and that case was handled above without calling `diag'.
                    Let's verify that this is true.  */
                 throw new IllegalArgumentException("Empty subsequence");
-            else
-            {
+            else {
                 /* Use that point to split this problem into two subproblems.  */
-                compareseq (xoff, b, yoff, b - d);
+                compareseq(xoff, b, yoff, b - d);
                 /* This used to use f instead of b,
                    but that is incorrect!
                    It is not necessarily the case that diagonal d
                    has a snake from b to f.  */
-                compareseq (b, xlim, b - d, ylim);
+                compareseq(b, xlim, b - d, ylim);
             }
         }
     }
@@ -424,8 +407,7 @@ public class Diff {
         @Override
         public  Change build_script(
                 final boolean[] changed0,int len0,
-                final boolean[] changed1,int len1)
-        {
+                final boolean[] changed1,int len1) {
             Change script = null;
             int i0 = 0, i1 = 0;
             while (i0 < len0 || i1 < len1) {
@@ -458,15 +440,12 @@ public class Diff {
         @Override
         public Change build_script(
                 final boolean[] changed0,int len0,
-                final boolean[] changed1,int len1)
-        {
+                final boolean[] changed1,int len1) {
             Change script = null;
             int i0 = len0, i1 = len1;
 
-            while (i0 >= 0 || i1 >= 0)
-            {
-                if (changed0[i0] || changed1[i1])
-                {
+            while (i0 >= 0 || i1 >= 0) {
+                if (changed0[i0] || changed1[i1]) {
                     int line0 = i0, line1 = i1;
 
                     /* Find # lines changed here in each file.  */
@@ -514,7 +493,7 @@ public class Diff {
        because they don't match anything.  Detect them now,
        and avoid even thinking about them in the main comparison algorithm.  */
 
-        discard_confusing_lines ();
+        discard_confusing_lines();
 
         /* Now do the main comparison algorithm, considering just the
        undiscarded lines.  */
@@ -523,29 +502,29 @@ public class Diff {
         yvec = filevec[1].undiscarded;
 
         int diags =
-            filevec[0].nondiscarded_lines + filevec[1].nondiscarded_lines + 3;
+            filevec[0].nondiscardedLines + filevec[1].nondiscardedLines + 3;
         fdiag = new int[diags];
-        fdiagoff = filevec[1].nondiscarded_lines + 1;
+        fdiagoff = filevec[1].nondiscardedLines + 1;
         bdiag = new int[diags];
-        bdiagoff = filevec[1].nondiscarded_lines + 1;
+        bdiagoff = filevec[1].nondiscardedLines + 1;
 
-        compareseq (0, filevec[0].nondiscarded_lines,
-                0, filevec[1].nondiscarded_lines);
+        compareseq(0, filevec[0].nondiscardedLines,
+                0, filevec[1].nondiscardedLines);
         fdiag = null;
         bdiag = null;
 
         /* Modify the results slightly to make them prettier
        in cases where that can validly be done.  */
 
-        shift_boundaries ();
+        shift_boundaries();
 
         /* Get the results of comparison in the form of a chain
        of `struct change's -- an edit script.  */
         return bld.build_script(
-                filevec[0].changed_flag,
-                filevec[0].buffered_lines,
-                filevec[1].changed_flag,
-                filevec[1].buffered_lines
+                filevec[0].changedFlag,
+                filevec[0].bufferedLines,
+                filevec[1].changedFlag,
+                filevec[1].bufferedLines
         );
 
     }
@@ -606,7 +585,7 @@ public class Diff {
                is an insertion or deletion.
                Allocate an extra element, always zero, at each end of each vector.
              */
-            changed_flag = new boolean[buffered_lines + 2];
+            changedFlag = new boolean[bufferedLines + 2];
         }
 
         /** Return equiv_count[I] as the number of lines in this file
@@ -614,8 +593,8 @@ public class Diff {
          @return the array of equivalence class counts.
          */
         int[] equivCount() {
-            int[] equiv_count = new int[equiv_max];
-            for (int i = 0; i < buffered_lines; ++i) {
+            int[] equiv_count = new int[equivMax];
+            for (int i = 0; i < bufferedLines; ++i) {
                 ++equiv_count[equivs[i]];
             }
             return equiv_count;
@@ -651,13 +630,12 @@ public class Diff {
         /**
          * Mark to be discarded each line that matches no line of another file.
          * If a line matches many lines, mark it as provisionally discardable.
-         * @see #equivCount()
          * @param counts The count of each equivalence number for the other file.
-         * @return 0=nondiscardable, 1=discardable or 2=provisionally discardable
-         *  for each line
+         * @return 0=nondiscardable, 1=discardable or 2=provisionally discardable for each line
+         * @see #equivCount()
          */
         private byte[] discardable(final int[] counts) {
-            final int end = buffered_lines;
+            final int end = bufferedLines;
             final byte[] discards = new byte[end];
             final int[] equivs = this.equivs;
             int many = 5;
@@ -669,8 +647,7 @@ public class Diff {
                 many *= 2;
             }
 
-            for (int i = 0; i < end; i++)
-            {
+            for (int i = 0; i < end; i++) {
                 int nmatch;
                 if (equivs[i] == 0) {
                     continue;
@@ -691,15 +668,13 @@ public class Diff {
          * and end.
          */
         private void filterDiscards(final byte[] discards) {
-            final int end = buffered_lines;
+            final int end = bufferedLines;
 
-            for (int i = 0; i < end; i++)
-            {
+            for (int i = 0; i < end; i++) {
                 /* Cancel provisional discards not in middle of run of discards.  */
                 if (discards[i] == 2) {
                     discards[i] = 0;
-                } else if (discards[i] != 0)
-                {
+                } else if (discards[i] != 0) {
                     /* We have found a nonprovisional discard.  */
                     int j;
                     int length;
@@ -707,8 +682,7 @@ public class Diff {
 
                     /* Find end of this run of discardable lines.
                        Count how many are provisionally discardable.  */
-                    for (j = i; j < end; j++)
-                    {
+                    for (j = i; j < end; j++) {
                         if (discards[j] == 0) {
                             break;
                         }
@@ -763,15 +737,13 @@ public class Diff {
                            until we find 3 or more nonprovisionals in a row
                            or until the first nonprovisional at least 8 lines in.
                            Until that point, cancel any provisionals.  */
-                        for (j = 0, consec = 0; j < length; j++)
-                        {
+                        for (j = 0, consec = 0; j < length; j++) {
                             if (j >= 8 && discards[i + j] == 1) {
                                 break;
                             }
                             if (discards[i + j] == 2) {
                                 consec = 0; discards[i + j] = 0;
-                            }
-                            else if (discards[i + j] == 0) {
+                            } else if (discards[i + j] == 0) {
                                 consec = 0;
                             } else {
                                 consec++;
@@ -785,15 +757,13 @@ public class Diff {
                         i += length - 1;
 
                         /* Same thing, from end.  */
-                        for (j = 0, consec = 0; j < length; j++)
-                        {
+                        for (j = 0, consec = 0; j < length; j++) {
                             if (j >= 8 && discards[i - j] == 1) {
                                 break;
                             }
                             if (discards[i - j] == 2) {
                                 consec = 0; discards[i - j] = 0;
-                            }
-                            else if (discards[i - j] == 0) {
+                            } else if (discards[i - j] == 0) {
                                 consec = 0;
                             } else {
                                 consec++;
@@ -811,24 +781,23 @@ public class Diff {
             @param discards flags lines to be discarded
          */
         private void discard(final byte[] discards) {
-            final int end = buffered_lines;
+            final int end = bufferedLines;
             int j = 0;
             for (int i = 0; i < end; ++i)
-                if (no_discards || discards[i] == 0)
-                {
+                if (noDiscards || discards[i] == 0) {
                     undiscarded[j] = equivs[i];
                     realindexes[j++] = i;
                 } else {
-                    changed_flag[1+i] = true;
+                    changedFlag[1+i] = true;
                 }
-            nondiscarded_lines = j;
+            nondiscardedLines = j;
         }
 
         FileData(int length) {
-            buffered_lines = length;
+            bufferedLines = length;
             equivs = new int[length];
-            undiscarded = new int[buffered_lines];
-            realindexes = new int[buffered_lines];
+            undiscarded = new int[bufferedLines];
+            realindexes = new int[bufferedLines];
         }
 
         FileData(Object[] data, Map<Object,Integer> h) {
@@ -837,7 +806,7 @@ public class Diff {
             for (int i = 0; i < data.length; ++i) {
                 Integer ir = h.get(data[i]);
                 if (ir == null) {
-                    h.put(data[i],equivs[i] = equiv_max++);
+                    h.put(data[i],equivs[i] = equivMax++);
                 } else {
                     equivs[i] = ir.intValue();
                 }
@@ -856,25 +825,22 @@ public class Diff {
        would join this change to other changes.
       @param f the file being compared against
          */
-
         void shift_boundaries(FileData f) {
-            final boolean[] changed = changed_flag;
-            final boolean[] other_changed = f.changed_flag;
+            final boolean[] changed = changedFlag;
+            final boolean[] other_changed = f.changedFlag;
             int i = 0;
             int j = 0;
-            int i_end = buffered_lines;
+            int i_end = bufferedLines;
             int preceding = -1;
             int other_preceding = -1;
 
-            for (;;)
-            {
+            for (;;) {
                 int start, end, other_start;
 
                 /* Scan forwards to find beginning of another run of changes.
                    Also keep track of the corresponding point in the other file.  */
 
-                while (i < i_end && !changed[1+i])
-                {
+                while (i < i_end && !changed[1+i]) {
                     while (other_changed[1+j++]) {
                         /* Non-corresponding lines in the other file
                            will count as the preceding batch of changes.  */
@@ -890,8 +856,7 @@ public class Diff {
                 start = i;
                 other_start = j;
 
-                for (;;)
-                {
+                for (;;) {
                     /* Now find the end of this run of changes.  */
 
                     while (i < i_end && changed[1+i]) {
@@ -908,14 +873,8 @@ public class Diff {
                     /* You might ask, how could this run follow right after another?
                        Only because the previous run was shifted here.  */
 
-                    if (end != i_end
-                            && equivs[start] == equivs[end]
-                                                       && !other_changed[1+j]
-                                                                         && end != i_end
-                                                                         && !((preceding >= 0 && start == preceding)
-                                                                                 || (other_preceding >= 0
-                                                                                         && other_start == other_preceding)))
-                    {
+                    if (end != i_end && equivs[start] == equivs[end] && !other_changed[1+j]
+                         && !((preceding >= 0 && start == preceding) || (other_preceding >= 0 && other_start == other_preceding))) {
                         changed[1+end++] = true;
                         changed[1+start++] = false;
                         ++i;
@@ -934,7 +893,7 @@ public class Diff {
         }
 
         /** Number of elements (lines) in this file. */
-        final int buffered_lines;
+        private final int bufferedLines;
 
         /** Vector, indexed by line number, containing an equivalence code for
            each line.  It is this vector that is actually compared with that
@@ -943,18 +902,18 @@ public class Diff {
 
         /** Vector, like the previous one except that
            the elements for discarded lines have been squeezed out.  */
-        final int[]    undiscarded;
+        private final int[]    undiscarded;
 
         /** Vector mapping virtual line numbers (not counting discarded lines)
            to real ones (counting those lines).  Both are origin-0.  */
-        final int[]    realindexes;
+        private final int[]    realindexes;
 
         /** Total number of nondiscarded lines. */
-        int         nondiscarded_lines;
+        private int         nondiscardedLines;
 
         /** Array, indexed by real origin-1 line number,
            containing true for a line that is an insertion or a deletion.
            The results of comparison are stored here.  */
-        boolean[]       changed_flag;
+        private boolean[]       changedFlag;
     }
 }

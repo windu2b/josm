@@ -1,4 +1,4 @@
-//License: GPL. For details, see LICENSE file.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.io;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -13,16 +13,17 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParserFactory;
 
 import org.openstreetmap.josm.data.osm.Changeset;
-import org.openstreetmap.josm.data.osm.IPrimitive;
+import org.openstreetmap.josm.data.osm.DataSet;
+import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.osm.OsmPrimitiveType;
 import org.openstreetmap.josm.data.osm.PrimitiveId;
 import org.openstreetmap.josm.data.osm.SimplePrimitiveId;
 import org.openstreetmap.josm.gui.progress.NullProgressMonitor;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
+import org.openstreetmap.josm.tools.Utils;
 import org.openstreetmap.josm.tools.XmlParsingException;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
@@ -33,8 +34,8 @@ import org.xml.sax.helpers.DefaultHandler;
 public class DiffResultProcessor  {
 
     private static class DiffResultEntry {
-        public long new_id;
-        public int new_version;
+        private long newId;
+        private int newVersion;
     }
 
     /**
@@ -43,14 +44,13 @@ public class DiffResultProcessor  {
      */
     private Map<PrimitiveId, DiffResultEntry> diffResults = new HashMap<>();
     /**
-     * the set of processed primitives *after* the new id, the new version and the new changeset id
-     * is set
+     * the set of processed primitives *after* the new id, the new version and the new changeset id is set
      */
-    private Set<IPrimitive> processed;
+    private Set<OsmPrimitive> processed;
     /**
      * the collection of primitives being uploaded
      */
-    private Collection<? extends IPrimitive> primitives;
+    private Collection<? extends OsmPrimitive> primitives;
 
     /**
      * Creates a diff result reader
@@ -58,7 +58,7 @@ public class DiffResultProcessor  {
      * @param primitives the collection of primitives which have been uploaded. If null,
      * assumes an empty collection.
      */
-    public DiffResultProcessor(Collection<? extends IPrimitive> primitives) {
+    public DiffResultProcessor(Collection<? extends OsmPrimitive> primitives) {
         if (primitives == null) {
             primitives = Collections.emptyList();
         }
@@ -83,7 +83,7 @@ public class DiffResultProcessor  {
         try {
             progressMonitor.beginTask(tr("Parsing response from server..."));
             InputSource inputSource = new InputSource(new StringReader(diffUploadResponse));
-            SAXParserFactory.newInstance().newSAXParser().parse(inputSource, new Parser());
+            Utils.parseSafeSAX(inputSource, new Parser());
         } catch(XmlParsingException e) {
             throw e;
         } catch(IOException | ParserConfigurationException | SAXException e) {
@@ -104,15 +104,22 @@ public class DiffResultProcessor  {
      * @param monitor the progress monitor. Set to {@link NullProgressMonitor#INSTANCE} if null
      * @return the collection of processed primitives
      */
-    protected Set<IPrimitive> postProcess(Changeset cs, ProgressMonitor monitor) {
+    protected Set<OsmPrimitive> postProcess(Changeset cs, ProgressMonitor monitor) {
         if (monitor == null) {
             monitor = NullProgressMonitor.INSTANCE;
+        }
+        DataSet ds = null;
+        if (!primitives.isEmpty()) {
+            ds = primitives.iterator().next().getDataSet();
+        }
+        if (ds != null) {
+            ds.beginUpdate();
         }
         try {
             monitor.beginTask("Postprocessing uploaded data ...");
             monitor.setTicksCount(primitives.size());
             monitor.setTicks(0);
-            for (IPrimitive p : primitives) {
+            for (OsmPrimitive p : primitives) {
                 monitor.worked(1);
                 DiffResultEntry entry = diffResults.get(p.getPrimitiveId());
                 if (entry == null) {
@@ -120,7 +127,7 @@ public class DiffResultProcessor  {
                 }
                 processed.add(p);
                 if (!p.isDeleted()) {
-                    p.setOsmId(entry.new_id, entry.new_version);
+                    p.setOsmId(entry.newId, entry.newVersion);
                     p.setVisible(true);
                 } else {
                     p.setVisible(false);
@@ -131,6 +138,9 @@ public class DiffResultProcessor  {
             }
             return processed;
         } finally {
+            if (ds != null) {
+                ds.endUpdate();
+            }
             monitor.finishTask();
         }
     }
@@ -163,10 +173,10 @@ public class DiffResultProcessor  {
                     );
                     DiffResultEntry entry = new DiffResultEntry();
                     if (atts.getValue("new_id") != null) {
-                        entry.new_id = Long.parseLong(atts.getValue("new_id"));
+                        entry.newId = Long.parseLong(atts.getValue("new_id"));
                     }
                     if (atts.getValue("new_version") != null) {
-                        entry.new_version = Integer.parseInt(atts.getValue("new_version"));
+                        entry.newVersion = Integer.parseInt(atts.getValue("new_version"));
                     }
                     diffResults.put(id, entry);
                     break;

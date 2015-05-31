@@ -39,18 +39,18 @@ public class LineElemStyle extends ElemStyle {
 
     private BasicStroke dashesLine;
 
-    protected enum LineType {
+    public enum LineType {
         NORMAL("", 3f),
         CASING("casing-", 2f),
         LEFT_CASING("left-casing-", 2.1f),
         RIGHT_CASING("right-casing-", 2.1f);
 
         public final String prefix;
-        public final float default_major_z_index;
+        public final float defaultMajorZIndex;
 
         LineType(String prefix, float default_major_z_index) {
             this.prefix = prefix;
-            this.default_major_z_index = default_major_z_index;
+            this.defaultMajorZIndex = default_major_z_index;
         }
     }
 
@@ -152,7 +152,6 @@ public class LineElemStyle extends ElemStyle {
                 break;
             case LEFT_CASING:
             case RIGHT_CASING:
-            {
                 Float baseWidthOnDefault = getWidth(c_def, WIDTH, null);
                 Float baseWidth = getWidth(c, WIDTH, baseWidthOnDefault);
                 if (baseWidth == null || baseWidth < 2f) {
@@ -166,7 +165,6 @@ public class LineElemStyle extends ElemStyle {
                 }
                 offset += casingOffset;
                 break;
-            }
         }
 
         int alpha = 255;
@@ -215,7 +213,7 @@ public class LineElemStyle extends ElemStyle {
         }
 
         Integer cap = null;
-        Keyword capKW = c.get(type.prefix + "linecap", null, Keyword.class);
+        Keyword capKW = c.get(type.prefix + LINECAP, null, Keyword.class);
         if (capKW != null) {
             if ("none".equals(capKW.val)) {
                 cap = BasicStroke.CAP_BUTT;
@@ -230,7 +228,7 @@ public class LineElemStyle extends ElemStyle {
         }
 
         Integer join = null;
-        Keyword joinKW = c.get(type.prefix + "linejoin", null, Keyword.class);
+        Keyword joinKW = c.get(type.prefix + LINEJOIN, null, Keyword.class);
         if (joinKW != null) {
             if ("round".equals(joinKW.val)) {
                 join = BasicStroke.JOIN_ROUND;
@@ -244,7 +242,7 @@ public class LineElemStyle extends ElemStyle {
             join = BasicStroke.JOIN_ROUND;
         }
 
-        float miterlimit = c.get(type.prefix + "miterlimit", 10f, Float.class);
+        float miterlimit = c.get(type.prefix + MITERLIMIT, 10f, Float.class);
         if (miterlimit < 1f) {
             miterlimit = 10f;
         }
@@ -259,11 +257,12 @@ public class LineElemStyle extends ElemStyle {
             dashesLine = new BasicStroke(width, cap, join, miterlimit, dashes2, dashes2[0] + dashesOffset);
         }
 
-        return new LineElemStyle(c, type.default_major_z_index, line, color, dashesLine, dashesBackground, offset, realWidth);
+        return new LineElemStyle(c, type.defaultMajorZIndex, line, color, dashesLine, dashesBackground, offset, realWidth);
     }
 
     @Override
-    public void paintPrimitive(OsmPrimitive primitive, MapPaintSettings paintSettings, StyledMapRenderer painter, boolean selected, boolean member) {
+    public void paintPrimitive(OsmPrimitive primitive, MapPaintSettings paintSettings, StyledMapRenderer painter,
+            boolean selected, boolean outermember, boolean member) {
         Way w = (Way)primitive;
         /* show direction arrows, if draw.segment.relevant_directions_only is not set,
         the way is tagged with a direction key
@@ -296,7 +295,7 @@ public class LineElemStyle extends ElemStyle {
         Color myColor = color;
         if (selected) {
             myColor = paintSettings.getSelectedColor(color.getAlpha());
-        } else if (member) {
+        } else if (member || outermember) {
             myColor = paintSettings.getRelationSelectedColor(color.getAlpha());
         } else if(w.isDisabled()) {
             myColor = paintSettings.getInactiveColor();
@@ -356,7 +355,7 @@ public class LineElemStyle extends ElemStyle {
         return "LineElemStyle{" + super.toString() + "width=" + line.getLineWidth() +
             " realWidth=" + realWidth + " color=" + Utils.toString(color) +
             " dashed=" + Arrays.toString(line.getDashArray()) +
-            (line.getDashPhase() == 0f ? "" : " dashesOffses=" + line.getDashPhase()) +
+            (line.getDashPhase() == 0 ? "" : " dashesOffses=" + line.getDashPhase()) +
             " dashedColor=" + Utils.toString(dashesBackground) +
             " linejoin=" + linejoinToString(line.getLineJoin()) +
             " linecap=" + linecapToString(line.getEndCap()) +
@@ -372,6 +371,7 @@ public class LineElemStyle extends ElemStyle {
             default: return null;
         }
     }
+
     public String linecapToString(int linecap) {
         switch (linecap) {
             case BasicStroke.CAP_BUTT: return "none";

@@ -41,11 +41,11 @@ import org.openstreetmap.josm.tools.OpenBrowser;
 /**
  * VersionTable shows a list of version in a {@link org.openstreetmap.josm.data.osm.history.History}
  * of an {@link org.openstreetmap.josm.data.osm.OsmPrimitive}.
- *
+ * @since 1709
  */
 public class VersionTable extends JTable implements Observer{
     private VersionTablePopupMenu popupMenu;
-    private final HistoryBrowserModel model;
+    private final transient HistoryBrowserModel model;
 
     protected void build() {
         getTableHeader().setFont(getTableHeader().getFont().deriveFont(9f));
@@ -54,7 +54,7 @@ public class VersionTable extends JTable implements Observer{
         setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         setBackground(UIManager.getColor("Button.background"));
         setIntercellSpacing(new Dimension(6, 0));
-        putClientProperty("terminateEditOnFocusLost", true);
+        putClientProperty("terminateEditOnFocusLost", Boolean.TRUE);
         popupMenu = new VersionTablePopupMenu();
         addMouseListener(new MouseListener());
         addKeyListener(new KeyAdapter() {
@@ -92,6 +92,10 @@ public class VersionTable extends JTable implements Observer{
         });
     }
 
+    /**
+     * Constructs a new {@code VersionTable}.
+     * @param model model used by the history browser
+     */
     public VersionTable(HistoryBrowserModel model) {
         super(model.getVersionTableModel(), new VersionTableColumnModel());
         model.addObserver(this);
@@ -115,8 +119,8 @@ public class VersionTable extends JTable implements Observer{
         repaint();
     }
 
-    class MouseListener extends PopupMenuLauncher {
-        public MouseListener() {
+    final class MouseListener extends PopupMenuLauncher {
+        private MouseListener() {
             super(popupMenu);
         }
         @Override
@@ -125,9 +129,9 @@ public class VersionTable extends JTable implements Observer{
             if (!e.isPopupTrigger() && e.getButton() == MouseEvent.BUTTON1) {
                 int row = rowAtPoint(e.getPoint());
                 int col = columnAtPoint(e.getPoint());
-                if (row > 0 && (col == VersionTableColumnModel.COL_DATE || col == VersionTableColumnModel.COL_USER)) {
+                if (row >= 0 && (col == VersionTableColumnModel.COL_DATE || col == VersionTableColumnModel.COL_USER)) {
                     model.getVersionTableModel().setCurrentPointInTime(row);
-                    model.getVersionTableModel().setReferencePointInTime(row - 1);
+                    model.getVersionTableModel().setReferencePointInTime(Math.max(0, row - 1));
                 }
             }
         }
@@ -143,19 +147,22 @@ public class VersionTable extends JTable implements Observer{
     }
 
     static class ChangesetInfoAction extends AbstractInfoAction {
-        private HistoryOsmPrimitive primitive;
+        private transient HistoryOsmPrimitive primitive;
 
+        /**
+         * Constructs a new {@code ChangesetInfoAction}.
+         */
         public ChangesetInfoAction() {
             super(true);
             putValue(NAME, tr("Changeset info"));
             putValue(SHORT_DESCRIPTION, tr("Launch browser with information about the changeset"));
-            putValue(SMALL_ICON, ImageProvider.get("about"));
+            putValue(SMALL_ICON, ImageProvider.get("data/changeset"));
         }
 
         @Override
         protected String createInfoUrl(Object infoObject) {
             HistoryOsmPrimitive primitive = (HistoryOsmPrimitive) infoObject;
-            return getBaseBrowseUrl() + "/changeset/" + primitive.getChangesetId();
+            return Main.getBaseBrowseUrl() + "/changeset/" + primitive.getChangesetId();
         }
 
         @Override
@@ -173,19 +180,22 @@ public class VersionTable extends JTable implements Observer{
     }
 
     static class UserInfoAction extends AbstractInfoAction {
-        private HistoryOsmPrimitive primitive;
+        private transient HistoryOsmPrimitive primitive;
 
+        /**
+         * Constructs a new {@code UserInfoAction}.
+         */
         public UserInfoAction() {
             super(true);
             putValue(NAME, tr("User info"));
             putValue(SHORT_DESCRIPTION, tr("Launch browser with information about the user"));
-            putValue(SMALL_ICON, ImageProvider.get("about"));
+            putValue(SMALL_ICON, ImageProvider.get("data/user"));
         }
 
         @Override
         protected String createInfoUrl(Object infoObject) {
             HistoryOsmPrimitive hp = (HistoryOsmPrimitive) infoObject;
-            return hp.getUser() == null ? null : getBaseUserUrl() + "/" + hp.getUser().getName();
+            return hp.getUser() == null ? null : Main.getBaseUserUrl() + "/" + hp.getUser().getName();
         }
 
         @Override
@@ -230,7 +240,8 @@ public class VersionTable extends JTable implements Observer{
     public static class RadioButtonRenderer extends JRadioButton implements TableCellRenderer {
 
         @Override
-        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,int row,int column) {
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
+                int row, int column) {
             setSelected(value != null && (Boolean)value);
             setHorizontalAlignment(SwingConstants.CENTER);
             return this;
@@ -241,6 +252,9 @@ public class VersionTable extends JTable implements Observer{
 
         private JRadioButton btn;
 
+        /**
+         * Constructs a new {@code RadioButtonEditor}.
+         */
         public RadioButtonEditor() {
             super(new JCheckBox());
             btn = new JRadioButton();
@@ -269,11 +283,19 @@ public class VersionTable extends JTable implements Observer{
     }
 
     public static class AlignedRenderer extends JLabel implements TableCellRenderer {
+
+        /**
+         * Constructs a new {@code AlignedRenderer}.
+         * @param hAlignment Horizontal alignement. One of the following constants defined in SwingConstants:
+         *        LEFT, CENTER (the default for image-only labels), RIGHT, LEADING (the default for text-only labels) or TRAILING
+         */
         public AlignedRenderer(int hAlignment) {
             setHorizontalAlignment(hAlignment);
         }
+
         @Override
-        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,int row,int column) {
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
+                int row, int column) {
             String v = value.toString();
             setText(v);
             return this;
@@ -297,5 +319,4 @@ public class VersionTable extends JTable implements Observer{
         int spacing = tbl.getIntercellSpacing().width;
         tbl.getColumnModel().getColumn(col).setPreferredWidth(maxwidth + spacing);
     }
-
 }

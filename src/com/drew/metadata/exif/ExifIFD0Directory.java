@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 Drew Noakes
+ * Copyright 2002-2015 Drew Noakes
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -15,80 +15,28 @@
  *
  * More information about this project is available at:
  *
- *    http://drewnoakes.com/code/exif/
- *    http://code.google.com/p/metadata-extractor/
+ *    https://drewnoakes.com/code/exif/
+ *    https://github.com/drewnoakes/metadata-extractor
  */
 
 package com.drew.metadata.exif;
 
 import com.drew.lang.annotations.NotNull;
-import com.drew.metadata.Directory;
 
 import java.util.HashMap;
 
 /**
  * Describes Exif tags from the IFD0 directory.
  *
- * @author Drew Noakes http://drewnoakes.com
+ * @author Drew Noakes https://drewnoakes.com
  */
-public class ExifIFD0Directory extends Directory
+public class ExifIFD0Directory extends ExifDirectoryBase
 {
-    public static final int TAG_IMAGE_DESCRIPTION = 0x010E;
-    public static final int TAG_MAKE = 0x010F;
-    public static final int TAG_MODEL = 0x0110;
-    public static final int TAG_ORIENTATION = 0x0112;
-    public static final int TAG_X_RESOLUTION = 0x011A;
-    public static final int TAG_Y_RESOLUTION = 0x011B;
-    public static final int TAG_RESOLUTION_UNIT = 0x0128;
-    public static final int TAG_SOFTWARE = 0x0131;
-    public static final int TAG_DATETIME = 0x0132;
-    public static final int TAG_ARTIST = 0x013B;
-    public static final int TAG_WHITE_POINT = 0x013E;
-    public static final int TAG_PRIMARY_CHROMATICITIES = 0x013F;
-    public static final int TAG_YCBCR_COEFFICIENTS = 0x0211;
-    public static final int TAG_YCBCR_POSITIONING = 0x0213;
-    public static final int TAG_REFERENCE_BLACK_WHITE = 0x0214;
-    public static final int TAG_COPYRIGHT = 0x8298;
+    /** This tag is a pointer to the Exif SubIFD. */
+    public static final int TAG_EXIF_SUB_IFD_OFFSET = 0x8769;
 
-    /** The image title, as used by Windows XP. */
-    public static final int TAG_WIN_TITLE = 0x9C9B;
-    /** The image comment, as used by Windows XP. */
-    public static final int TAG_WIN_COMMENT = 0x9C9C;
-    /** The image author, as used by Windows XP (called Artist in the Windows shell). */
-    public static final int TAG_WIN_AUTHOR = 0x9C9D;
-    /** The image keywords, as used by Windows XP. */
-    public static final int TAG_WIN_KEYWORDS = 0x9C9E;
-    /** The image subject, as used by Windows XP. */
-    public static final int TAG_WIN_SUBJECT = 0x9C9F;
-
-    @NotNull
-    protected static final HashMap<Integer, String> _tagNameMap = new HashMap<Integer, String>();
-
-    static
-    {
-        _tagNameMap.put(TAG_IMAGE_DESCRIPTION, "Image Description");
-        _tagNameMap.put(TAG_MAKE, "Make");
-        _tagNameMap.put(TAG_MODEL, "Model");
-        _tagNameMap.put(TAG_ORIENTATION, "Orientation");
-        _tagNameMap.put(TAG_X_RESOLUTION, "X Resolution");
-        _tagNameMap.put(TAG_Y_RESOLUTION, "Y Resolution");
-        _tagNameMap.put(TAG_RESOLUTION_UNIT, "Resolution Unit");
-        _tagNameMap.put(TAG_SOFTWARE, "Software");
-        _tagNameMap.put(TAG_DATETIME, "Date/Time");
-        _tagNameMap.put(TAG_ARTIST, "Artist");
-        _tagNameMap.put(TAG_WHITE_POINT, "White Point");
-        _tagNameMap.put(TAG_PRIMARY_CHROMATICITIES, "Primary Chromaticities");
-        _tagNameMap.put(TAG_YCBCR_COEFFICIENTS, "YCbCr Coefficients");
-        _tagNameMap.put(TAG_YCBCR_POSITIONING, "YCbCr Positioning");
-        _tagNameMap.put(TAG_REFERENCE_BLACK_WHITE, "Reference Black/White");
-        _tagNameMap.put(TAG_COPYRIGHT, "Copyright");
-
-        _tagNameMap.put(TAG_WIN_AUTHOR, "Windows XP Author");
-        _tagNameMap.put(TAG_WIN_COMMENT, "Windows XP Comment");
-        _tagNameMap.put(TAG_WIN_KEYWORDS, "Windows XP Keywords");
-        _tagNameMap.put(TAG_WIN_SUBJECT, "Windows XP Subject");
-        _tagNameMap.put(TAG_WIN_TITLE, "Windows XP Title");
-    }
+    /** This tag is a pointer to the Exif GPS IFD. */
+    public static final int TAG_GPS_INFO_OFFSET = 0x8825;
 
     public ExifIFD0Directory()
     {
@@ -96,11 +44,21 @@ public class ExifIFD0Directory extends Directory
     }
 
     @NotNull
+    protected static final HashMap<Integer, String> _tagNameMap = new HashMap<Integer, String>();
+
+    static
+    {
+        addExifTagNames(_tagNameMap);
+    }
+
+    @Override
+    @NotNull
     public String getName()
     {
         return "Exif IFD0";
     }
 
+    @Override
     @NotNull
     protected HashMap<Integer, String> getTagNameMap()
     {

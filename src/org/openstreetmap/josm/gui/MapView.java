@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -25,31 +25,29 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.LinkedList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.swing.AbstractButton;
 import javax.swing.ActionMap;
 import javax.swing.InputMap;
-import javax.swing.JOptionPane;
+import javax.swing.JFrame;
 import javax.swing.JPanel;
 
 import org.openstreetmap.josm.Main;
-import org.openstreetmap.josm.actions.AutoScaleAction;
 import org.openstreetmap.josm.actions.mapmode.MapMode;
 import org.openstreetmap.josm.data.Bounds;
-import org.openstreetmap.josm.data.ViewportData;
 import org.openstreetmap.josm.data.Preferences.PreferenceChangeEvent;
 import org.openstreetmap.josm.data.Preferences.PreferenceChangedListener;
 import org.openstreetmap.josm.data.SelectionChangedListener;
+import org.openstreetmap.josm.data.ViewportData;
 import org.openstreetmap.josm.data.coor.EastNorth;
 import org.openstreetmap.josm.data.coor.LatLon;
 import org.openstreetmap.josm.data.imagery.ImageryInfo;
 import org.openstreetmap.josm.data.osm.DataSet;
-import org.openstreetmap.josm.data.osm.DataSource;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
-import org.openstreetmap.josm.data.osm.visitor.BoundingXYVisitor;
 import org.openstreetmap.josm.data.osm.visitor.paint.PaintColors;
 import org.openstreetmap.josm.data.osm.visitor.paint.relations.MultipolygonCache;
 import org.openstreetmap.josm.gui.layer.GpxLayer;
@@ -143,16 +141,30 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
     }
 
     /**
+     * Adds a layer change listener
+     *
+     * @param listener the listener. Ignored if null or already registered.
+     * @param initialFire fire an active-layer-changed-event right after adding
+     * the listener in case there is a layer present (should be)
+     */
+    public static void addLayerChangeListener(LayerChangeListener listener, boolean initialFire) {
+        addLayerChangeListener(listener);
+        if (initialFire && Main.isDisplayingMapView()) {
+            listener.activeLayerChange(null, Main.map.mapView.getActiveLayer());
+        }
+    }
+
+    /**
      * Adds an edit layer change listener
      *
      * @param listener the listener. Ignored if null or already registered.
-     * @param initialFire Fire an edit-layer-changed-event right after adding
+     * @param initialFire fire an edit-layer-changed-event right after adding
      * the listener in case there is an edit layer present
      */
     public static void addEditLayerChangeListener(EditLayerChangeListener listener, boolean initialFire) {
         addEditLayerChangeListener(listener);
         if (initialFire && Main.isDisplayingMapView() && Main.map.mapView.getEditLayer() != null) {
-            fireEditLayerChanged(null, Main.map.mapView.getEditLayer());
+            listener.editLayerChanged(null, Main.map.mapView.getEditLayer());
         }
     }
 
@@ -194,35 +206,35 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
     /**
      * A list of all layers currently loaded.
      */
-    private final List<Layer> layers = new ArrayList<>();
+    private final transient List<Layer> layers = new ArrayList<>();
     /**
      * The play head marker: there is only one of these so it isn't in any specific layer
      */
-    public PlayHeadMarker playHeadMarker = null;
+    public transient PlayHeadMarker playHeadMarker = null;
 
     /**
      * The layer from the layers list that is currently active.
      */
-    private Layer activeLayer;
+    private transient Layer activeLayer;
 
-    private OsmDataLayer editLayer;
+    private transient OsmDataLayer editLayer;
 
     /**
      * The last event performed by mouse.
      */
     public MouseEvent lastMEvent = new MouseEvent(this, 0, 0, 0, 0, 0, 0, false); // In case somebody reads it before first mouse move
 
-    private final List<MapViewPaintable> temporaryLayers = new LinkedList<>();
+    private final transient Set<MapViewPaintable> temporaryLayers = new LinkedHashSet<>();
 
-    private BufferedImage nonChangedLayersBuffer;
-    private BufferedImage offscreenBuffer;
+    private transient BufferedImage nonChangedLayersBuffer;
+    private transient BufferedImage offscreenBuffer;
     // Layers that wasn't changed since last paint
-    private final List<Layer> nonChangedLayers = new ArrayList<>();
-    private Layer changedLayer;
+    private final transient List<Layer> nonChangedLayers = new ArrayList<>();
+    private transient Layer changedLayer;
     private int lastViewID;
     private boolean paintPreferencesChanged = true;
     private Rectangle lastClipBounds = new Rectangle();
-    private MapMover mapMover;
+    private transient MapMover mapMover;
 
     /**
      * Constructs a new {@code MapView}.
@@ -232,6 +244,7 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
      * the viewport is derived from the layer data.
      */
     public MapView(final JPanel contentPane, final ViewportData viewportData) {
+        initialViewport = viewportData;
         Main.pref.addPreferenceChangeListener(this);
         final boolean unregisterTab = Shortcut.findShortcut(KeyEvent.VK_TAB, 0)!=null;
 
@@ -249,19 +262,6 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
                 scaler.setLocation(10,30);
 
                 mapMover = new MapMover(MapView.this, contentPane);
-                if (viewportData != null) {
-                    zoomTo(viewportData.getCenter(), viewportData.getScale());
-                } else {
-                    OsmDataLayer layer = getEditLayer();
-                    if (layer != null) {
-                        if (!zoomToDataSetBoundingBox(layer.data)) {
-                            // no bounding box defined
-                            AutoScaleAction.autoScale("data");
-                        }
-                    } else {
-                        AutoScaleAction.autoScale("layer");
-                    }
-                }
             }
         });
 
@@ -509,19 +509,18 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
             }
         }
         // sort according to position in the list of layers, with one exception:
-        // an active data layer always becomes a higher Z-Order than all other
-        // data layers
-        //
+        // an active data layer always becomes a higher Z-Order than all other data layers
         Collections.sort(
                 ret,
                 new Comparator<Layer>() {
-                    @Override public int compare(Layer l1, Layer l2) {
+                    @Override
+                    public int compare(Layer l1, Layer l2) {
                         if (l1 instanceof OsmDataLayer && l2 instanceof OsmDataLayer) {
                             if (l1 == getActiveLayer()) return -1;
                             if (l2 == getActiveLayer()) return 1;
-                            return Integer.valueOf(layers.indexOf(l1)).compareTo(layers.indexOf(l2));
+                            return Integer.compare(layers.indexOf(l1), layers.indexOf(l2));
                         } else
-                            return Integer.valueOf(layers.indexOf(l1)).compareTo(layers.indexOf(l2));
+                            return Integer.compare(layers.indexOf(l1), layers.indexOf(l2));
                     }
                 }
         );
@@ -540,7 +539,12 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
     /**
      * Draw the component.
      */
-    @Override public void paint(Graphics g) {
+    @Override
+    public void paint(Graphics g) {
+        if (initialViewport != null) {
+            zoomTo(initialViewport);
+            initialViewport = null;
+        }
         if (BugReportExceptionHandler.exceptionHandlingInProgress())
             return;
 
@@ -647,26 +651,22 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
 
         path.moveTo(p.x, p.y);
         double max = b.getMax().lat();
-        for(; lat <= max; lat += 1.0)
-        {
+        for(; lat <= max; lat += 1.0) {
             p = getPoint(new LatLon(lat >= max ? max : lat, lon));
             path.lineTo(p.x, p.y);
         }
         lat = max; max = b.getMax().lon();
-        for(; lon <= max; lon += 1.0)
-        {
+        for(; lon <= max; lon += 1.0) {
             p = getPoint(new LatLon(lat, lon >= max ? max : lon));
             path.lineTo(p.x, p.y);
         }
         lon = max; max = b.getMinLat();
-        for(; lat >= max; lat -= 1.0)
-        {
+        for(; lat >= max; lat -= 1.0) {
             p = getPoint(new LatLon(lat <= max ? max : lat, lon));
             path.lineTo(p.x, p.y);
         }
         lat = max; max = b.getMinLon();
-        for(; lon >= max; lon -= 1.0)
-        {
+        for(; lon >= max; lon -= 1.0) {
             p = getPoint(new LatLon(lat, lon <= max ? max : lon));
             path.lineTo(p.x, p.y);
         }
@@ -695,23 +695,6 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
     }
 
     /**
-     * Set the new dimension to the view.
-     */
-    public void recalculateCenterScale(BoundingXYVisitor box) {
-        if (box == null) {
-            box = new BoundingXYVisitor();
-        }
-        if (box.getBounds() == null) {
-            box.visit(getProjection().getWorldBoundsLatLon());
-        }
-        if (!box.hasExtend()) {
-            box.enlargeBoundingBox();
-        }
-
-        zoomTo(box.getBounds());
-    }
-
-    /**
      * @return An unmodifiable collection of all layers
      */
     public Collection<Layer> getAllLayers() {
@@ -735,7 +718,7 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
      *
      * @return an unmodifiable list of layers of a certain type.
      */
-    public <T extends Layer> List<T>  getLayersOfType(Class<T> ofType) {
+    public <T extends Layer> List<T> getLayersOfType(Class<T> ofType) {
         return new ArrayList<>(Utils.filteredCollection(getAllLayers(), ofType));
     }
 
@@ -793,7 +776,7 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
      * of {@link OsmDataLayer} also sets {@link #editLayer} to <code>layer</code>.
      *
      * @param layer the layer to be activate; must be one of the layers in the list of layers
-     * @exception IllegalArgumentException thrown if layer is not in the lis of layers
+     * @throws IllegalArgumentException if layer is not in the lis of layers
      */
     public void setActiveLayer(Layer layer) {
         setActiveLayer(layer, true);
@@ -867,32 +850,6 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
         return layers.contains(layer);
     }
 
-    /**
-     * Tries to zoom to the download boundingbox[es] of the current edit layer
-     * (aka {@link OsmDataLayer}). If the edit layer has multiple download bounding
-     * boxes it zooms to a large virtual bounding box containing all smaller ones.
-     *
-     * @return <code>true</code> if a zoom operation has been performed
-     */
-    public boolean zoomToDataSetBoundingBox(DataSet ds) {
-        // In case we already have an existing data layer ...
-        OsmDataLayer layer= getEditLayer();
-        if (layer == null)
-            return false;
-        Collection<DataSource> dataSources = ds.dataSources;
-        // ... with bounding box[es] of data loaded from OSM or a file...
-        BoundingXYVisitor bbox = new BoundingXYVisitor();
-        for (DataSource source : dataSources) {
-            bbox.visit(source.bounds);
-        }
-        if (bbox.hasExtend()) {
-            // ... we zoom to it's bounding box
-            recalculateCenterScale(bbox);
-            return true;
-        }
-        return false;
-    }
-
     public boolean addTemporaryLayer(MapViewPaintable mvp) {
         if (temporaryLayers.contains(mvp)) return false;
         return temporaryLayers.add(mvp);
@@ -922,11 +879,11 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
     }
 
     protected void refreshTitle() {
-        boolean dirty = editLayer != null && (editLayer.requiresSaveToFile() || (editLayer.requiresUploadToServer() && !editLayer.isUploadDiscouraged()));
-        if (dirty) {
-            JOptionPane.getFrameForComponent(Main.parent).setTitle("* " + tr("Java OpenStreetMap Editor"));
-        } else {
-            JOptionPane.getFrameForComponent(Main.parent).setTitle(tr("Java OpenStreetMap Editor"));
+        if (Main.parent != null) {
+            boolean dirty = editLayer != null &&
+                    (editLayer.requiresSaveToFile() || (editLayer.requiresUploadToServer() && !editLayer.isUploadDiscouraged()));
+            ((JFrame) Main.parent).setTitle((dirty ? "* " : "") + tr("Java OpenStreetMap Editor"));
+            ((JFrame) Main.parent).getRootPane().putClientProperty("Window.documentModified", dirty);
         }
     }
 
@@ -937,8 +894,9 @@ public class MapView extends NavigatableComponent implements PropertyChangeListe
         }
     }
 
-    private SelectionChangedListener repaintSelectionChangedListener = new SelectionChangedListener(){
-        @Override public void selectionChanged(Collection<? extends OsmPrimitive> newSelection) {
+    private transient SelectionChangedListener repaintSelectionChangedListener = new SelectionChangedListener(){
+        @Override
+        public void selectionChanged(Collection<? extends OsmPrimitive> newSelection) {
             repaint();
         }
     };

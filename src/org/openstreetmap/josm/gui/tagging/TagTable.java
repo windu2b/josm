@@ -64,7 +64,7 @@ public class TagTable extends JTable  {
      * cell editing this table.
      */
     private final CopyOnWriteArrayList<Component> doNotStopCellEditingWhenFocused = new CopyOnWriteArrayList<>();
-    private CellEditorRemover editorRemover;
+    private transient CellEditorRemover editorRemover;
 
     /**
      * The table has two columns. The first column is used for editing rendering and
@@ -331,7 +331,7 @@ public class TagTable extends JTable  {
         public void run() {
             Relation relation = new Relation();
             model.applyToPrimitive(relation);
-            
+
             String buf = Utils.getClipboardContent();
             if (buf == null || buf.isEmpty() || buf.matches(CopyAction.CLIPBOARD_REGEXP)) {
                 List<PrimitiveData> directlyAdded = Main.pasteBuffer.getDirectlyAdded();
@@ -354,7 +354,7 @@ public class TagTable extends JTable  {
                  }
             }
         }
-        
+
         protected final void updateEnabledState() {
             setEnabled(TagTable.this.isEnabled());
         }
@@ -364,7 +364,7 @@ public class TagTable extends JTable  {
             updateEnabledState();
         }
     }
-    
+
     /** the delete action */
     private RunnableAction deleteAction = null;
 
@@ -613,7 +613,7 @@ public class TagTable extends JTable  {
      *
      */
     class CellEditorRemover implements PropertyChangeListener {
-        KeyboardFocusManager focusManager;
+        private KeyboardFocusManager focusManager;
 
         public CellEditorRemover(KeyboardFocusManager fm) {
             this.focusManager = fm;

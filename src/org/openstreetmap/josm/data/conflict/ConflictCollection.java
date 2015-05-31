@@ -44,7 +44,7 @@ public class ConflictCollection implements Iterable<Conflict<? extends OsmPrimit
     private static class FilterPredicate implements Predicate<Conflict<? extends OsmPrimitive>> {
 
         private final Class<? extends OsmPrimitive> c;
-        
+
         public FilterPredicate(Class<? extends OsmPrimitive> c) {
             this.c = c;
         }
@@ -54,7 +54,7 @@ public class ConflictCollection implements Iterable<Conflict<? extends OsmPrimit
             return conflict != null && c.isInstance(conflict.getMy());
         }
     }
-    
+
     private static final FilterPredicate NODE_FILTER_PREDICATE = new FilterPredicate(Node.class);
     private static final FilterPredicate WAY_FILTER_PREDICATE = new FilterPredicate(Way.class);
     private static final FilterPredicate RELATION_FILTER_PREDICATE = new FilterPredicate(Relation.class);
@@ -101,10 +101,9 @@ public class ConflictCollection implements Iterable<Conflict<? extends OsmPrimit
      * Adds a conflict to the collection
      *
      * @param conflict the conflict
-     * @exception IllegalStateException thrown, if this collection already includes a
-     * conflict for conflict.getMy()
+     * @throws IllegalStateException if this collection already includes a conflict for conflict.getMy()
      */
-    protected void addConflict(Conflict<?> conflict) throws IllegalStateException {
+    protected void addConflict(Conflict<?> conflict) {
         if (hasConflictForMy(conflict.getMy()))
             throw new IllegalStateException(tr("Already registered a conflict for primitive ''{0}''.", conflict.getMy().toString()));
         if (!conflicts.contains(conflict)) {
@@ -116,11 +115,10 @@ public class ConflictCollection implements Iterable<Conflict<? extends OsmPrimit
      * Adds a conflict to the collection of conflicts.
      *
      * @param conflict the conflict to add. Must not be null.
-     * @throws IllegalArgumentException thrown, if conflict is null
-     * @throws IllegalStateException thrown if this collection already includes a conflict for conflict.getMy()
-     *
+     * @throws IllegalArgumentException if conflict is null
+     * @throws IllegalStateException if this collection already includes a conflict for conflict.getMy()
      */
-    public void add(Conflict<?> conflict) throws IllegalStateException {
+    public void add(Conflict<?> conflict) {
         CheckParameterUtil.ensureParameterNotNull(conflict, "conflict");
         addConflict(conflict);
         fireConflictAdded();
@@ -321,12 +319,13 @@ public class ConflictCollection implements Iterable<Conflict<? extends OsmPrimit
      * of "my" in the conflicts managed by this collection.
      */
     public Set<OsmPrimitive> getMyConflictParties() {
-        HashSet<OsmPrimitive> ret = new HashSet<>();
+        Set<OsmPrimitive> ret = new HashSet<>();
         for (Conflict<?> c: conflicts) {
             ret.add(c.getMy());
         }
         return ret;
     }
+
     /**
      * Replies the set of  {@link OsmPrimitive} which participate in the role
      * of "their" in the conflicts managed by this collection.
@@ -335,7 +334,7 @@ public class ConflictCollection implements Iterable<Conflict<? extends OsmPrimit
      * of "their" in the conflicts managed by this collection.
      */
     public Set<OsmPrimitive> getTheirConflictParties() {
-        HashSet<OsmPrimitive> ret = new HashSet<>();
+        Set<OsmPrimitive> ret = new HashSet<>();
         for (Conflict<?> c: conflicts) {
             ret.add(c.getTheir());
         }

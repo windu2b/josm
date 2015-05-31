@@ -24,6 +24,7 @@ import org.openstreetmap.josm.gui.PleaseWaitRunnable;
 import org.openstreetmap.josm.gui.layer.Layer;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
 import org.openstreetmap.josm.gui.util.FileFilterAllFiles;
+import org.openstreetmap.josm.gui.widgets.AbstractFileChooser;
 import org.openstreetmap.josm.io.IllegalDataException;
 import org.openstreetmap.josm.io.session.SessionImporter;
 import org.openstreetmap.josm.io.session.SessionReader;
@@ -46,12 +47,12 @@ public class SessionLoadAction extends DiskAccessAction {
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        JFileChooser fc = createAndOpenFileChooser(true, false, tr("Open session"),
+        AbstractFileChooser fc = createAndOpenFileChooser(true, false, tr("Open session"),
                 Arrays.asList(SessionImporter.FILE_FILTER, FileFilterAllFiles.getInstance()),
                 SessionImporter.FILE_FILTER, JFileChooser.FILES_ONLY, "lastDirectory");
         if (fc == null) return;
         File file = fc.getSelectedFile();
-        boolean zip = file.getName().toLowerCase().endsWith(".joz");
+        boolean zip = Utils.hasExtension(file, "joz");
         Main.worker.submit(new Loader(file, zip));
     }
 

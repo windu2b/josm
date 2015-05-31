@@ -39,11 +39,11 @@ public class PluginDownloadTask extends PleaseWaitRunnable{
      * @since 6867
      */
     public static final String PLUGIN_MIME_TYPES = "application/java-archive, application/zip; q=0.9, application/octet-stream; q=0.5";
-    
+
     private final Collection<PluginInformation> toUpdate = new LinkedList<>();
     private final Collection<PluginInformation> failed = new LinkedList<>();
     private final Collection<PluginInformation> downloaded = new LinkedList<>();
-    private Exception lastException;
+    //private Exception lastException;
     private boolean canceled;
     private HttpURLConnection downloadConnection;
 
@@ -53,9 +53,9 @@ public class PluginDownloadTask extends PleaseWaitRunnable{
      * @param parent the parent component relative to which the {@link org.openstreetmap.josm.gui.PleaseWaitDialog} is displayed
      * @param toUpdate a collection of plugin descriptions for plugins to update/download. Must not be null.
      * @param title the title to display in the {@link org.openstreetmap.josm.gui.PleaseWaitDialog}
-     * @throws IllegalArgumentException thrown if toUpdate is null
+     * @throws IllegalArgumentException if toUpdate is null
      */
-    public PluginDownloadTask(Component parent, Collection<PluginInformation> toUpdate, String title) throws IllegalArgumentException{
+    public PluginDownloadTask(Component parent, Collection<PluginInformation> toUpdate, String title) {
         super(parent, title == null ? "" : title, false /* don't ignore exceptions */);
         CheckParameterUtil.ensureParameterNotNull(toUpdate, "toUpdate");
         this.toUpdate.addAll(toUpdate);
@@ -67,7 +67,7 @@ public class PluginDownloadTask extends PleaseWaitRunnable{
      * @param monitor a progress monitor. Defaults to {@link NullProgressMonitor#INSTANCE} if null
      * @param toUpdate a collection of plugin descriptions for plugins to update/download. Must not be null.
      * @param title the title to display in the {@link org.openstreetmap.josm.gui.PleaseWaitDialog}
-     * @throws IllegalArgumentException thrown if toUpdate is null
+     * @throws IllegalArgumentException if toUpdate is null
      */
     public PluginDownloadTask(ProgressMonitor monitor, Collection<PluginInformation> toUpdate, String title) {
         super(title, monitor == null? NullProgressMonitor.INSTANCE: monitor, false /* don't ignore exceptions */);
@@ -79,9 +79,9 @@ public class PluginDownloadTask extends PleaseWaitRunnable{
      * Sets the collection of plugins to update.
      *
      * @param toUpdate the collection of plugins to update. Must not be null.
-     * @throws IllegalArgumentException thrown if toUpdate is null
+     * @throws IllegalArgumentException if toUpdate is null
      */
-    public void setPluginsToDownload(Collection<PluginInformation> toUpdate) throws IllegalArgumentException{
+    public void setPluginsToDownload(Collection<PluginInformation> toUpdate) {
         CheckParameterUtil.ensureParameterNotNull(toUpdate, "toUpdate");
         this.toUpdate.clear();
         this.toUpdate.addAll(toUpdate);
@@ -110,7 +110,7 @@ public class PluginDownloadTask extends PleaseWaitRunnable{
                         tr("Skip Download") }
             );
             dialog.setContent(tr("JOSM version {0} required for plugin {1}.", pi.mainversion, pi.name));
-            dialog.setButtonIcons(new String[] { "download.png", "cancel.png" });
+            dialog.setButtonIcons(new String[] { "download", "cancel" });
             dialog.showDialog();
             int answer = dialog.getValue();
             if (answer != 1)
@@ -136,9 +136,10 @@ public class PluginDownloadTask extends PleaseWaitRunnable{
                 }
             }
         } catch (MalformedURLException e) {
-            String msg = tr("Cannot download plugin ''{0}''. Its download link ''{1}'' is not a valid URL. Skipping download.", pi.name, pi.downloadlink);
+            String msg = tr("Cannot download plugin ''{0}''. Its download link ''{1}'' is not a valid URL. Skipping download.",
+                    pi.name, pi.downloadlink);
             Main.warn(msg);
-            throw new PluginDownloadException(msg);
+            throw new PluginDownloadException(msg, e);
         } catch (IOException e) {
             if (canceled)
                 return;
@@ -154,7 +155,7 @@ public class PluginDownloadTask extends PleaseWaitRunnable{
     protected void realRun() throws SAXException, IOException {
         File pluginDir = Main.pref.getPluginsDirectory();
         if (!pluginDir.exists() && !pluginDir.mkdirs()) {
-            lastException = new PluginDownloadException(tr("Failed to create plugin directory ''{0}''", pluginDir.toString()));
+            /*lastException =*/ new PluginDownloadException(tr("Failed to create plugin directory ''{0}''", pluginDir.toString()));
             failed.addAll(toUpdate);
             return;
         }
@@ -186,18 +187,18 @@ public class PluginDownloadTask extends PleaseWaitRunnable{
     }
 
     /**
-     * Replies the list of successfully downloaded plugins
+     * Replies the list of plugins whose download has failed.
      *
-     * @return the list of successfully downloaded plugins
+     * @return the list of plugins whose download has failed
      */
     public Collection<PluginInformation> getFailedPlugins() {
         return failed;
     }
 
     /**
-     * Replies the list of plugins whose download has failed
+     * Replies the list of successfully downloaded plugins.
      *
-     * @return the list of plugins whose download has failed
+     * @return the list of successfully downloaded plugins
      */
     public Collection<PluginInformation> getDownloadedPlugins() {
         return downloaded;

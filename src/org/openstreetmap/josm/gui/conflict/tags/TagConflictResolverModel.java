@@ -21,10 +21,10 @@ import org.openstreetmap.josm.tools.CheckParameterUtil;
 public class TagConflictResolverModel extends DefaultTableModel {
     public static final String NUM_CONFLICTS_PROP = TagConflictResolverModel.class.getName() + ".numConflicts";
 
-    private TagCollection tags;
+    private transient TagCollection tags;
     private List<String> displayedKeys;
     private Set<String> keysWithConflicts;
-    private Map<String, MultiValueResolutionDecision> decisions;
+    private transient Map<String, MultiValueResolutionDecision> decisions;
     private int numConflicts;
     private PropertyChangeSupport support;
     private boolean showTagsWithConflictsOnly = false;
@@ -84,7 +84,7 @@ public class TagConflictResolverModel extends DefaultTableModel {
      * initializes the model from the current tags
      *
      */
-    protected void rebuild() {
+    public void rebuild() {
         if (tags == null) return;
         for(String key: tags.getKeys()) {
             MultiValueResolutionDecision decision = new MultiValueResolutionDecision(tags.getTagsFor(key));
@@ -126,7 +126,7 @@ public class TagConflictResolverModel extends DefaultTableModel {
      *
      * @param tags  the tag collection with the tags. Must not be null.
      * @param keysWithConflicts the set of tag keys with conflicts
-     * @throws IllegalArgumentException thrown if tags is null
+     * @throws IllegalArgumentException if tags is null
      */
     public void populate(TagCollection tags, Set<String> keysWithConflicts) {
         CheckParameterUtil.ensureParameterNotNull(tags, "tags");
@@ -136,7 +136,7 @@ public class TagConflictResolverModel extends DefaultTableModel {
         decisions = new HashMap<>();
         rebuild();
     }
-    
+
     /**
      * Returns the OSM key at the given row.
      * @param row The table row
@@ -177,6 +177,9 @@ public class TagConflictResolverModel extends DefaultTableModel {
             case KEEP_ALL:
                 decision.keepAll();
                 break;
+            case SUM_ALL_NUMERIC:
+                decision.sumAllNumeric();
+                break;
             }
         }
         GuiHelper.runInEDTAndWait(new Runnable() {
@@ -190,11 +193,10 @@ public class TagConflictResolverModel extends DefaultTableModel {
     /**
      * Replies true if each {@link MultiValueResolutionDecision} is decided.
      *
-     * @return true if each {@link MultiValueResolutionDecision} is decided; false
-     * otherwise
+     * @return true if each {@link MultiValueResolutionDecision} is decided; false otherwise
      */
     public boolean isResolvedCompletely() {
-        return numConflicts == 0;
+        return numConflicts == 0 && keysWithConflicts != null && keysWithConflicts.isEmpty();
     }
 
     public int getNumConflicts() {
@@ -269,7 +271,7 @@ public class TagConflictResolverModel extends DefaultTableModel {
         }
         rebuild();
     }
-    
+
     /**
      * Returns the set of keys in conflict.
      * @return the set of keys in conflict.

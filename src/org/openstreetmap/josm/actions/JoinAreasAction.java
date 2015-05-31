@@ -45,20 +45,21 @@ import org.openstreetmap.josm.gui.conflict.tags.CombinePrimitiveResolverDialog;
 import org.openstreetmap.josm.tools.Geometry;
 import org.openstreetmap.josm.tools.Pair;
 import org.openstreetmap.josm.tools.Shortcut;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
- * Join Areas (i.e. closed ways and multipolygons)
+ * Join Areas (i.e. closed ways and multipolygons).
+ * @since 2575
  */
 public class JoinAreasAction extends JosmAction {
     // This will be used to commit commands and unite them into one large command sequence at the end
     private final LinkedList<Command> cmds = new LinkedList<>();
     private int cmdsCount = 0;
-    private final List<Relation> addedRelations = new LinkedList<>();
+    private final transient List<Relation> addedRelations = new LinkedList<>();
 
     /**
-     * This helper class describes join ares action result.
+     * This helper class describes join areas action result.
      * @author viesturs
-     *
      */
     public static class JoinAreasResult {
 
@@ -149,8 +150,7 @@ public class JoinAreasAction extends JosmAction {
                     for (int pos = 0; pos < way.way.getNodesCount() - 1; pos++) {
                         nodes.add(way.way.getNode(pos));
                     }
-                }
-                else {
+                } else {
                     for (int pos = way.way.getNodesCount() - 1; pos > 0; pos--) {
                         nodes.add(way.way.getNode(pos));
                     }
@@ -357,7 +357,7 @@ public class JoinAreasAction extends JosmAction {
 
                 double candidateAngle = getAngle(headNode, candidatePrevNode, prevNode);
 
-                if(mostLeft == null || candidateAngle < angle || (candidateAngle == angle && !candidateComingToHead)) {
+                if(mostLeft == null || candidateAngle < angle || (Utils.equalsEpsilon(candidateAngle, angle) && !candidateComingToHead)) {
                     // Candidate is most left
                     mostLeft = candidateWay;
                     comingToHead = candidateComingToHead;
@@ -393,12 +393,20 @@ public class JoinAreasAction extends JosmAction {
     }
 
     /**
-     * Gets called whenever the shortcut is pressed or the menu entry is selected
-     * Checks whether the selected objects are suitable to join and joins them if so
+     * Gets called whenever the shortcut is pressed or the menu entry is selected.
+     * Checks whether the selected objects are suitable to join and joins them if so.
      */
     @Override
     public void actionPerformed(ActionEvent e) {
-        LinkedList<Way> ways = new LinkedList<>(Main.main.getCurrentDataSet().getSelectedWays());
+        join(Main.main.getCurrentDataSet().getSelectedWays());
+    }
+
+    /**
+     * Joins the given ways.
+     * @param ways Ways to join
+     * @since 7534
+     */
+    public void join(Collection<Way> ways) {
         addedRelations.clear();
 
         if (ways.isEmpty()) {
@@ -454,6 +462,12 @@ public class JoinAreasAction extends JosmAction {
         //user canceled, do nothing.
 
         try {
+            // see #11026 - Because <ways> is a dynamic filtered (on ways) of a filtered (on selected objects) collection,
+            // retrieve effective dataset before joining the ways (which affects the selection, thus, the <ways> collection)
+            // Dataset retrieving allows to call this code without relying on Main.getCurrentDataSet(), thus, on a mapview instance
+            DataSet ds = ways.iterator().next().getDataSet();
+
+            // Do the job of joining areas
             JoinAreasResult result = joinAreas(areas);
 
             if (result.hasChanges) {
@@ -469,17 +483,17 @@ public class JoinAreasAction extends JosmAction {
                     allWays.add(pol.outerWay);
                     allWays.addAll(pol.innerWays);
                 }
-                DataSet ds = Main.main.getCurrentDataSet();
-                ds.setSelected(allWays);
-                Main.map.mapView.repaint();
+                if (ds != null) {
+                    ds.setSelected(allWays);
+                    Main.map.mapView.repaint();
+                }
             } else {
                 new Notification(
                         tr("No intersection found. Nothing was changed."))
                         .setIcon(JOptionPane.INFORMATION_MESSAGE)
                         .show();
             }
-        }
-        catch (UserCancelException exception) {
+        } catch (UserCancelException exception) {
             //revert changes
             //FIXME: this is dirty hack
             makeCommitsOneAction(tr("Reverting changes"));
@@ -751,9 +765,8 @@ public class JoinAreasAction extends JosmAction {
 
         List<WayInPolygon> result = new ArrayList<>();
 
-        //prepare prev and next maps
+        //prepare next map
         Map<Way, Way> nextWayMap = new HashMap<>();
-        Map<Way, Way> prevWayMap = new HashMap<>();
 
         for (int pos = 0; pos < parts.size(); pos ++) {
 
@@ -761,7 +774,6 @@ public class JoinAreasAction extends JosmAction {
                 throw new RuntimeException("Way not circular");
 
             nextWayMap.put(parts.get(pos), parts.get((pos + 1) % parts.size()));
-            prevWayMap.put(parts.get(pos), parts.get((pos + parts.size() - 1) % parts.size()));
         }
 
         //find the node with minimum y - it's guaranteed to be outer. (What about the south pole?)
@@ -914,7 +926,7 @@ public class JoinAreasAction extends JosmAction {
 
     /**
      * This is a method splits way into smaller parts, using the prepared nodes list as split points.
-     * Uses  SplitWayAction.splitWay for the heavy lifting.
+     * Uses {@link SplitWayAction#splitWay} for the heavy lifting.
      * @return list of split ways (or original ways if no splitting is done).
      */
     private List<Way> splitWayOnNodes(Way way, Set<Node> nodes) {
@@ -923,7 +935,7 @@ public class JoinAreasAction extends JosmAction {
         List<List<Node>> chunks = buildNodeChunks(way, nodes);
 
         if (chunks.size() > 1) {
-            SplitWayResult split = SplitWayAction.splitWay(Main.main.getEditLayer(), way, chunks, Collections.<OsmPrimitive>emptyList());
+            SplitWayResult split = SplitWayAction.splitWay(getEditLayer(), way, chunks, Collections.<OsmPrimitive>emptyList());
 
             //execute the command, we need the results
             cmds.add(split.getCommand());
@@ -1056,7 +1068,7 @@ public class JoinAreasAction extends JosmAction {
         // In multigonWays collection, some way are just a point (i.e. way like nodeA-nodeA)
         // This seems to appear when is apply over invalid way like #9911 test-case
         // Remove all of these way to make the next work.
-        ArrayList<WayInPolygon> cleanMultigonWays = new ArrayList<>();
+        List<WayInPolygon> cleanMultigonWays = new ArrayList<>();
         for(WayInPolygon way: multigonWays)
             if(way.way.getNodesCount() == 2 && way.way.firstNode() == way.way.lastNode())
                 discardedWays.add(way);
@@ -1068,7 +1080,7 @@ public class JoinAreasAction extends JosmAction {
 
         WayInPolygon startWay;
         while((startWay = traverser.startNewWay()) != null) {
-            ArrayList<WayInPolygon> path = new ArrayList<>();
+            List<WayInPolygon> path = new ArrayList<>();
             List<WayInPolygon> startWays = new ArrayList<>();
             path.add(startWay);
             while(true) {
@@ -1253,7 +1265,7 @@ public class JoinAreasAction extends JosmAction {
      * @param selectedWays the selected ways
      * @return list of polygons, or null if too complex relation encountered.
      */
-    private List<Multipolygon> collectMultipolygons(List<Way> selectedWays) {
+    private List<Multipolygon> collectMultipolygons(Collection<Way> selectedWays) {
 
         List<Multipolygon> result = new ArrayList<>();
 
@@ -1277,8 +1289,7 @@ public class JoinAreasAction extends JosmAction {
                 if ("outer".equalsIgnoreCase(rm.getRole())) {
                     outerWays.add(rm.getWay());
                     hasKnownOuter |= selectedWays.contains(rm.getWay());
-                }
-                else if ("inner".equalsIgnoreCase(rm.getRole())) {
+                } else if ("inner".equalsIgnoreCase(rm.getRole())) {
                     innerWays.add(rm.getWay());
                 }
             }
@@ -1316,8 +1327,7 @@ public class JoinAreasAction extends JosmAction {
                 return null;
             }
 
-            for (Way way :innerWays)
-            {
+            for (Way way :innerWays) {
                 if (processedOuterWays.contains(way)) {
                     new Notification(
                             tr("Sorry. Cannot handle way that is both inner and outer in multipolygon relations."))
@@ -1379,7 +1389,7 @@ public class JoinAreasAction extends JosmAction {
     }
 
     /**
-     * Removes a given OsmPrimitive from all relations
+     * Removes a given OsmPrimitive from all relations.
      * @param osm Element to remove from all relations
      * @return List of relations with roles the primitives was part of
      */

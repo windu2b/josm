@@ -5,12 +5,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Stack;
 
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParserFactory;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.imagery.ImageryInfo;
@@ -19,6 +20,8 @@ import org.openstreetmap.josm.data.imagery.ImageryInfo.ImageryType;
 import org.openstreetmap.josm.data.imagery.Shape;
 import org.openstreetmap.josm.io.CachedFile;
 import org.openstreetmap.josm.io.UTFInputStreamReader;
+import org.openstreetmap.josm.tools.LanguageInfo;
+import org.openstreetmap.josm.tools.Utils;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -37,6 +40,8 @@ public class ImageryReader {
         CODE,
         BOUNDS,
         SHAPE,
+        NO_TILE,
+        METADATA,
         UNKNOWN,            // element is not recognized in the current context
     }
 
@@ -47,14 +52,12 @@ public class ImageryReader {
     public List<ImageryInfo> parse() throws SAXException, IOException {
         Parser parser = new Parser();
         try {
-            SAXParserFactory factory = SAXParserFactory.newInstance();
-            factory.setNamespaceAware(true);
             try (InputStream in = new CachedFile(source)
                     .setMaxAge(1*CachedFile.DAYS)
                     .setCachingStrategy(CachedFile.CachingStrategy.IfModifiedSince)
                     .getInputStream()) {
                 InputSource is = new InputSource(UTFInputStreamReader.create(in));
-                factory.newSAXParser().parse(is, parser);
+                Utils.parseSafeSAX(is, parser);
                 return parser.entries;
             }
         } catch (SAXException e) {
@@ -70,20 +73,25 @@ public class ImageryReader {
 
         private Stack<State> states;
 
-        List<ImageryInfo> entries;
+        private List<ImageryInfo> entries;
 
         /**
          * Skip the current entry because it has mandatory attributes
          * that this version of JOSM cannot process.
          */
-        boolean skipEntry;
+        private boolean skipEntry;
 
-        ImageryInfo entry;
-        ImageryBounds bounds;
-        Shape shape;
-        List<String> projections;
+        private ImageryInfo entry;
+        private ImageryBounds bounds;
+        private Shape shape;
+        // language of last element, does only work for simple ENTRY_ATTRIBUTE's
+        private String lang;
+        private List<String> projections;
+        private Map<String, String> noTileHeaders;
+        private Map<String, String> metadataHeaders;
 
-        @Override public void startDocument() {
+        @Override
+        public void startDocument() {
             accumulator = new StringBuffer();
             skipEntry = false;
             states = new Stack<>();
@@ -92,6 +100,7 @@ public class ImageryReader {
             entry = null;
             bounds = null;
             projections = null;
+            noTileHeaders = null;
         }
 
         @Override
@@ -109,6 +118,8 @@ public class ImageryReader {
                     entry = new ImageryInfo();
                     skipEntry = false;
                     newState = State.ENTRY;
+                    noTileHeaders = new HashMap<>();
+                    metadataHeaders = new HashMap<>();
                 }
                 break;
             case ENTRY:
@@ -116,6 +127,7 @@ public class ImageryReader {
                         "name",
                         "id",
                         "type",
+                        "description",
                         "default",
                         "url",
                         "eula",
@@ -129,8 +141,10 @@ public class ImageryReader {
                         "terms-of-use-url",
                         "country-code",
                         "icon",
+                        "tile-size",
                 }).contains(qName)) {
                     newState = State.ENTRY_ATTRIBUTE;
+                    lang = atts.getValue("lang");
                 } else if ("bounds".equals(qName)) {
                     try {
                         bounds = new ImageryBounds(
@@ -145,6 +159,12 @@ public class ImageryReader {
                 } else if ("projections".equals(qName)) {
                     projections = new ArrayList<>();
                     newState = State.PROJECTIONS;
+                } else if ("no-tile-header".equals(qName)) {
+                    noTileHeaders.put(atts.getValue("name"), atts.getValue("value"));
+                    newState = State.NO_TILE;
+                } else if ("metadata-header".equals(qName)) {
+                    metadataHeaders.put(atts.getValue("header-name"), atts.getValue("metadata-key"));
+                    newState = State.METADATA;
                 }
                 break;
             case BOUNDS:
@@ -181,7 +201,6 @@ public class ImageryReader {
             if (newState == State.UNKNOWN && "true".equals(atts.getValue("mandatory"))) {
                 skipEntry = true;
             }
-            return;
         }
 
         @Override
@@ -196,6 +215,11 @@ public class ImageryReader {
                 throw new RuntimeException("parsing error: more closing than opening elements");
             case ENTRY:
                 if ("entry".equals(qName)) {
+                    entry.setNoTileHeaders(noTileHeaders);
+                    noTileHeaders = null;
+                    entry.setMetadataHeaders(metadataHeaders);
+                    metadataHeaders = null;
+
                     if (!skipEntry) {
                         entries.add(entry);
                     }
@@ -205,7 +229,10 @@ public class ImageryReader {
             case ENTRY_ATTRIBUTE:
                 switch(qName) {
                 case "name":
-                    entry.setTranslatedName(accumulator.toString());
+                    entry.setName(lang == null ? LanguageInfo.getJOSMLocaleCode(null) : lang, accumulator.toString());
+                    break;
+                case "description":
+                    entry.setDescription(lang, accumulator.toString());
                     break;
                 case "id":
                     entry.setId(accumulator.toString());
@@ -245,7 +272,7 @@ public class ImageryReader {
                 case "max-zoom":
                     Integer val = null;
                     try {
-                        val = Integer.parseInt(accumulator.toString());
+                        val = Integer.valueOf(accumulator.toString());
                     } catch(NumberFormatException e) {
                         val = null;
                     }
@@ -283,6 +310,19 @@ public class ImageryReader {
                 case "icon":
                     entry.setIcon(accumulator.toString());
                     break;
+                case "tile-size":
+                    Integer tileSize = null;
+                    try {
+                        tileSize = Integer.valueOf(accumulator.toString());
+                    } catch(NumberFormatException e) {
+                        tileSize = null;
+                    }
+                    if (tileSize == null) {
+                        skipEntry = true;
+                    } else {
+                        entry.setTileSize(tileSize.intValue());
+                    }
+                    break;
                 }
                 break;
             case BOUNDS:
@@ -300,6 +340,9 @@ public class ImageryReader {
                 entry.setServerProjections(projections);
                 projections = null;
                 break;
+            case NO_TILE:
+                break;
+
             }
         }
     }

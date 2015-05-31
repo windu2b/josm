@@ -1,9 +1,17 @@
 // License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.actions;
 
+import java.awt.event.ActionEvent;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
+import java.util.TreeMap;
+
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.coor.EastNorth;
 import org.openstreetmap.josm.data.osm.BBox;
+import org.openstreetmap.josm.data.osm.DataSet;
 import org.openstreetmap.josm.data.osm.Node;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.osm.Relation;
@@ -11,34 +19,35 @@ import org.openstreetmap.josm.data.osm.RelationMember;
 import org.openstreetmap.josm.data.osm.Way;
 import org.openstreetmap.josm.tools.Geometry;
 
-import java.awt.event.ActionEvent;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.TreeMap;
-
 /**
- * This allows to select a polygon/multipolgon by an internal point.
+ * This allows to select a polygon/multipolygon by an internal point.
+ * @since 7144
  */
 public class SelectByInternalPointAction extends JosmAction {
 
     /**
-     * Returns the surrounding polygons/multipolgons
+     * Returns the surrounding polygons/multipolygons
      * ordered by their area size (from small to large)
      * which contain the internal point.
      *
      * @param internalPoint the internal point.
+     * @return the surrounding polygons/multipolygons
      */
     public static Collection<OsmPrimitive> getSurroundingObjects(EastNorth internalPoint) {
+        final DataSet ds = getCurrentDataSet();
+        if (ds == null) {
+            return Collections.emptySet();
+        }
         final Node n = new Node(internalPoint);
-        final TreeMap<Double, OsmPrimitive> found = new TreeMap<>();
-        for (Way w : getCurrentDataSet().getWays()) {
-            if (w.isUsable() && w.isClosed()) {
+        final Map<Double, OsmPrimitive> found = new TreeMap<>();
+        for (Way w : ds.getWays()) {
+            if (w.isUsable() && w.isClosed() && w.isSelectable()) {
                 if (Geometry.nodeInsidePolygon(n, w.getNodes())) {
                     found.put(Geometry.closedWayArea(w), w);
                 }
             }
         }
-        for (Relation r : getCurrentDataSet().getRelations()) {
+        for (Relation r : ds.getRelations()) {
             if (r.isUsable() && r.isMultipolygon()) {
                 if (Geometry.isNodeInsideMultiPolygon(n, r, null)) {
                     for (RelationMember m : r.getMembers()) {
@@ -61,9 +70,10 @@ public class SelectByInternalPointAction extends JosmAction {
 
 
     /**
-     * Returns the smallest surrounding polygon/multipolgon which contains the internal point.
+     * Returns the smallest surrounding polygon/multipolygon which contains the internal point.
      *
      * @param internalPoint the internal point.
+     * @return the smallest surrounding polygon/multipolygon
      */
     public static OsmPrimitive getSmallestSurroundingObject(EastNorth internalPoint) {
         final Collection<OsmPrimitive> surroundingObjects = getSurroundingObjects(internalPoint);
@@ -71,7 +81,7 @@ public class SelectByInternalPointAction extends JosmAction {
     }
 
     /**
-     * Select a polygon or multipolgon by an internal point.
+     * Select a polygon or multipolygon by an internal point.
      *
      * @param internalPoint the internal point.
      * @param doAdd         whether to add selected polygon to the current selection.

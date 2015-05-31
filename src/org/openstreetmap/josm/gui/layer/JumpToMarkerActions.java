@@ -21,13 +21,13 @@ public final class JumpToMarkerActions {
         void jumpToNextMarker();
         void jumpToPreviousMarker();
     }
-    
+
     private JumpToMarkerActions() {
         // Hide default constructor for utils classes
     }
 
-    private static JumpToNextMarker jumpToNextMarkerAction;
-    private static JumpToPreviousMarker jumpToPreviousMarkerAction;
+    private static volatile JumpToNextMarker jumpToNextMarkerAction;
+    private static volatile JumpToPreviousMarker jumpToPreviousMarkerAction;
 
     public static void initialize() {
         jumpToNextMarkerAction = new JumpToNextMarker(null);
@@ -43,16 +43,16 @@ public final class JumpToMarkerActions {
 
     private abstract static class JumpToMarker extends AbstractAction implements MultikeyShortcutAction {
 
-        private final Layer layer;
-        private final Shortcut multikeyShortcut;
-        private WeakReference<Layer> lastLayer;
-        
+        private final transient Layer layer;
+        private final transient Shortcut multikeyShortcut;
+        private transient WeakReference<Layer> lastLayer;
+
         public JumpToMarker(JumpToMarkerLayer layer, Shortcut shortcut) {
             this.layer = (Layer) layer;
             this.multikeyShortcut = shortcut;
             this.multikeyShortcut.setAccelerator(this);
         }
-        
+
         protected final void setLastLayer(Layer l) {
             lastLayer = new WeakReference<>(l);
         }
@@ -88,7 +88,7 @@ public final class JumpToMarkerActions {
         public List<MultikeyInfo> getMultikeyCombinations() {
             return LayerListDialog.getLayerInfoByClass(JumpToMarkerLayer.class);
         }
-        
+
         @Override
         public MultikeyInfo getLastMultikeyAction() {
             if (lastLayer != null)

@@ -104,7 +104,7 @@ public final class StyleCache {
      */
     public StyleList get(double scale) {
         if (scale <= 0)
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("scale must be <= 0 but is "+scale);
         for (int i=0; i<data.size(); ++i) {
             if (bd.get(i) < scale && scale <= bd.get(i+1)) {
                 return data.get(i);
@@ -119,7 +119,7 @@ public final class StyleCache {
      */
     public Pair<StyleList, Range> getWithRange(double scale) {
         if (scale <= 0)
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("scale must be <= 0 but is "+scale);
         for (int i=0; i<data.size(); ++i) {
             if (bd.get(i) < scale && scale <= bd.get(i+1)) {
                 return new Pair<>(data.get(i), new Range(bd.get(i), bd.get(i+1)));
@@ -169,16 +169,15 @@ public final class StyleCache {
             if (data.get(i) != null)
                 throw new AssertionError("the new range must be within a subrange that has no data");
 
-            //  --|-------|--------|--
-            //   i-1      i       i+1
-            //            (--------]
             if (bd.get(i+1) == upper) {
+                //  --|-------|--------|--
+                //   i-1      i       i+1
+                //            (--------]
                 data.set(i, sl);
-            }
-            //  --|-------|--------|--
-            //   i-1      i       i+1
-            //            (-----]
-            else {
+            } else {
+                //  --|-------|--------|--
+                //   i-1      i       i+1
+                //            (-----]
                 bd.add(i+1, upper);
                 data.add(i, sl);
             }
@@ -208,8 +207,8 @@ public final class StyleCache {
     }
 
     public void consistencyTest() {
-        if (bd.size() < 2) throw new AssertionError();
-        if (data.size() < 1) throw new AssertionError();
+        if (bd.size() < 2) throw new AssertionError(bd);
+        if (data.isEmpty()) throw new AssertionError(data);
         if (bd.size() != data.size() + 1) throw new AssertionError();
         if (bd.get(0) != 0) throw new AssertionError();
         if (bd.get(bd.size() - 1) != Double.POSITIVE_INFINITY) throw new AssertionError();

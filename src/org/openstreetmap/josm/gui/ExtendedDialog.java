@@ -10,10 +10,13 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
@@ -27,12 +30,14 @@ import javax.swing.JPanel;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.KeyStroke;
-import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 
+import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.gui.help.HelpBrowser;
 import org.openstreetmap.josm.gui.help.HelpUtil;
+import org.openstreetmap.josm.gui.util.GuiHelper;
 import org.openstreetmap.josm.gui.widgets.JMultilineLabel;
+import org.openstreetmap.josm.io.OnlineResource;
 import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.Utils;
@@ -69,11 +74,11 @@ import org.openstreetmap.josm.tools.WindowGeometry;
  */
 public class ExtendedDialog extends JDialog {
     private final boolean disposeOnClose;
-    private int result = 0;
+    private volatile int result = 0;
     public static final int DialogClosedOtherwise = 0;
     private boolean toggleable = false;
     private String rememberSizePref = "";
-    private WindowGeometry defaultWindowGeometry = null;
+    private transient WindowGeometry defaultWindowGeometry = null;
     private String togglePref = "";
     private int toggleValue = -1;
     private ConditionalOptionPaneUtil.MessagePanel togglePanel;
@@ -81,12 +86,13 @@ public class ExtendedDialog extends JDialog {
     private Component content;
     private final String[] bTexts;
     private String[] bToolTipTexts;
-    private Icon[] bIcons;
-    private List<Integer> cancelButtonIdx = Collections.emptyList();
+    private transient Icon[] bIcons;
+    private Set<Integer> cancelButtonIdx = Collections.emptySet();
     private int defaultButtonIdx = 1;
     protected JButton defaultButton = null;
-    private Icon icon;
+    private transient Icon icon;
     private boolean modal;
+    private boolean focusOnDefaultButton = false;
 
     /** true, if the dialog should include a help button */
     private boolean showHelpButton;
@@ -100,7 +106,7 @@ public class ExtendedDialog extends JDialog {
     private boolean placeContentInScrollPane;
 
     // For easy access when inherited
-    protected Insets contentInsets = new Insets(10,5,0,5);
+    protected transient Insets contentInsets = new Insets(10,5,0,5);
     protected List<JButton> buttons = new ArrayList<>();
 
     /**
@@ -205,7 +211,7 @@ public class ExtendedDialog extends JDialog {
      * The content is played on top of the other elements though.
      *
      * @param content Any element that can be displayed in the message dialog
-     * @param placeContentInScrollPane if  true, places  the content in a JScrollPane
+     * @param placeContentInScrollPane if true, places the content in a JScrollPane
      * @return {@code this}
      */
     public ExtendedDialog setContent(Component content, boolean placeContentInScrollPane) {
@@ -277,7 +283,10 @@ public class ExtendedDialog extends JDialog {
         if (defaultButton != null) {
             getRootPane().setDefaultButton(defaultButton);
         }
-        fixFocus();
+        // Don't focus the "do not show this again" check box, but the default button.
+        if (toggleable || focusOnDefaultButton) {
+            requestFocusToDefaultButton();
+        }
         setVisible(true);
         toggleSaveState();
         return this;
@@ -440,7 +449,8 @@ public class ExtendedDialog extends JDialog {
      */
     private void setupEscListener() {
         Action actionListener = new AbstractAction() {
-            @Override public void actionPerformed(ActionEvent actionEvent) {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
                 // 0 means that the dialog has been closed otherwise.
                 // We need to set it to zero again, in case the dialog has been re-used
                 // and the result differs from its default value
@@ -518,7 +528,7 @@ public class ExtendedDialog extends JDialog {
      */
     public ExtendedDialog toggleEnable(String togglePref) {
         if (!modal) {
-            throw new IllegalArgumentException();
+            throw new IllegalStateException();
         }
         this.toggleable = true;
         this.togglePref = togglePref;
@@ -537,7 +547,7 @@ public class ExtendedDialog extends JDialog {
 
     /**
      * Sets the button that will react to ENTER.
-     * @param defaultButtonIdx The button index (starts to )
+     * @param defaultButtonIdx The button index (starts to 1)
      * @return {@code this}
      */
     public ExtendedDialog setDefaultButton(int defaultButtonIdx) {
@@ -552,17 +562,24 @@ public class ExtendedDialog extends JDialog {
      * @return {@code this}
      */
     public ExtendedDialog setCancelButton(Integer... cancelButtonIdx) {
-        this.cancelButtonIdx = Arrays.<Integer>asList(cancelButtonIdx);
+        this.cancelButtonIdx = new HashSet<>(Arrays.<Integer>asList(cancelButtonIdx));
         return this;
     }
 
     /**
-     * Don't focus the "do not show this again" check box, but the default button.
+     * Makes default button request initial focus or not.
+     * @param focus {@code true} to make default button request initial focus
+     * @since 7407
      */
-    protected void fixFocus() {
-        if (toggleable && defaultButton != null) {
-            SwingUtilities.invokeLater(new Runnable() {
-                @Override public void run() {
+    public void setFocusOnDefaultButton(boolean focus) {
+        focusOnDefaultButton = focus;
+    }
+
+    private void requestFocusToDefaultButton() {
+        if (defaultButton != null) {
+            GuiHelper.runInEDT(new Runnable() {
+                @Override
+                public void run() {
                     defaultButton.requestFocusInWindow();
                 }
             });
@@ -594,14 +611,16 @@ public class ExtendedDialog extends JDialog {
 
     /**
      * Convenience function that converts a given string into a JMultilineLabel
-     * @param msg
-     * @return JMultilineLabel
+     * @param msg the message to display
+     * @return JMultilineLabel displaying {@code msg}
      */
     private static JMultilineLabel string2label(String msg) {
         JMultilineLabel lbl = new JMultilineLabel(msg);
         // Make it not wider than 1/2 of the screen
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         lbl.setMaxWidth(screenSize.width/2);
+        // Disable default Enter key binding to allow dialog's one (then enables to hit default button from here)
+        lbl.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), new Object());
         return lbl;
     }
 
@@ -630,9 +649,11 @@ public class ExtendedDialog extends JDialog {
             putValue(SHORT_DESCRIPTION, tr("Show help information"));
             putValue(NAME, tr("Help"));
             putValue(SMALL_ICON, ImageProvider.get("help"));
+            setEnabled(!Main.isOffline(OnlineResource.JOSM_WEBSITE));
         }
 
-        @Override public void actionPerformed(ActionEvent e) {
+        @Override
+        public void actionPerformed(ActionEvent e) {
             HelpBrowser.setUrlForHelpTopic(helpTopic);
         }
     }

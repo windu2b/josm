@@ -5,12 +5,9 @@ import static org.openstreetmap.josm.tools.I18n.trn;
 
 import java.util.Collection;
 
-import javax.swing.Icon;
-
 import org.openstreetmap.josm.data.coor.EastNorth;
 import org.openstreetmap.josm.data.osm.Node;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
-import org.openstreetmap.josm.tools.ImageProvider;
 
 public class ScaleCommand extends TransformNodesCommand {
     /**
@@ -25,9 +22,8 @@ public class ScaleCommand extends TransformNodesCommand {
 
     /**
      * World position of the mouse when the user started the command.
-     *
      */
-    EastNorth startEN = null;
+    private EastNorth startEN = null;
 
     /**
      * Creates a ScaleCommand.
@@ -68,7 +64,7 @@ public class ScaleCommand extends TransformNodesCommand {
     @Override
     protected void transformNodes() {
         for (Node n : nodes) {
-            EastNorth oldEastNorth = oldStates.get(n).eastNorth;
+            EastNorth oldEastNorth = oldStates.get(n).getEastNorth();
             double dx = oldEastNorth.east() - pivot.east();
             double dy = oldEastNorth.north() - pivot.north();
             double nx = pivot.east() + scalingFactor * dx;
@@ -80,10 +76,5 @@ public class ScaleCommand extends TransformNodesCommand {
     @Override
     public String getDescriptionText() {
         return trn("Scale {0} node", "Scale {0} nodes", nodes.size(), nodes.size());
-    }
-
-    @Override
-    public Icon getDescriptionIcon() {
-        return ImageProvider.get("data", "node");
     }
 }

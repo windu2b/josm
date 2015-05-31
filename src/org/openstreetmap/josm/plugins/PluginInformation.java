@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.jar.Attributes;
@@ -37,6 +38,7 @@ import org.openstreetmap.josm.tools.Utils;
  * without the need of loading any class from the plugin jar file.
  *
  * @author imi
+ * @since 153
  */
 public class PluginInformation {
 
@@ -50,6 +52,7 @@ public class PluginInformation {
     public int localmainversion = 0;
     /** The plugin class name. */
     public String className = null;
+    /** Determines if the plugin is an old version loaded for incompatibility with latest JOSM (from plugin list) */
     public boolean oldmode = false;
     /** The list of required plugins, separated by ';' (from plugin list). */
     public String requires = null;
@@ -71,10 +74,15 @@ public class PluginInformation {
     public String localversion = null;
     /** The plugin download link. */
     public String downloadlink = null;
+    /** The plugin icon path inside jar. */
     public String iconPath;
     /** The plugin icon. */
     public ImageIcon icon;
+    /** Plugin can be loaded at any time and not just at start. */
+    public boolean canloadatruntime = false;
+    /** The libraries referenced in Class-Path manifest attribute. */
     public List<URL> libraries = new LinkedList<>();
+    /** All manifest attributes. */
     public final Map<String, String> attr = new TreeMap<>();
 
     private static final ImageIcon emptyIcon = new ImageIcon(new BufferedImage(24, 24, BufferedImage.TYPE_INT_ARGB));
@@ -98,7 +106,7 @@ public class PluginInformation {
      * {@code file}.
      * @param file the plugin jar
      * @param name the plugin name
-     * @throws PluginException thrown if reading the manifest file fails
+     * @throws PluginException if reading the manifest file fails
      */
     public PluginInformation(File file, String name) throws PluginException {
         if (!PluginHandler.isValidJar(file)) {
@@ -127,7 +135,7 @@ public class PluginInformation {
      * @param manifestStream the stream to read the manifest from
      * @param name the plugin name
      * @param url the download URL for the plugin
-     * @throws PluginException thrown if the plugin information can't be read from the input stream
+     * @throws PluginException if the plugin information can't be read from the input stream
      */
     public PluginInformation(InputStream manifestStream, String name, String url) throws PluginException {
         this.name = name;
@@ -163,6 +171,7 @@ public class PluginInformation {
         this.downloadlink = other.downloadlink;
         this.icon = other.icon;
         this.iconPath = other.iconPath;
+        this.canloadatruntime = other.canloadatruntime;
         this.libraries = other.libraries;
         this.attr.clear();
         this.attr.putAll(other.attr);
@@ -183,6 +192,7 @@ public class PluginInformation {
         }
         this.early = other.early;
         this.className = other.className;
+        this.canloadatruntime = other.canloadatruntime;
         this.libraries = other.libraries;
         this.stage = other.stage;
     }
@@ -235,10 +245,15 @@ public class PluginInformation {
         }
         author = attr.getValue("Author");
         iconPath = attr.getValue("Plugin-Icon");
-        if (iconPath != null && file != null) {
-            // extract icon from the plugin jar file
-            icon = new ImageProvider(iconPath).setArchive(file).setMaxWidth(24).setMaxHeight(24).setOptional(true).get();
+        if (iconPath != null) {
+            if (file != null) {
+                // extract icon from the plugin jar file
+                icon = new ImageProvider(iconPath).setArchive(file).setMaxWidth(24).setMaxHeight(24).setOptional(true).get();
+            } else if (iconPath.startsWith("data:")) {
+                icon = new ImageProvider(iconPath).setMaxWidth(24).setMaxHeight(24).setOptional(true).get();
+            }
         }
+        canloadatruntime = Boolean.parseBoolean(attr.getValue("Plugin-Canloadatruntime"));
         if (oldcheck && mainversion > Version.getInstance().getVersion()) {
             int myv = Version.getInstance().getVersion();
             for (Map.Entry<Object, Object> entry : attr.entrySet()) {
@@ -257,8 +272,7 @@ public class PluginInformation {
                             }
                         }
                     }
-                }
-                catch(Exception e) {
+                } catch(Exception e) {
                     Main.error(e);
                 }
             }
@@ -289,15 +303,18 @@ public class PluginInformation {
      * @return the description as HTML document
      */
     public String getDescriptionAsHtml() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("<html><body>");
-        sb.append(description == null ? tr("no description available") : description);
+        StringBuilder sb = new StringBuilder(128);
+        sb.append("<html><body>")
+          .append(description == null ? tr("no description available") : description);
         if (link != null) {
             sb.append(" <a href=\"").append(link).append("\">").append(tr("More info...")).append("</a>");
         }
-        if (downloadlink != null && !downloadlink.startsWith("http://svn.openstreetmap.org/applications/editors/josm/dist/")
-        && !downloadlink.startsWith("http://trac.openstreetmap.org/browser/applications/editors/josm/dist/")) {
-            sb.append("<p>&nbsp;</p><p>"+tr("<b>Plugin provided by an external source:</b> {0}", downloadlink)+"</p>");
+        if (downloadlink != null
+                && !downloadlink.startsWith("http://svn.openstreetmap.org/applications/editors/josm/dist/")
+                && !downloadlink.startsWith("https://svn.openstreetmap.org/applications/editors/josm/dist/")
+                && !downloadlink.startsWith("http://trac.openstreetmap.org/browser/applications/editors/josm/dist/")
+                && !downloadlink.startsWith("https://github.com/JOSM/")) {
+            sb.append("<p>&nbsp;</p><p>").append(tr("<b>Plugin provided by an external source:</b> {0}", downloadlink)).append("</p>");
         }
         sb.append("</body></html>");
         return sb.toString();
@@ -441,7 +458,7 @@ public class PluginInformation {
     protected boolean matches(String filter, String value) {
         if (filter == null) return true;
         if (value == null) return false;
-        return value.toLowerCase().contains(filter.toLowerCase());
+        return value.toLowerCase(Locale.ENGLISH).contains(filter.toLowerCase(Locale.ENGLISH));
     }
 
     /**

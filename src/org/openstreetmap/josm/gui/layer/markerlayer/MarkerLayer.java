@@ -93,17 +93,15 @@ public class MarkerLayer extends Layer implements JumpToMarkerLayer {
             boolean wpt_has_link = wpt.attr.containsKey(GpxConstants.META_LINKS);
             if (firstTime < 0 && wpt_has_link) {
                 firstTime = time;
-                for (Object oneLink : wpt.getCollection(GpxConstants.META_LINKS)) {
-                    if (oneLink instanceof GpxLink) {
-                        lastLinkedFile = ((GpxLink)oneLink).uri;
-                        break;
-                    }
+                for (GpxLink oneLink : wpt.<GpxLink>getCollection(GpxConstants.META_LINKS)) {
+                    lastLinkedFile = oneLink.uri;
+                    break;
                 }
             }
             if (wpt_has_link) {
-                for (Object oneLink : wpt.getCollection(GpxConstants.META_LINKS)) {
-                    if (oneLink instanceof GpxLink) {
-                        String uri = ((GpxLink)oneLink).uri;
+                for (GpxLink oneLink : wpt.<GpxLink>getCollection(GpxConstants.META_LINKS)) {
+                    String uri = oneLink.uri;
+                    if (uri != null) {
                         if (!uri.equals(lastLinkedFile)) {
                             firstTime = time;
                         }
@@ -121,7 +119,7 @@ public class MarkerLayer extends Layer implements JumpToMarkerLayer {
             Extensions exts = (Extensions) wpt.get(GpxConstants.META_EXTENSIONS);
             if (exts != null && exts.containsKey("offset")) {
                 try {
-                    offset = Double.parseDouble(exts.get("offset"));
+                    offset = Double.valueOf(exts.get("offset"));
                 } catch (NumberFormatException nfe) {
                     Main.warn(nfe);
                 }
@@ -255,7 +253,7 @@ public class MarkerLayer extends Layer implements JumpToMarkerLayer {
         components.add(SeparatorLayerAction.INSTANCE);
         components.add(new SynchronizeAudio());
         if (Main.pref.getBoolean("marker.traceaudio", true)) {
-            components.add (new MoveAudio());
+            components.add(new MoveAudio());
         }
         components.add(new JumpToNextMarker(this));
         components.add(new JumpToPreviousMarker(this));
@@ -424,9 +422,7 @@ public class MarkerLayer extends Layer implements JumpToMarkerLayer {
                         }
                         return previousMarker;
                     }
-                }
-                else if (marker.getClass() == AudioMarker.class)
-                {
+                } else if (marker.getClass() == AudioMarker.class) {
                     if(nextTime || startMarker == null)
                         return marker;
                     previousMarker = marker;
@@ -439,24 +435,22 @@ public class MarkerLayer extends Layer implements JumpToMarkerLayer {
     }
 
     private static void playAdjacentMarker(Marker startMarker, boolean next) {
-        Marker m = null;
         if (!Main.isDisplayingMapView())
             return;
+        Marker m = null;
         Layer l = Main.map.mapView.getActiveLayer();
-        if(l != null) {
+        if (l != null) {
             m = getAdjacentMarker(startMarker, next, l);
         }
-        if(m == null)
-        {
-            for (Layer layer : Main.map.mapView.getAllLayers())
-            {
+        if (m == null) {
+            for (Layer layer : Main.map.mapView.getAllLayers()) {
                 m = getAdjacentMarker(startMarker, next, layer);
-                if(m != null) {
+                if (m != null) {
                     break;
                 }
             }
         }
-        if(m != null) {
+        if (m != null) {
             ((AudioMarker)m).play();
         }
     }
@@ -471,7 +465,7 @@ public class MarkerLayer extends Layer implements JumpToMarkerLayer {
     }
 
     public static final class ShowHideMarkerText extends AbstractAction implements LayerAction {
-        private final MarkerLayer layer;
+        private final transient MarkerLayer layer;
 
         public ShowHideMarkerText(MarkerLayer layer) {
             super(tr("Show Text/Icons"), ImageProvider.get("dialogs", "showhide"));

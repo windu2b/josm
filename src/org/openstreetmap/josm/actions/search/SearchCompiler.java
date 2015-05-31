@@ -10,6 +10,7 @@ import java.text.Normalizer;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -28,6 +29,7 @@ import org.openstreetmap.josm.data.osm.RelationMember;
 import org.openstreetmap.josm.data.osm.Way;
 import org.openstreetmap.josm.tools.Geometry;
 import org.openstreetmap.josm.tools.Predicate;
+import org.openstreetmap.josm.tools.Utils;
 import org.openstreetmap.josm.tools.date.DateUtils;
 
 /**
@@ -98,7 +100,7 @@ public class SearchCompiler {
 
     public class CoreSimpleMatchFactory implements SimpleMatchFactory {
         private Collection<String> keywords = Arrays.asList("id", "version",
-                "changeset", "nodes", "tags", "areasize", "modified", "selected",
+                "changeset", "nodes", "ways", "tags", "areasize", "waylength", "modified", "selected",
                 "incomplete", "untagged", "closed", "new", "indownloadedarea",
                 "allindownloadedarea", "inview", "allinview", "timestamp", "nth", "nth%");
 
@@ -136,10 +138,14 @@ public class SearchCompiler {
                         return new ChangesetId(tokenizer);
                     case "nodes":
                         return new NodeCountRange(tokenizer);
+                    case "ways":
+                        return new WayCountRange(tokenizer);
                     case "tags":
                         return new TagCountRange(tokenizer);
                     case "areasize":
                         return new AreaSize(tokenizer);
+                    case "waylength":
+                        return new WayLength(tokenizer);
                     case "nth":
                         return new Nth(tokenizer, false);
                     case "nth%":
@@ -154,9 +160,9 @@ public class SearchCompiler {
                             String rangeA1 = rangeA[0].trim();
                             String rangeA2 = rangeA[1].trim();
                             // if min timestap is empty: use lowest possible date
-                            long minDate = DateUtils.fromString(rangeA1.isEmpty() ? "1980" : rangeA1).getTime(); 
+                            long minDate = DateUtils.fromString(rangeA1.isEmpty() ? "1980" : rangeA1).getTime();
                             // if max timestamp is empty: use "now"
-                            long maxDate = rangeA2.isEmpty() ? System.currentTimeMillis() : DateUtils.fromString(rangeA2).getTime(); 
+                            long maxDate = rangeA2.isEmpty() ? System.currentTimeMillis() : DateUtils.fromString(rangeA2).getTime();
                             return new TimestampRange(minDate, maxDate);
                         } else {
                             // I18n: Don't translate timestamp keyword
@@ -296,7 +302,8 @@ public class SearchCompiler {
     public static class Always extends Match {
         /** The unique instance/ */
         public static final Always INSTANCE = new Always();
-        @Override public boolean match(OsmPrimitive osm) {
+        @Override
+        public boolean match(OsmPrimitive osm) {
             return true;
         }
     }
@@ -315,11 +322,17 @@ public class SearchCompiler {
      * Inverts the match.
      */
     public static class Not extends UnaryMatch {
-        public Not(Match match) {super(match);}
-        @Override public boolean match(OsmPrimitive osm) {
+        public Not(Match match) {
+            super(match);
+        }
+        @Override
+        public boolean match(OsmPrimitive osm) {
             return !match.match(osm);
         }
-        @Override public String toString() {return "!"+match;}
+        @Override
+        public String toString() {
+            return "!" + match;
+        }
         public Match getMatch() {
             return match;
         }
@@ -350,11 +363,15 @@ public class SearchCompiler {
      * Matches if both left and right expressions match.
      */
     public static class And extends BinaryMatch {
-    public And(Match lhs, Match rhs) {super(lhs, rhs);}
-        @Override public boolean match(OsmPrimitive osm) {
+        public And(Match lhs, Match rhs) {
+            super(lhs, rhs);
+        }
+        @Override
+        public boolean match(OsmPrimitive osm) {
             return lhs.match(osm) && rhs.match(osm);
         }
-        @Override public String toString() {
+        @Override
+        public String toString() {
             return lhs + " && " + rhs;
         }
     }
@@ -363,11 +380,15 @@ public class SearchCompiler {
      * Matches if the left OR the right expression match.
      */
     public static class Or extends BinaryMatch {
-    public Or(Match lhs, Match rhs) {super(lhs, rhs);}
-        @Override public boolean match(OsmPrimitive osm) {
+        public Or(Match lhs, Match rhs) {
+            super(lhs, rhs);
+        }
+        @Override
+        public boolean match(OsmPrimitive osm) {
             return lhs.match(osm) || rhs.match(osm);
         }
-        @Override public String toString() {
+        @Override
+        public String toString() {
             return lhs + " || " + rhs;
         }
     }
@@ -376,11 +397,15 @@ public class SearchCompiler {
      * Matches if the left OR the right expression match, but not both.
      */
     public static class Xor extends BinaryMatch {
-    public Xor(Match lhs, Match rhs) {super(lhs, rhs);}
-        @Override public boolean match(OsmPrimitive osm) {
+        public Xor(Match lhs, Match rhs) {
+            super(lhs, rhs);
+        }
+        @Override
+        public boolean match(OsmPrimitive osm) {
             return lhs.match(osm) ^ rhs.match(osm);
         }
-        @Override public String toString() {
+        @Override
+        public String toString() {
             return lhs + " ^ " + rhs;
         }
     }
@@ -389,14 +414,18 @@ public class SearchCompiler {
      * Matches objects with ID in the given range.
      */
     private static class Id extends RangeMatch {
-        public Id(Range range) {super(range);}
+        public Id(Range range) {
+            super(range);
+        }
         public Id(PushbackTokenizer tokenizer) throws ParseError {
             this(tokenizer.readRange(tr("Range of primitive ids expected")));
         }
-        @Override protected Long getNumber(OsmPrimitive osm) {
+        @Override
+        protected Long getNumber(OsmPrimitive osm) {
             return osm.isNew() ? 0 : osm.getUniqueId();
         }
-        @Override protected String getString() {
+        @Override
+        protected String getString() {
             return "id";
         }
     }
@@ -405,14 +434,18 @@ public class SearchCompiler {
      * Matches objects with a changeset ID in the given range.
      */
     private static class ChangesetId extends RangeMatch {
-        public ChangesetId(Range range) {super(range);}
+        public ChangesetId(Range range) {
+            super(range);
+        }
         public ChangesetId(PushbackTokenizer tokenizer) throws ParseError {
             this(tokenizer.readRange(tr("Range of changeset ids expected")));
         }
-        @Override protected Long getNumber(OsmPrimitive osm) {
+        @Override
+        protected Long getNumber(OsmPrimitive osm) {
             return (long) osm.getChangesetId();
         }
-        @Override protected String getString() {
+        @Override
+        protected String getString() {
             return "changeset";
         }
     }
@@ -421,14 +454,18 @@ public class SearchCompiler {
      * Matches objects with a version number in the given range.
      */
     private static class Version extends RangeMatch {
-        public Version(Range range) {super(range);}
+        public Version(Range range) {
+            super(range);
+        }
         public Version(PushbackTokenizer tokenizer) throws ParseError {
             this(tokenizer.readRange(tr("Range of versions expected")));
         }
-        @Override protected Long getNumber(OsmPrimitive osm) {
+        @Override
+        protected Long getNumber(OsmPrimitive osm) {
             return (long) osm.getVersion();
         }
-        @Override protected String getString() {
+        @Override
+        protected String getString() {
             return "version";
         }
     }
@@ -471,14 +508,15 @@ public class SearchCompiler {
                 this.keyPattern = null;
                 this.valuePattern = null;
             } else {
-                this.key = key.toLowerCase();
+                this.key = key.toLowerCase(Locale.ENGLISH);
                 this.value = value;
                 this.keyPattern = null;
                 this.valuePattern = null;
             }
         }
 
-        @Override public boolean match(OsmPrimitive osm) {
+        @Override
+        public boolean match(OsmPrimitive osm) {
 
             if (keyPattern != null) {
                 if (!osm.hasKeys())
@@ -517,8 +555,8 @@ public class SearchCompiler {
                 if (mv == null)
                     return false;
 
-                String v1 = caseSensitive ? mv : mv.toLowerCase();
-                String v2 = caseSensitive ? value : value.toLowerCase();
+                String v1 = caseSensitive ? mv : mv.toLowerCase(Locale.ENGLISH);
+                String v2 = caseSensitive ? value : value.toLowerCase(Locale.ENGLISH);
 
                 v1 = Normalizer.normalize(v1, Normalizer.Form.NFC);
                 v2 = Normalizer.normalize(v2, Normalizer.Form.NFC);
@@ -527,7 +565,10 @@ public class SearchCompiler {
 
             return false;
         }
-        @Override public String toString() {return key+"="+value;}
+        @Override
+        public String toString() {
+            return key + "=" + value;
+        }
     }
 
     public static class ValueComparison extends Match {
@@ -613,9 +654,9 @@ public class SearchCompiler {
                 try {
                     keyPattern = Pattern.compile(key, regexFlags(false));
                 } catch (PatternSyntaxException e) {
-                    throw new ParseError(tr(rxErrorMsg, e.getPattern(), e.getIndex(), e.getMessage()));
+                    throw new ParseError(tr(rxErrorMsg, e.getPattern(), e.getIndex(), e.getMessage()), e);
                 } catch (Exception e) {
-                    throw new ParseError(tr(rxErrorMsgNoPos, key, e.getMessage()));
+                    throw new ParseError(tr(rxErrorMsgNoPos, key, e.getMessage()), e);
                 }
             } else {
                 keyPattern = null;
@@ -624,9 +665,9 @@ public class SearchCompiler {
                 try {
                     valuePattern = Pattern.compile(this.value, regexFlags(false));
                 } catch (PatternSyntaxException e) {
-                    throw new ParseError(tr(rxErrorMsg, e.getPattern(), e.getIndex(), e.getMessage()));
+                    throw new ParseError(tr(rxErrorMsg, e.getPattern(), e.getIndex(), e.getMessage()), e);
                 } catch (Exception e) {
-                    throw new ParseError(tr(rxErrorMsgNoPos, value, e.getMessage()));
+                    throw new ParseError(tr(rxErrorMsgNoPos, value, e.getMessage()), e);
                 }
             } else {
                 valuePattern = null;
@@ -686,7 +727,6 @@ public class SearchCompiler {
         public String toString() {
             return key + '=' + value;
         }
-
     }
 
     /**
@@ -713,12 +753,13 @@ public class SearchCompiler {
                 this.search = s;
                 this.searchRegex = null;
             } else {
-                this.search = s.toLowerCase();
+                this.search = s.toLowerCase(Locale.ENGLISH);
                 this.searchRegex = null;
             }
         }
 
-        @Override public boolean match(OsmPrimitive osm) {
+        @Override
+        public boolean match(OsmPrimitive osm) {
             if (!osm.hasKeys() && osm.getUser() == null)
                 return search.isEmpty();
 
@@ -738,8 +779,8 @@ public class SearchCompiler {
                         return true;
                 } else {
                     if (!caseSensitive) {
-                        key = key.toLowerCase();
-                        value = value.toLowerCase();
+                        key = key.toLowerCase(Locale.ENGLISH);
+                        value = value.toLowerCase(Locale.ENGLISH);
                     }
 
                     value = Normalizer.normalize(value, Normalizer.Form.NFC);
@@ -750,7 +791,8 @@ public class SearchCompiler {
             }
             return false;
         }
-        @Override public String toString() {
+        @Override
+        public String toString() {
             return search;
         }
     }
@@ -763,10 +805,14 @@ public class SearchCompiler {
                 throw new ParseError(tr("Unknown primitive type: {0}. Allowed values are node, way or relation",
                         type));
         }
-        @Override public boolean match(OsmPrimitive osm) {
+        @Override
+        public boolean match(OsmPrimitive osm) {
             return type.equals(osm.getType());
         }
-        @Override public String toString() {return "type="+type;}
+        @Override
+        public String toString() {
+            return "type=" + type;
+        }
     }
 
     /**
@@ -782,14 +828,16 @@ public class SearchCompiler {
             }
         }
 
-        @Override public boolean match(OsmPrimitive osm) {
+        @Override
+        public boolean match(OsmPrimitive osm) {
             if (osm.getUser() == null)
                 return user == null;
             else
                 return osm.getUser().hasName(user);
         }
 
-        @Override public String toString() {
+        @Override
+        public String toString() {
             return "user=" + (user == null ? "" : user);
         }
     }
@@ -807,7 +855,8 @@ public class SearchCompiler {
             }
         }
 
-        @Override public boolean match(OsmPrimitive osm) {
+        @Override
+        public boolean match(OsmPrimitive osm) {
             for (OsmPrimitive ref: osm.getReferrers()) {
                 if (ref instanceof Relation && !ref.isIncomplete() && !ref.isDeleted()) {
                     for (RelationMember m : ((Relation) ref).getMembers()) {
@@ -822,7 +871,8 @@ public class SearchCompiler {
             return false;
         }
 
-        @Override public String toString() {
+        @Override
+        public String toString() {
             return "role=" + role;
         }
     }
@@ -840,9 +890,6 @@ public class SearchCompiler {
         }
 
         private Nth(int nth, boolean modulo) throws ParseError {
-            if (nth <= 0) {
-                throw new ParseError(tr("Positive integer expected"));
-            }
             this.nth = nth;
             this.modulo = modulo;
         }
@@ -850,21 +897,30 @@ public class SearchCompiler {
         @Override
         public boolean match(OsmPrimitive osm) {
             for (OsmPrimitive p : osm.getReferrers()) {
-                Integer idx = null;
+                final int idx;
+                final int maxIndex;
                 if (p instanceof Way) {
                     Way w = (Way) p;
                     idx = w.getNodes().indexOf(osm);
+                    maxIndex = w.getNodesCount();
                 } else if (p instanceof Relation) {
                     Relation r = (Relation) p;
                     idx = r.getMemberPrimitivesList().indexOf(osm);
+                    maxIndex = r.getMembersCount();
+                } else {
+                    continue;
                 }
-                if (idx != null) {
-                    if (idx.intValue() == nth || (modulo && idx.intValue() % nth == 0)) {
-                        return true;
-                    }
-                }
+                if (nth < 0 && idx - maxIndex == nth) {
+                    return true;
+                } else if (idx == nth || (modulo && idx % nth == 0))
+                    return true;
             }
             return false;
+        }
+
+        @Override
+        public String toString() {
+            return "Nth{nth=" + nth + ", modulo=" + modulo + '}';
         }
     }
 
@@ -904,7 +960,6 @@ public class SearchCompiler {
         }
     }
 
-
     /**
      * Matches ways with a number of nodes in given range
      */
@@ -919,15 +974,47 @@ public class SearchCompiler {
 
         @Override
         protected Long getNumber(OsmPrimitive osm) {
-            if (!(osm instanceof Way))
-                return null;
-            else
+            if (osm instanceof Way) {
                 return (long) ((Way) osm).getRealNodesCount();
+            } else if (osm instanceof Relation) {
+                return (long) ((Relation) osm).getMemberPrimitives(Node.class).size();
+            } else {
+                return null;
+            }
         }
 
         @Override
         protected String getString() {
             return "nodes";
+        }
+    }
+
+    /**
+     * Matches objects with the number of referring/contained ways in the given range
+     */
+    private static class WayCountRange extends RangeMatch {
+        public WayCountRange(Range range) {
+            super(range);
+        }
+
+        public WayCountRange(PushbackTokenizer tokenizer) throws ParseError {
+            this(tokenizer.readRange(tr("Range of numbers expected")));
+        }
+
+        @Override
+        protected Long getNumber(OsmPrimitive osm) {
+            if (osm instanceof Node) {
+                return (long) Utils.filteredCollection(osm.getReferrers(), Way.class).size();
+            } else if (osm instanceof Relation) {
+                return (long) ((Relation) osm).getMemberPrimitives(Way.class).size();
+            } else {
+                return null;
+            }
+        }
+
+        @Override
+        protected String getString() {
+            return "ways";
         }
     }
 
@@ -979,10 +1066,12 @@ public class SearchCompiler {
      * Matches objects that are new (i.e. have not been uploaded to the server)
      */
     private static class New extends Match {
-        @Override public boolean match(OsmPrimitive osm) {
+        @Override
+        public boolean match(OsmPrimitive osm) {
             return osm.isNew();
         }
-        @Override public String toString() {
+        @Override
+        public String toString() {
             return "new";
         }
     }
@@ -991,20 +1080,28 @@ public class SearchCompiler {
      * Matches all objects that have been modified, created, or undeleted
      */
     private static class Modified extends Match {
-        @Override public boolean match(OsmPrimitive osm) {
+        @Override
+        public boolean match(OsmPrimitive osm) {
             return osm.isModified() || osm.isNewOrUndeleted();
         }
-        @Override public String toString() {return "modified";}
+        @Override
+        public String toString() {
+            return "modified";
+        }
     }
 
     /**
      * Matches all objects currently selected
      */
     private static class Selected extends Match {
-        @Override public boolean match(OsmPrimitive osm) {
+        @Override
+        public boolean match(OsmPrimitive osm) {
             return Main.main.getCurrentDataSet().isSelected(osm);
         }
-        @Override public String toString() {return "selected";}
+        @Override
+        public String toString() {
+            return "selected";
+        }
     }
 
     /**
@@ -1013,10 +1110,14 @@ public class SearchCompiler {
      * fetched from the server.
      */
     private static class Incomplete extends Match {
-        @Override public boolean match(OsmPrimitive osm) {
+        @Override
+        public boolean match(OsmPrimitive osm) {
             return osm.isIncomplete();
         }
-        @Override public String toString() {return "incomplete";}
+        @Override
+        public String toString() {
+            return "incomplete";
+        }
     }
 
     /**
@@ -1025,20 +1126,28 @@ public class SearchCompiler {
      * org.openstreetmap.josm.data.osm.OsmPrimitive.getUninterestingKeys()
      */
     private static class Untagged extends Match {
-        @Override public boolean match(OsmPrimitive osm) {
+        @Override
+        public boolean match(OsmPrimitive osm) {
             return !osm.isTagged() && !osm.isIncomplete();
         }
-        @Override public String toString() {return "untagged";}
+        @Override
+        public String toString() {
+            return "untagged";
+        }
     }
 
     /**
      * Matches ways which are closed (i.e. first and last node are the same)
      */
     private static class Closed extends Match {
-        @Override public boolean match(OsmPrimitive osm) {
+        @Override
+        public boolean match(OsmPrimitive osm) {
             return osm instanceof Way && ((Way) osm).isClosed();
         }
-        @Override public String toString() {return "closed";}
+        @Override
+        public String toString() {
+            return "closed";
+        }
     }
 
     /**
@@ -1048,7 +1157,8 @@ public class SearchCompiler {
         public Parent(Match m) {
             super(m);
         }
-        @Override public boolean match(OsmPrimitive osm) {
+        @Override
+        public boolean match(OsmPrimitive osm) {
             boolean isParent = false;
 
             if (osm instanceof Way) {
@@ -1062,7 +1172,10 @@ public class SearchCompiler {
             }
             return isParent;
         }
-        @Override public String toString() {return "parent(" + match + ")";}
+        @Override
+        public String toString() {
+            return "parent(" + match + ")";
+        }
     }
 
     /**
@@ -1074,14 +1187,18 @@ public class SearchCompiler {
             super(m);
         }
 
-        @Override public boolean match(OsmPrimitive osm) {
+        @Override
+        public boolean match(OsmPrimitive osm) {
             boolean isChild = false;
             for (OsmPrimitive p : osm.getReferrers()) {
                 isChild |= match.match(p);
             }
             return isChild;
         }
-        @Override public String toString() {return "child(" + match + ")";}
+        @Override
+        public String toString() {
+            return "child(" + match + ")";
+        }
     }
 
     /**
@@ -1110,6 +1227,33 @@ public class SearchCompiler {
         @Override
         protected String getString() {
             return "areasize";
+        }
+    }
+
+    /**
+     * Matches if the length of a way is within the given range
+     */
+    private static class WayLength extends RangeMatch {
+
+        public WayLength(Range range) {
+            super(range);
+        }
+
+        public WayLength(PushbackTokenizer tokenizer) throws ParseError {
+            this(tokenizer.readRange(tr("Range of numbers expected")));
+        }
+
+        @Override
+        protected Long getNumber(OsmPrimitive osm) {
+            if (!(osm instanceof Way))
+                return null;
+            Way way = (Way) osm;
+            return (long) way.getLength();
+        }
+
+        @Override
+        protected String getString() {
+            return "waylength";
         }
     }
 

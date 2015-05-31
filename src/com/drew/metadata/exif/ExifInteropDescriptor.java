@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 Drew Noakes
+ * Copyright 2002-2015 Drew Noakes
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -15,57 +15,22 @@
  *
  * More information about this project is available at:
  *
- *    http://drewnoakes.com/code/exif/
- *    http://code.google.com/p/metadata-extractor/
+ *    https://drewnoakes.com/code/exif/
+ *    https://github.com/drewnoakes/metadata-extractor
  */
 package com.drew.metadata.exif;
 
 import com.drew.lang.annotations.NotNull;
-import com.drew.lang.annotations.Nullable;
-import com.drew.metadata.TagDescriptor;
 
 /**
- * Provides human-readable string representations of tag values stored in a <code>ExifInteropDirectory</code>.
+ * Provides human-readable string representations of tag values stored in a {@link ExifInteropDirectory}.
  *
- * @author Drew Noakes http://drewnoakes.com
+ * @author Drew Noakes https://drewnoakes.com
  */
-public class ExifInteropDescriptor extends TagDescriptor<ExifInteropDirectory>
+public class ExifInteropDescriptor extends ExifDescriptorBase<ExifInteropDirectory>
 {
     public ExifInteropDescriptor(@NotNull ExifInteropDirectory directory)
     {
         super(directory);
-    }
-
-    @Nullable
-    public String getDescription(int tagType)
-    {
-        switch (tagType) {
-            case ExifInteropDirectory.TAG_INTEROP_INDEX:
-                return getInteropIndexDescription();
-            case ExifInteropDirectory.TAG_INTEROP_VERSION:
-                return getInteropVersionDescription();
-            default:
-                return super.getDescription(tagType);
-        }
-    }
-
-    @Nullable
-    public String getInteropVersionDescription()
-    {
-        int[] ints = _directory.getIntArray(ExifInteropDirectory.TAG_INTEROP_VERSION);
-        return convertBytesToVersionString(ints, 2);
-    }
-
-    @Nullable
-    public String getInteropIndexDescription()
-    {
-        String value = _directory.getString(ExifInteropDirectory.TAG_INTEROP_INDEX);
-
-        if (value==null)
-            return null;
-
-        return "R98".equalsIgnoreCase(value.trim())
-                ? "Recommended Exif Interoperability Rules (ExifR98)"
-                : "Unknown (" + value + ")";
     }
 }

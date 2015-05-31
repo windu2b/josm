@@ -4,6 +4,8 @@ package org.openstreetmap.josm.gui.history;
 
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.openstreetmap.josm.gui.history.TwoColumnDiff.Item.DiffItemType;
@@ -52,8 +54,9 @@ class TwoColumnDiff {
 
     public List<Item> referenceDiff;
     public List<Item> currentDiff;
-    Object[] reference;
-    Object[] current;
+    private Object[] reference;
+    private Object[] current;
+    boolean referenceReversed = false;
 
     public TwoColumnDiff(Object[] reference, Object[] current) {
         this.reference = Utils.copyArray(reference);
@@ -62,11 +65,21 @@ class TwoColumnDiff {
         currentDiff = new ArrayList<>();
         diff();
     }
-    
+
     private void diff() {
-        Diff diff = new Diff(reference, current);
-        Diff.Change script = diff.diff_2(false);
-        twoColumnDiffFromScript(script, reference, current);
+        Diff.Change script = new Diff(reference, current).diff_2(false);
+        // attempt diff with reference reversed and test whether less deletions+inserts are required
+        Object[] referenceReversed = Utils.copyArray(reference);
+        Collections.reverse(Arrays.asList(referenceReversed));
+        Diff.Change scriptReversed = new Diff(referenceReversed, current).diff_2(false);
+        if (scriptReversed == null /* reference and current are identical */
+                || script != null && scriptReversed.deleted + scriptReversed.inserted < script.deleted + script.inserted) {
+            this.referenceReversed = true;
+            twoColumnDiffFromScript(scriptReversed, referenceReversed, current);
+        } else {
+            this.referenceReversed = false;
+            twoColumnDiffFromScript(script, reference, current);
+        }
     }
 
     /**
@@ -95,7 +108,7 @@ class TwoColumnDiff {
                 } else if(inserted > 0) {
                     referenceDiff.add(new Item(DiffItemType.EMPTY, null));
                     currentDiff.add(new Item(DiffItemType.INSERTED, b[ib++]));
-                } else if(deleted > 0) {
+                } else {
                     referenceDiff.add(new Item(DiffItemType.DELETED, a[ia++]));
                     currentDiff.add(new Item(DiffItemType.EMPTY, null));
                 }

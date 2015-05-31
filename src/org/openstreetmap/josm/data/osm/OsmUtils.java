@@ -1,31 +1,32 @@
 // License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.data.osm;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
+import org.openstreetmap.josm.data.coor.LatLon;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
 import org.openstreetmap.josm.tools.TextTagParser;
 
 public final class OsmUtils {
 
-    private OsmUtils() {
-        // Hide default constructor for utils classes
-    }
-
-    static final List<String> TRUE_VALUES = new ArrayList<>(Arrays
-            .asList(new String[] { "true", "yes", "1", "on" }));
-    static final List<String> FALSE_VALUES = new ArrayList<>(Arrays
-            .asList(new String[] { "false", "no", "0", "off" }));
-    static final List<String> REVERSE_VALUES = new ArrayList<>(Arrays
-            .asList(new String[] { "reverse", "-1" }));
+    private static final Set<String> TRUE_VALUES = new HashSet<>(Arrays
+            .asList("true", "yes", "1", "on"));
+    private static final Set<String> FALSE_VALUES = new HashSet<>(Arrays
+            .asList("false", "no", "0", "off"));
+    private static final Set<String> REVERSE_VALUES = new HashSet<>(Arrays
+            .asList("reverse", "-1"));
 
     public static final String trueval = "yes";
     public static final String falseval = "no";
     public static final String reverseval = "-1";
+
+    private OsmUtils() {
+        // Hide default constructor for utils classes
+    }
 
     public static Boolean getOsmBoolean(String value) {
         if(value == null) return null;
@@ -64,14 +65,14 @@ public final class OsmUtils {
         CheckParameterUtil.ensureParameterNotNull(assertion, "assertion");
         final String[] x = assertion.split("\\s+", 2);
         final OsmPrimitive p = "n".equals(x[0]) || "node".equals(x[0])
-                ? new Node()
-                : "w".equals(x[0]) || "way".equals(x[0])
+                ? new Node(LatLon.ZERO)
+                : "w".equals(x[0]) || "way".equals(x[0]) || /*for MapCSS related usage*/ "area".equals(x[0])
                 ? new Way()
                 : "r".equals(x[0]) || "relation".equals(x[0])
                 ? new Relation()
                 : null;
         if (p == null) {
-            throw new IllegalArgumentException("Expecting n/node/w/way/r/relation, but got " + x[0]);
+            throw new IllegalArgumentException("Expecting n/node/w/way/r/relation/area, but got '" + x[0] + "'");
         }
         for (final Map.Entry<String, String> i : TextTagParser.readTagsFromText(x[1]).entrySet()) {
             p.put(i.getKey(), i.getValue());

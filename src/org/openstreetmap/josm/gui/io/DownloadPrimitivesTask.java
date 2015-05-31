@@ -28,6 +28,10 @@ import org.openstreetmap.josm.io.OsmServerObjectReader;
 import org.openstreetmap.josm.io.OsmTransferException;
 import org.xml.sax.SAXException;
 
+/**
+ * Task downloading a set of OSM primitives.
+ * @since 4081
+ */
 public class DownloadPrimitivesTask extends PleaseWaitRunnable {
     private DataSet ds;
     private boolean canceled;
@@ -42,21 +46,21 @@ public class DownloadPrimitivesTask extends PleaseWaitRunnable {
     private OsmServerObjectReader objectReader;
 
     /**
-     * Creates the  task
+     * Constructs a new {@code DownloadPrimitivesTask}.
      *
      * @param layer the layer in which primitives are updated. Must not be null.
      * @param ids a collection of primitives to update from the server. Set to
      * the empty collection if null.
      * @param fullRelation true if a full download is required, i.e.,
      * a download including the immediate children of a relation.
-     * @throws IllegalArgumentException thrown if layer is null.
+     * @throws IllegalArgumentException if layer is null.
      */
-    public DownloadPrimitivesTask(OsmDataLayer layer, List<PrimitiveId> ids, boolean fullRelation) throws IllegalArgumentException {
+    public DownloadPrimitivesTask(OsmDataLayer layer, List<PrimitiveId> ids, boolean fullRelation) {
         this(layer, ids, fullRelation, null);
     }
 
     /**
-     * Creates the  task
+     * Constructs a new {@code DownloadPrimitivesTask}.
      *
      * @param layer the layer in which primitives are updated. Must not be null.
      * @param ids a collection of primitives to update from the server. Set to
@@ -64,11 +68,11 @@ public class DownloadPrimitivesTask extends PleaseWaitRunnable {
      * @param fullRelation true if a full download is required, i.e.,
      *     a download including the immediate children of a relation.
      * @param progressMonitor ProgressMonitor to use or null to create a new one.
-     * @throws IllegalArgumentException thrown if layer is null.
+     * @throws IllegalArgumentException if layer is null.
      */
     public DownloadPrimitivesTask(OsmDataLayer layer, List<PrimitiveId> ids, boolean fullRelation,
-            ProgressMonitor progessMonitor) throws IllegalArgumentException {
-        super(tr("Download objects"), progessMonitor, false /* don't ignore exception */);
+            ProgressMonitor progressMonitor) {
+        super(tr("Download objects"), progressMonitor, false /* don't ignore exception */);
         ensureParameterNotNull(layer, "layer");
         this.ids = ids;
         this.layer = layer;
@@ -150,7 +154,9 @@ public class DownloadPrimitivesTask extends PleaseWaitRunnable {
             // if incomplete relation members exist, download them too
             for (Relation r : ds.getRelations()) {
                 if (canceled) return;
-                if (r.hasIncompleteMembers()) {
+                // Relations may be incomplete in case of nested relations if child relations are accessed before their parent
+                // (it may happen because "relations" has no deterministic sort order, see #10388)
+                if (r.isIncomplete() || r.hasIncompleteMembers()) {
                     synchronized(this) {
                         if (canceled) return;
                         objectReader = new OsmServerObjectReader(r.getId(), OsmPrimitiveType.RELATION, fullRelation);

@@ -44,15 +44,16 @@ import org.openstreetmap.josm.tools.ImageProvider;
 /**
  * A UI component for resolving conflicts in two lists of entries of type T.
  *
- * @param <T>  the type of the entries
+ * @param <T> the type of the entries
  * @see ListMergeModel
+ * @since 1631
  */
 public abstract class ListMerger<T extends PrimitiveId> extends JPanel implements PropertyChangeListener, Observer {
     protected OsmPrimitivesTable myEntriesTable;
     protected OsmPrimitivesTable mergedEntriesTable;
     protected OsmPrimitivesTable theirEntriesTable;
 
-    protected ListMergeModel<T> model;
+    protected transient ListMergeModel<T> model;
 
     private CopyStartLeftAction copyStartLeftAction;
     private CopyBeforeCurrentLeftAction copyBeforeCurrentLeftAction;
@@ -71,13 +72,13 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     private RemoveMergedAction removeMergedAction;
     private FreezeAction freezeAction;
 
-    private AdjustmentSynchronizer adjustmentSynchronizer;
+    private transient AdjustmentSynchronizer adjustmentSynchronizer;
 
-    private  JLabel lblMyVersion;
-    private  JLabel lblMergedVersion;
-    private  JLabel lblTheirVersion;
+    private JLabel lblMyVersion;
+    private JLabel lblMergedVersion;
+    private JLabel lblTheirVersion;
 
-    private  JLabel lblFrozenState;
+    private JLabel lblFrozenState;
 
     protected abstract JScrollPane buildMyElementsTable();
     protected abstract JScrollPane buildMergedElementsTable();
@@ -123,8 +124,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     }
 
     protected JPanel buildLeftButtonPanel() {
-        JPanel pnl = new JPanel();
-        pnl.setLayout(new GridBagLayout());
+        JPanel pnl = new JPanel(new GridBagLayout());
         GridBagConstraints gc = new GridBagConstraints();
 
         gc.gridx = 0;
@@ -166,8 +166,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     }
 
     protected JPanel buildRightButtonPanel() {
-        JPanel pnl = new JPanel();
-        pnl.setLayout(new GridBagLayout());
+        JPanel pnl = new JPanel(new GridBagLayout());
         GridBagConstraints gc = new GridBagConstraints();
 
         gc.gridx = 0;
@@ -199,8 +198,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     }
 
     protected JPanel buildMergedListControlButtons() {
-        JPanel pnl = new JPanel();
-        pnl.setLayout(new GridBagLayout());
+        JPanel pnl = new JPanel(new GridBagLayout());
         GridBagConstraints gc = new GridBagConstraints();
 
         gc.gridx = 0;
@@ -228,16 +226,14 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     }
 
     protected JPanel buildAdjustmentLockControlPanel(JCheckBox cb) {
-        JPanel panel = new JPanel();
-        panel.setLayout(new FlowLayout(FlowLayout.RIGHT));
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         panel.add(new JLabel(tr("lock scrolling")));
         panel.add(cb);
         return panel;
     }
 
     protected JPanel buildComparePairSelectionPanel() {
-        JPanel p = new JPanel();
-        p.setLayout(new FlowLayout(FlowLayout.LEFT));
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT));
         p.add(new JLabel(tr("Compare ")));
         JosmComboBox<ComparePairType> cbComparePair = new JosmComboBox<>(model.getComparePairListModel());
         cbComparePair.setRenderer(new ComparePairListCellRenderer());
@@ -246,8 +242,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     }
 
     protected JPanel buildFrozeStateControlPanel() {
-        JPanel p = new JPanel();
-        p.setLayout(new FlowLayout(FlowLayout.LEFT));
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT));
         lblFrozenState = new JLabel();
         p.add(lblFrozenState);
         freezeAction = new FreezeAction();
@@ -326,6 +321,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
         gc.weighty = 1.0;
         gc.insets = new Insets(0,0,0,0);
         JScrollPane pane = buildMyElementsTable();
+        lblMyVersion.setLabelFor(pane);
         adjustmentSynchronizer.adapt(cbLockMyScrolling, pane.getVerticalScrollBar());
         add(pane, gc);
 
@@ -344,6 +340,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
         gc.weightx = 0.33;
         gc.weighty = 0.0;
         pane = buildMergedElementsTable();
+        lblMergedVersion.setLabelFor(pane);
         adjustmentSynchronizer.adapt(cbLockMergedScrolling, pane.getVerticalScrollBar());
         add(pane, gc);
 
@@ -362,6 +359,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
         gc.weightx = 0.33;
         gc.weighty = 0.0;
         pane = buildTheirElementsTable();
+        lblTheirVersion.setLabelFor(pane);
         adjustmentSynchronizer.adapt(cbLockTheirScrolling, pane.getVerticalScrollBar());
         add(pane, gc);
 
@@ -415,9 +413,9 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
      * Base class of all other Copy* inner classes.
      */
     abstract class CopyAction extends AbstractAction implements ListSelectionListener {
-        
+
         protected CopyAction(String icon_name, String action_name, String short_description) {
-            ImageIcon icon = ImageProvider.get("dialogs/conflict", icon_name+".png");
+            ImageIcon icon = ImageProvider.get("dialogs/conflict", icon_name);
             putValue(Action.SMALL_ICON, icon);
             if (icon == null) {
                 putValue(Action.NAME, action_name);
@@ -426,7 +424,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
             setEnabled(false);
         }
     }
-    
+
     /**
      * Action for copying selected nodes in the list of my nodes to the list of merged
      * nodes. Inserts the nodes at the beginning of the list of merged nodes.
@@ -434,7 +432,8 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     class CopyStartLeftAction extends CopyAction {
 
         public CopyStartLeftAction() {
-            super("copystartleft", tr("> top"), tr("Copy my selected nodes to the start of the merged node list"));
+            super(/* ICON(dialogs/conflict/)*/ "copystartleft", tr("> top"),
+                tr("Copy my selected nodes to the start of the merged node list"));
         }
 
         @Override
@@ -455,7 +454,8 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     class CopyEndLeftAction extends CopyAction {
 
         public CopyEndLeftAction() {
-            super("copyendleft", tr("> bottom"), tr("Copy my selected elements to the end of the list of merged elements."));
+            super(/* ICON(dialogs/conflict/)*/ "copyendleft", tr("> bottom"),
+                tr("Copy my selected elements to the end of the list of merged elements."));
         }
 
         @Override
@@ -476,7 +476,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     class CopyBeforeCurrentLeftAction extends CopyAction {
 
         public CopyBeforeCurrentLeftAction() {
-            super("copybeforecurrentleft", tr("> before"),
+            super(/* ICON(dialogs/conflict/)*/ "copybeforecurrentleft", tr("> before"),
                     tr("Copy my selected elements before the first selected element in the list of merged elements."));
         }
 
@@ -506,7 +506,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     class CopyAfterCurrentLeftAction extends CopyAction {
 
         public CopyAfterCurrentLeftAction() {
-            super("copyaftercurrentleft", tr("> after"),
+            super(/* ICON(dialogs/conflict/)*/ "copyaftercurrentleft", tr("> after"),
                     tr("Copy my selected elements after the first selected element in the list of merged elements."));
         }
 
@@ -532,7 +532,8 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     class CopyStartRightAction extends CopyAction {
 
         public CopyStartRightAction() {
-            super("copystartright", tr("< top"), tr("Copy their selected element to the start of the list of merged elements."));
+            super(/* ICON(dialogs/conflict/)*/ "copystartright", tr("< top"),
+                tr("Copy their selected element to the start of the list of merged elements."));
         }
 
         @Override
@@ -549,7 +550,8 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     class CopyEndRightAction extends CopyAction {
 
         public CopyEndRightAction() {
-            super("copyendright", tr("< bottom"), tr("Copy their selected elements to the end of the list of merged elements."));
+            super(/* ICON(dialogs/conflict/)*/ "copyendright", tr("< bottom"),
+                tr("Copy their selected elements to the end of the list of merged elements."));
         }
 
         @Override
@@ -566,7 +568,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     class CopyBeforeCurrentRightAction extends CopyAction {
 
         public CopyBeforeCurrentRightAction() {
-            super("copybeforecurrentright", tr("< before"),
+            super(/* ICON(dialogs/conflict/)*/ "copybeforecurrentright", tr("< before"),
                     tr("Copy their selected elements before the first selected element in the list of merged elements."));
         }
 
@@ -592,7 +594,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     class CopyAfterCurrentRightAction extends CopyAction {
 
         public CopyAfterCurrentRightAction() {
-            super("copyaftercurrentright", tr("< after"),
+            super(/* ICON(dialogs/conflict/)*/ "copyaftercurrentright", tr("< after"),
                     tr("Copy their selected element after the first selected element in the list of merged elements"));
         }
 
@@ -618,7 +620,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     class CopyAllLeft extends AbstractAction implements Observer, PropertyChangeListener {
 
         public CopyAllLeft() {
-            ImageIcon icon = ImageProvider.get("dialogs/conflict", "useallleft.png");
+            ImageIcon icon = ImageProvider.get("dialogs/conflict", "useallleft");
             putValue(Action.SMALL_ICON, icon);
             putValue(Action.SHORT_DESCRIPTION, tr("Copy all my elements to the target"));
         }
@@ -647,7 +649,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     class CopyAllRight extends AbstractAction implements Observer, PropertyChangeListener {
 
         public CopyAllRight() {
-            ImageIcon icon = ImageProvider.get("dialogs/conflict", "useallright.png");
+            ImageIcon icon = ImageProvider.get("dialogs/conflict", "useallright");
             putValue(Action.SMALL_ICON, icon);
             putValue(Action.SHORT_DESCRIPTION, tr("Copy all their elements to the target"));
         }
@@ -676,7 +678,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     class MoveUpMergedAction extends AbstractAction implements ListSelectionListener {
 
         public MoveUpMergedAction() {
-            ImageIcon icon = ImageProvider.get("dialogs/conflict", "moveup.png");
+            ImageIcon icon = ImageProvider.get("dialogs/conflict", "moveup");
             putValue(Action.SMALL_ICON, icon);
             if (icon == null) {
                 putValue(Action.NAME, tr("Up"));
@@ -710,7 +712,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     class MoveDownMergedAction extends AbstractAction implements ListSelectionListener {
 
         public MoveDownMergedAction() {
-            ImageIcon icon = ImageProvider.get("dialogs/conflict", "movedown.png");
+            ImageIcon icon = ImageProvider.get("dialogs/conflict", "movedown");
             putValue(Action.SMALL_ICON, icon);
             if (icon == null) {
                 putValue(Action.NAME, tr("Down"));
@@ -744,7 +746,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
     class RemoveMergedAction extends AbstractAction implements ListSelectionListener {
 
         public RemoveMergedAction() {
-            ImageIcon icon = ImageProvider.get("dialogs/conflict", "remove.png");
+            ImageIcon icon = ImageProvider.get("dialogs/conflict", "remove");
             putValue(Action.SMALL_ICON, icon);
             if (icon == null) {
                 putValue(Action.NAME, tr("Remove"));
@@ -769,7 +771,7 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
         }
     }
 
-    public static interface FreezeActionProperties {
+    private static interface FreezeActionProperties {
         String PROP_SELECTED = FreezeActionProperties.class.getName() + ".selected";
     }
 
@@ -777,12 +779,12 @@ public abstract class ListMerger<T extends PrimitiveId> extends JPanel implement
      * Action for freezing the current state of the list merger
      *
      */
-    class FreezeAction extends AbstractAction implements ItemListener, FreezeActionProperties  {
+    private final class FreezeAction extends AbstractAction implements ItemListener, FreezeActionProperties  {
 
-        public FreezeAction() {
+        private FreezeAction() {
             putValue(Action.NAME, tr("Freeze"));
             putValue(Action.SHORT_DESCRIPTION, tr("Freeze the current list of merged elements."));
-            putValue(PROP_SELECTED, false);
+            putValue(PROP_SELECTED, Boolean.FALSE);
             setEnabled(true);
         }
 

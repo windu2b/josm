@@ -21,6 +21,9 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.Set;
 
 import javax.swing.AbstractAction;
 import javax.swing.AbstractListModel;
@@ -68,20 +71,22 @@ public class TaggingPresetSelector extends JPanel implements SelectionChangedLis
     private static final BooleanProperty SEARCH_IN_TAGS = new BooleanProperty("taggingpreset.dialog.search-in-tags", true);
     private static final BooleanProperty ONLY_APPLICABLE  = new BooleanProperty("taggingpreset.dialog.only-applicable-to-selection", true);
 
-    private JosmTextField edSearchText;
-    private JList<TaggingPreset> lsResult;
-    private JCheckBox ckOnlyApplicable;
-    private JCheckBox ckSearchInTags;
-    private final EnumSet<TaggingPresetType> typesInSelection = EnumSet.noneOf(TaggingPresetType.class);
+    private final JosmTextField edSearchText;
+    private final JList<TaggingPreset> lsResult;
+    private final JCheckBox ckOnlyApplicable;
+    private final JCheckBox ckSearchInTags;
+    private final Set<TaggingPresetType> typesInSelection = EnumSet.noneOf(TaggingPresetType.class);
     private boolean typesInSelectionDirty = true;
-    private final PresetClassifications classifications = new PresetClassifications();
-    private ResultListModel lsResultModel = new ResultListModel();
+    private final transient PresetClassifications classifications = new PresetClassifications();
+    private final ResultListModel lsResultModel = new ResultListModel();
 
-    private ActionListener dblClickListener;
-    private ActionListener clickListener;
+    private final transient List<ListSelectionListener> listSelectionListeners = new ArrayList<>();
+
+    private transient ActionListener dblClickListener;
+    private transient ActionListener clickListener;
 
     private static class ResultListCellRenderer implements ListCellRenderer<TaggingPreset> {
-        final DefaultListCellRenderer def = new DefaultListCellRenderer();
+        private final DefaultListCellRenderer def = new DefaultListCellRenderer();
         @Override
         public Component getListCellRendererComponent(JList<? extends TaggingPreset> list, TaggingPreset tp, int index, boolean isSelected, boolean cellHasFocus) {
             JLabel result = (JLabel) def.getListCellRendererComponent(list, tp, index, isSelected, cellHasFocus);
@@ -93,25 +98,25 @@ public class TaggingPresetSelector extends JPanel implements SelectionChangedLis
 
     private static class ResultListModel extends AbstractListModel<TaggingPreset> {
 
-        private List<PresetClassification> presets = new ArrayList<>();
+        private transient List<PresetClassification> presets = new ArrayList<>();
 
-        public void setPresets(List<PresetClassification> presets) {
+        public synchronized void setPresets(List<PresetClassification> presets) {
             this.presets = presets;
             fireContentsChanged(this, 0, Integer.MAX_VALUE);
         }
 
-        public List<PresetClassification> getPresets() {
-            return presets;
-        }
-
         @Override
-        public TaggingPreset getElementAt(int index) {
+        public synchronized TaggingPreset getElementAt(int index) {
             return presets.get(index).preset;
         }
 
         @Override
-        public int getSize() {
+        public synchronized int getSize() {
             return presets.size();
+        }
+
+        public synchronized boolean isEmpty() {
+            return presets.isEmpty();
         }
     }
 
@@ -130,10 +135,10 @@ public class TaggingPresetSelector extends JPanel implements SelectionChangedLis
             this.preset = preset;
             TaggingPreset group = preset.group;
             while (group != null) {
-                Collections.addAll(groups, group.getLocaleName().toLowerCase().split("\\s"));
+                Collections.addAll(groups, group.getLocaleName().toLowerCase(Locale.ENGLISH).split("\\s"));
                 group = group.group;
             }
-            Collections.addAll(names, preset.getLocaleName().toLowerCase().split("\\s"));
+            Collections.addAll(names, preset.getLocaleName().toLowerCase(Locale.ENGLISH).split("\\s"));
             for (TaggingPresetItem item: preset.data) {
                 if (item instanceof KeyedItem) {
                     tags.add(((KeyedItem) item).key);
@@ -160,7 +165,7 @@ public class TaggingPresetSelector extends JPanel implements SelectionChangedLis
                 boolean found = false;
                 boolean foundFirst = false;
                 for (String value: values) {
-                    int index = value.toLowerCase().indexOf(word);
+                    int index = value.toLowerCase(Locale.ENGLISH).indexOf(word);
                     if (index == 0) {
                         foundFirst = true;
                         break;
@@ -201,7 +206,7 @@ public class TaggingPresetSelector extends JPanel implements SelectionChangedLis
 
         @Override
         public String toString() {
-            return classification + " " + preset.toString();
+            return classification + " " + preset;
         }
     }
 
@@ -245,8 +250,7 @@ public class TaggingPresetSelector extends JPanel implements SelectionChangedLis
         });
         add(edSearchText, BorderLayout.NORTH);
 
-        lsResult = new JList<>();
-        lsResult.setModel(lsResultModel);
+        lsResult = new JList<>(lsResultModel);
         lsResult.setCellRenderer(new ResultListCellRenderer());
         lsResult.addMouseListener(new MouseAdapter() {
             @Override
@@ -275,6 +279,8 @@ public class TaggingPresetSelector extends JPanel implements SelectionChangedLis
                     filterPresets();
                 }
             });
+        } else {
+            ckOnlyApplicable = null;
         }
 
         if (displaySearchInTags) {
@@ -288,6 +294,8 @@ public class TaggingPresetSelector extends JPanel implements SelectionChangedLis
                 }
             });
             pnChecks.add(ckSearchInTags);
+        } else {
+            ckSearchInTags = null;
         }
 
         add(pnChecks, BorderLayout.SOUTH);
@@ -305,7 +313,7 @@ public class TaggingPresetSelector extends JPanel implements SelectionChangedLis
         lsResult.addMouseListener(new PopupMenuLauncher(popupMenu));
     }
 
-    private void selectPreset(int newIndex) {
+    private synchronized void selectPreset(int newIndex) {
         if (newIndex < 0) {
             newIndex = 0;
         }
@@ -319,9 +327,9 @@ public class TaggingPresetSelector extends JPanel implements SelectionChangedLis
     /**
      * Search expression can be in form: "group1/group2/name" where names can contain multiple words
      */
-    private void filterPresets() {
+    private synchronized void filterPresets() {
         //TODO Save favorites to file
-        String text = edSearchText.getText().toLowerCase();
+        String text = edSearchText.getText().toLowerCase(Locale.ENGLISH);
         boolean onlyApplicable = ckOnlyApplicable != null && ckOnlyApplicable.isSelected();
         boolean inTags = ckSearchInTags != null && ckSearchInTags.isSelected();
 
@@ -330,8 +338,16 @@ public class TaggingPresetSelector extends JPanel implements SelectionChangedLis
         final List<PresetClassification> result = classifications.getMatchingPresets(
                 text, onlyApplicable, inTags, getTypesInSelection(), selected);
 
+        TaggingPreset oldPreset = getSelectedPreset();
         lsResultModel.setPresets(result);
-
+        TaggingPreset newPreset = getSelectedPreset();
+        if (!Objects.equals(oldPreset, newPreset)) {
+            int[] indices = lsResult.getSelectedIndices();
+            for (ListSelectionListener listener : listSelectionListeners) {
+                listener.valueChanged(new ListSelectionEvent(lsResult, lsResult.getSelectedIndex(),
+                        indices.length > 0 ? indices[indices.length-1] : -1, false));
+            }
+        }
     }
 
     /**
@@ -341,7 +357,8 @@ public class TaggingPresetSelector extends JPanel implements SelectionChangedLis
 
         private final List<PresetClassification> classifications = new ArrayList<>();
 
-        public List<PresetClassification> getMatchingPresets(String searchText, boolean onlyApplicable, boolean inTags, EnumSet<TaggingPresetType> presetTypes, final Collection<? extends OsmPrimitive> selectedPrimitives) {
+        public List<PresetClassification> getMatchingPresets(String searchText, boolean onlyApplicable, boolean inTags,
+                Set<TaggingPresetType> presetTypes, final Collection<? extends OsmPrimitive> selectedPrimitives) {
             final String[] groupWords;
             final String[] nameWords;
 
@@ -356,7 +373,8 @@ public class TaggingPresetSelector extends JPanel implements SelectionChangedLis
             return getMatchingPresets(groupWords, nameWords, onlyApplicable, inTags, presetTypes, selectedPrimitives);
         }
 
-        public List<PresetClassification> getMatchingPresets(String[] groupWords, String[] nameWords, boolean onlyApplicable, boolean inTags, EnumSet<TaggingPresetType> presetTypes, final Collection<? extends OsmPrimitive> selectedPrimitives) {
+        public List<PresetClassification> getMatchingPresets(String[] groupWords, String[] nameWords, boolean onlyApplicable,
+                boolean inTags, Set<TaggingPresetType> presetTypes, final Collection<? extends OsmPrimitive> selectedPrimitives) {
 
             final List<PresetClassification> result = new ArrayList<>();
             for (PresetClassification presetClassification : classifications) {
@@ -436,7 +454,7 @@ public class TaggingPresetSelector extends JPanel implements SelectionChangedLis
         }
     }
 
-    private EnumSet<TaggingPresetType> getTypesInSelection() {
+    private Set<TaggingPresetType> getTypesInSelection() {
         if (typesInSelectionDirty) {
             synchronized (typesInSelection) {
                 typesInSelectionDirty = false;
@@ -455,11 +473,12 @@ public class TaggingPresetSelector extends JPanel implements SelectionChangedLis
         typesInSelectionDirty = true;
     }
 
-    public void init() {
+    public synchronized void init() {
         if (ckOnlyApplicable != null) {
             ckOnlyApplicable.setEnabled(!getTypesInSelection().isEmpty());
             ckOnlyApplicable.setSelected(!getTypesInSelection().isEmpty() && ONLY_APPLICABLE.get());
         }
+        listSelectionListeners.clear();
         edSearchText.setText("");
         filterPresets();
     }
@@ -470,7 +489,7 @@ public class TaggingPresetSelector extends JPanel implements SelectionChangedLis
         init();
     }
 
-    public void clearSelection() {
+    public synchronized void clearSelection() {
         lsResult.getSelectionModel().clearSelection();
     }
 
@@ -490,14 +509,13 @@ public class TaggingPresetSelector extends JPanel implements SelectionChangedLis
      * Determines, which preset is selected at the current moment
      * @return selected preset (as action)
      */
-    public TaggingPreset getSelectedPreset() {
-        List<PresetClassification> presets = lsResultModel.getPresets();
-        if (presets.isEmpty()) return null;
+    public synchronized TaggingPreset getSelectedPreset() {
+        if (lsResultModel.isEmpty()) return null;
         int idx = lsResult.getSelectedIndex();
-        if (idx == -1) {
+        if (idx < 0 || idx >= lsResultModel.getSize()) {
             idx = 0;
         }
-        TaggingPreset preset = presets.get(idx).preset;
+        TaggingPreset preset = lsResultModel.getElementAt(idx);
         for (PresetClassification pc: classifications) {
             if (pc.preset == preset) {
                 pc.favoriteIndex = CLASSIFICATION_IN_FAVORITES;
@@ -508,11 +526,11 @@ public class TaggingPresetSelector extends JPanel implements SelectionChangedLis
         return preset;
     }
 
-    public void setSelectedPreset(TaggingPreset p) {
+    public synchronized void setSelectedPreset(TaggingPreset p) {
         lsResult.setSelectedValue(p, true);
     }
 
-    public int getItemCount() {
+    public synchronized int getItemCount() {
         return lsResultModel.getSize();
     }
 
@@ -524,13 +542,23 @@ public class TaggingPresetSelector extends JPanel implements SelectionChangedLis
         this.clickListener = clickListener;
     }
 
-    public void addSelectionListener(final ActionListener selectListener) {
-        lsResult.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
-            @Override
-            public void valueChanged(ListSelectionEvent e) {
-                if (!e.getValueIsAdjusting())
-                    selectListener.actionPerformed(null);
-            }
-        });
+    /**
+     * Adds a selection listener to the presets list.
+     * @param selectListener The list selection listener
+     * @since 7412
+     */
+    public synchronized void addSelectionListener(ListSelectionListener selectListener) {
+        lsResult.getSelectionModel().addListSelectionListener(selectListener);
+        listSelectionListeners.add(selectListener);
+    }
+
+    /**
+     * Removes a selection listener from the presets list.
+     * @param selectListener The list selection listener
+     * @since 7412
+     */
+    public synchronized void removeSelectionListener(ListSelectionListener selectListener) {
+        listSelectionListeners.remove(selectListener);
+        lsResult.getSelectionModel().removeListSelectionListener(selectListener);
     }
 }

@@ -28,11 +28,10 @@ import org.openstreetmap.josm.data.osm.Way;
 import org.openstreetmap.josm.tools.Utils;
 
 /**
- * Represents a collection of {@link OsmPrimitive}s which should be uploaded to the
- * API.
+ * Represents a collection of {@link OsmPrimitive}s which should be uploaded to the API.
  * The collection is derived from the modified primitives of an {@link DataSet} and it provides methods
  * for sorting the objects in upload order.
- *
+ * @since 2025
  */
 public class APIDataSet {
     private List<OsmPrimitive> toAdd;
@@ -64,9 +63,6 @@ public class APIDataSet {
         toDelete.clear();
 
         for (OsmPrimitive osm :primitives) {
-            if (osm.get("josm/ignore") != null) {
-                continue;
-            }
             if (osm.isNewOrUndeleted() && !osm.isDeleted()) {
                 toAdd.add(osm);
             } else if (osm.isModified() && !osm.isDeleted()) {
@@ -188,7 +184,7 @@ public class APIDataSet {
      * @return all primitives
      */
     public List<OsmPrimitive> getPrimitives() {
-        LinkedList<OsmPrimitive> ret = new LinkedList<>();
+        List<OsmPrimitive> ret = new LinkedList<>();
         ret.addAll(toAdd);
         ret.addAll(toUpdate);
         ret.addAll(toDelete);
@@ -218,10 +214,10 @@ public class APIDataSet {
      * This method detects cyclic dependencies in new relation. Relations with cyclic
      * dependencies can't be uploaded.
      *
-     * @throws CyclicUploadDependencyException thrown, if a cyclic dependency is detected
+     * @throws CyclicUploadDependencyException if a cyclic dependency is detected
      */
     public void adjustRelationUploadOrder() throws CyclicUploadDependencyException{
-        LinkedList<OsmPrimitive> newToAdd = new LinkedList<>();
+        List<OsmPrimitive> newToAdd = new LinkedList<>();
         newToAdd.addAll(Utils.filteredCollection(toAdd, Node.class));
         newToAdd.addAll(Utils.filteredCollection(toAdd, Way.class));
 
@@ -234,7 +230,7 @@ public class APIDataSet {
         newToAdd.addAll(graph.computeUploadOrder());
         toAdd = newToAdd;
 
-        LinkedList<OsmPrimitive> newToDelete = new LinkedList<>();
+        List<OsmPrimitive> newToDelete = new LinkedList<>();
         graph = new RelationUploadDependencyGraph(Utils.filteredCollection(toDelete, Relation.class), false);
         newToDelete.addAll(graph.computeUploadOrder());
         newToDelete.addAll(Utils.filteredCollection(toDelete, Way.class));
@@ -341,7 +337,7 @@ public class APIDataSet {
                     new Comparator<Relation>() {
                         @Override
                         public int compare(Relation o1, Relation o2) {
-                            return Integer.valueOf(uploadOrder.indexOf(o1)).compareTo(uploadOrder.indexOf(o2));
+                            return Integer.compare(uploadOrder.indexOf(o1), uploadOrder.indexOf(o2));
                         }
                     }
                     );

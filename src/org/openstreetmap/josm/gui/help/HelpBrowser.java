@@ -71,7 +71,7 @@ public class HelpBrowser extends JDialog {
      *
      * @return the unique instance of the help browser
      */
-    public static HelpBrowser getInstance() {
+    public static synchronized HelpBrowser getInstance() {
         if (instance == null) {
             instance = new HelpBrowser();
         }
@@ -113,12 +113,12 @@ public class HelpBrowser extends JDialog {
     private JosmEditorPane help;
 
     /** the help browser history */
-    private HelpBrowserHistory history;
+    private transient HelpBrowserHistory history;
 
     /** the currently displayed URL */
     private String url;
 
-    private HelpContentReader reader;
+    private transient HelpContentReader reader;
 
     private static final JosmAction focusAction = new JosmAction(tr("JOSM Help Browser"), "help", "", null, false, false) {
         @Override
@@ -143,7 +143,7 @@ public class HelpBrowser extends JDialog {
             String line = null;
             while ((line = reader.readLine()) != null) {
                 css.append(line);
-                css.append("\n");
+                css.append('\n');
             }
         } catch (Exception e) {
             Main.error(tr("Failed to read CSS file ''help-browser.css''. Exception is: {0}", e.toString()));
@@ -482,7 +482,7 @@ public class HelpBrowser extends JDialog {
     }
 
     static class BackAction extends AbstractAction implements Observer {
-        private HelpBrowserHistory history;
+        private transient HelpBrowserHistory history;
         public BackAction(HelpBrowserHistory history) {
             this.history = history;
             history.addObserver(this);
@@ -502,7 +502,7 @@ public class HelpBrowser extends JDialog {
     }
 
     static class ForwardAction extends AbstractAction implements Observer {
-        private HelpBrowserHistory history;
+        private transient HelpBrowserHistory history;
         public ForwardAction(HelpBrowserHistory history) {
             this.history = history;
             history.addObserver(this);

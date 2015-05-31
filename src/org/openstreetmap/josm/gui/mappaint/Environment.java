@@ -27,7 +27,7 @@ public class Environment {
      * is evaluated in a {@link LinkSelector} (within a child selector)
      */
     public OsmPrimitive parent;
-    
+
     /**
      * The same for parent selector. Only one of the 2 fields (parent or child) is not null in any environment.
      */
@@ -39,9 +39,24 @@ public class Environment {
     public Integer index = null;
 
     /**
+     * count of nodes in parent way or members in parent relation. Must be != null in LINK context.
+     */
+    public Integer count = null;
+
+    /**
      * Creates a new uninitialized environment.
      */
-    public Environment() {}
+    public Environment() {
+        // environment can be initialized later through with* methods
+    }
+
+    /**
+     * Creates a new environment.
+     * @since 8415
+     */
+    public Environment(OsmPrimitive osm) {
+        this.osm = osm;
+    }
 
     /**
      * Creates a new environment.
@@ -59,7 +74,7 @@ public class Environment {
      * @param other the other environment. Must not be null.
      * @throws IllegalArgumentException if {@code param} is {@code null}
      */
-    public Environment(Environment other) throws IllegalArgumentException {
+    public Environment(Environment other) {
         CheckParameterUtil.ensureParameterNotNull(other);
         this.osm = other.osm;
         this.mc = other.mc;
@@ -68,6 +83,7 @@ public class Environment {
         this.child = other.child;
         this.source = other.source;
         this.index = other.index;
+        this.count = other.count;
         this.context = other.getContext();
     }
 
@@ -98,15 +114,17 @@ public class Environment {
      * Creates a clone of this environment, with the specified parent, index, and context set to {@link Context#LINK}.
      * @param parent the matching parent object
      * @param index index of node in parent way or member in parent relation
+     * @param count count of nodes in parent way or members in parent relation
      * @return A clone of this environment, with the specified parent, index, and context set to {@link Context#LINK}
-     * @since 6175
      * @see #parent
      * @see #index
+     * @since 6175
      */
-    public Environment withParentAndIndexAndLinkContext(OsmPrimitive parent, int index) {
+    public Environment withParentAndIndexAndLinkContext(OsmPrimitive parent, int index, int count) {
         Environment e = new Environment(this);
         e.parent = parent;
         e.index = index;
+        e.count = count;
         e.context = Context.LINK;
         return e;
     }
@@ -127,15 +145,17 @@ public class Environment {
      * Creates a clone of this environment, with the specified child, index, and context set to {@link Context#LINK}.
      * @param child the matching child object
      * @param index index of node in parent way or member in parent relation
+     * @param count count of nodes in parent way or members in parent relation
      * @return A clone of this environment, with the specified child, index, and context set to {@code Context#LINK}
      * @since 6175
      * @see #child
      * @see #index
      */
-    public Environment withChildAndIndexAndLinkContext(OsmPrimitive child, int index) {
+    public Environment withChildAndIndexAndLinkContext(OsmPrimitive child, int index, int count) {
         Environment e = new Environment(this);
         e.child = child;
         e.index = index;
+        e.count = count;
         e.context = Context.LINK;
         return e;
     }
@@ -143,12 +163,14 @@ public class Environment {
     /**
      * Creates a clone of this environment, with the specified index.
      * @param index index of node in parent way or member in parent relation
+     * @param count count of nodes in parent way or members in parent relation
      * @return A clone of this environment, with the specified index
      * @see #index
      */
-    public Environment withIndex(int index) {
+    public Environment withIndex(int index, int count) {
         Environment e = new Environment(this);
         e.index = index;
+        e.count = count;
         return e;
     }
 
@@ -213,6 +235,7 @@ public class Environment {
         parent = null;
         child = null;
         index = null;
+        count = null;
     }
 
     public Cascade getCascade(String layer) {

@@ -11,6 +11,8 @@ import java.util.Map;
 import javax.swing.JTable;
 import javax.swing.table.AbstractTableModel;
 
+import org.openstreetmap.josm.tools.CheckParameterUtil;
+
 /**
  * AutoCompletionList manages a list of {@link AutoCompletionListItem}s.
  *
@@ -30,13 +32,13 @@ import javax.swing.table.AbstractTableModel;
 public class AutoCompletionList extends AbstractTableModel {
 
     /** the bare list of AutoCompletionItems */
-    private List<AutoCompletionListItem> list = null;
+    private transient List<AutoCompletionListItem> list = null;
     /**  the filtered list of AutoCompletionItems */
-    private ArrayList<AutoCompletionListItem> filtered = null;
+    private transient ArrayList<AutoCompletionListItem> filtered = null;
     /** the filter expression */
     private String filter = null;
     /** map from value to priority */
-    private Map<String,AutoCompletionListItem> valutToItemMap;
+    private transient Map<String,AutoCompletionListItem> valutToItemMap;
 
     /**
      * constructor
@@ -54,11 +56,10 @@ public class AutoCompletionList extends AbstractTableModel {
      *
      * @param filter  the filter expression; must not be null
      *
-     * @exception IllegalArgumentException thrown, if filter is null
+     * @throws IllegalArgumentException if filter is null
      */
     public void applyFilter(String filter) {
-        if (filter == null)
-            throw new IllegalArgumentException("argument 'filter' must not be null");
+        CheckParameterUtil.ensureParameterNotNull(filter, "filter");
         this.filter = filter;
         filter();
     }
@@ -98,11 +99,10 @@ public class AutoCompletionList extends AbstractTableModel {
      * added it is not null and if it does not exist in the list yet.
      *
      * @param other another auto completion list; must not be null
-     * @exception IllegalArgumentException thrown, if other is null
+     * @throws IllegalArgumentException if other is null
      */
     public void add(AutoCompletionList other) {
-        if (other == null)
-            throw new IllegalArgumentException("argument 'other' must not be null");
+        CheckParameterUtil.ensureParameterNotNull(other, "other");
         for (AutoCompletionListItem item : other.list) {
             appendOrUpdatePriority(item);
         }
@@ -115,11 +115,10 @@ public class AutoCompletionList extends AbstractTableModel {
      * are not null and which do not exist yet in the list are added.
      *
      * @param other a list of AutoCompletionListItem; must not be null
-     * @exception IllegalArgumentException thrown, if other is null
+     * @throws IllegalArgumentException if other is null
      */
     public void add(List<AutoCompletionListItem> other) {
-        if (other == null)
-            throw new IllegalArgumentException("argument 'other' must not be null");
+        CheckParameterUtil.ensureParameterNotNull(other, "other");
         for (AutoCompletionListItem toadd : other) {
             appendOrUpdatePriority(toadd);
         }
@@ -143,6 +142,21 @@ public class AutoCompletionList extends AbstractTableModel {
             AutoCompletionListItem item = new AutoCompletionListItem(value,priority);
             appendOrUpdatePriority(item);
 
+        }
+        sort();
+        filter();
+    }
+
+    public void addUserInput(Collection<String> values) {
+        if (values == null) return;
+        int i = 0;
+        for (String value: values) {
+            if (value == null) {
+                continue;
+            }
+            AutoCompletionListItem item = new AutoCompletionListItem(value, new AutoCompletionItemPriority(false, false, false, i));
+            appendOrUpdatePriority(item);
+            i++;
         }
         sort();
         filter();
@@ -249,7 +263,7 @@ public class AutoCompletionList extends AbstractTableModel {
      * @param idx the index; must be in the range 0 &lt;= idx &lt; {@link #getFilteredSize()}
      * @return the item
      *
-     * @exception IndexOutOfBoundsException thrown, if idx is out of bounds
+     * @throws IndexOutOfBoundsException if idx is out of bounds
      */
     public AutoCompletionListItem getFilteredItem(int idx) {
         if (idx < 0 || idx >= getFilteredSize())

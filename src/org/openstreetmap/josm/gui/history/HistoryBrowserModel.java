@@ -9,6 +9,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Observable;
+import java.util.Set;
 
 import javax.swing.JTable;
 import javax.swing.table.AbstractTableModel;
@@ -83,13 +84,13 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
      */
     private HistoryOsmPrimitive latest;
 
-    private VersionTableModel versionTableModel;
-    private TagTableModel currentTagTableModel;
-    private TagTableModel referenceTagTableModel;
-    private DiffTableModel currentRelationMemberTableModel;
-    private DiffTableModel referenceRelationMemberTableModel;
-    private DiffTableModel referenceNodeListTableModel;
-    private DiffTableModel currentNodeListTableModel;
+    private final VersionTableModel versionTableModel;
+    private final TagTableModel currentTagTableModel;
+    private final TagTableModel referenceTagTableModel;
+    private final DiffTableModel currentRelationMemberTableModel;
+    private final DiffTableModel referenceRelationMemberTableModel;
+    private final DiffTableModel referenceNodeListTableModel;
+    private final DiffTableModel currentNodeListTableModel;
 
     /**
      * constructor
@@ -114,7 +115,7 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
      * Creates a new history browser model for a given history.
      *
      * @param history the history. Must not be null.
-     * @throws IllegalArgumentException thrown if history is null
+     * @throws IllegalArgumentException if history is null
      */
     public HistoryBrowserModel(History history) {
         this();
@@ -222,32 +223,23 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
      * TODO: Maybe rename to reflect this? eg. updateNodeListTableModels
      */
     protected void initNodeListTableModels() {
-
         if(current.getType() != OsmPrimitiveType.WAY || reference.getType() != OsmPrimitiveType.WAY)
             return;
         TwoColumnDiff diff = new TwoColumnDiff(
                 ((HistoryWay)reference).getNodes().toArray(),
                 ((HistoryWay)current).getNodes().toArray());
-        referenceNodeListTableModel.setRows(diff.referenceDiff);
-        currentNodeListTableModel.setRows(diff.currentDiff);
-
-        referenceNodeListTableModel.fireTableDataChanged();
-        currentNodeListTableModel.fireTableDataChanged();
+        referenceNodeListTableModel.setRows(diff.referenceDiff, diff.referenceReversed);
+        currentNodeListTableModel.setRows(diff.currentDiff, false);
     }
 
     protected void initMemberListTableModels() {
         if(current.getType() != OsmPrimitiveType.RELATION || reference.getType() != OsmPrimitiveType.RELATION)
             return;
-
         TwoColumnDiff diff = new TwoColumnDiff(
                 ((HistoryRelation)reference).getMembers().toArray(),
                 ((HistoryRelation)current).getMembers().toArray());
-
-        referenceRelationMemberTableModel.setRows(diff.referenceDiff);
-        currentRelationMemberTableModel.setRows(diff.currentDiff);
-
-        currentRelationMemberTableModel.fireTableDataChanged();
-        referenceRelationMemberTableModel.fireTableDataChanged();
+        referenceRelationMemberTableModel.setRows(diff.referenceDiff, diff.referenceReversed);
+        currentRelationMemberTableModel.setRows(diff.currentDiff, false);
     }
 
     /**
@@ -255,9 +247,9 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
      *
      * @param pointInTimeType the type of the point in time (must not be null)
      * @return the tag table model
-     * @exception IllegalArgumentException thrown, if pointInTimeType is null
+     * @throws IllegalArgumentException if pointInTimeType is null
      */
-    public TagTableModel getTagTableModel(PointInTimeType pointInTimeType) throws IllegalArgumentException {
+    public TagTableModel getTagTableModel(PointInTimeType pointInTimeType) {
         CheckParameterUtil.ensureParameterNotNull(pointInTimeType, "pointInTimeType");
         if (pointInTimeType.equals(PointInTimeType.CURRENT_POINT_IN_TIME))
             return currentTagTableModel;
@@ -268,7 +260,7 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
         return null;
     }
 
-    public DiffTableModel getNodeListTableModel(PointInTimeType pointInTimeType) throws IllegalArgumentException {
+    public DiffTableModel getNodeListTableModel(PointInTimeType pointInTimeType) {
         CheckParameterUtil.ensureParameterNotNull(pointInTimeType, "pointInTimeType");
         if (pointInTimeType.equals(PointInTimeType.CURRENT_POINT_IN_TIME))
             return currentNodeListTableModel;
@@ -279,7 +271,7 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
         return null;
     }
 
-    public DiffTableModel getRelationMemberTableModel(PointInTimeType pointInTimeType) throws IllegalArgumentException {
+    public DiffTableModel getRelationMemberTableModel(PointInTimeType pointInTimeType) {
         CheckParameterUtil.ensureParameterNotNull(pointInTimeType, "pointInTimeType");
         if (pointInTimeType.equals(PointInTimeType.CURRENT_POINT_IN_TIME))
             return currentRelationMemberTableModel;
@@ -295,14 +287,14 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
      * in time (see {@link PointInTimeType}).
      *
      * @param reference the reference history primitive. Must not be null.
-     * @throws IllegalArgumentException thrown if reference is null
-     * @throws IllegalStateException thrown if this model isn't a assigned a history yet
+     * @throws IllegalArgumentException if reference is null
+     * @throws IllegalStateException if this model isn't a assigned a history yet
      * @throws IllegalArgumentException if reference isn't an history primitive for the history managed by this mode
      *
      * @see #setHistory(History)
      * @see PointInTimeType
      */
-    public void setReferencePointInTime(HistoryOsmPrimitive reference) throws IllegalArgumentException, IllegalStateException{
+    public void setReferencePointInTime(HistoryOsmPrimitive reference) {
         CheckParameterUtil.ensureParameterNotNull(reference, "reference");
         if (history == null)
             throw new IllegalStateException(tr("History not initialized yet. Failed to set reference primitive."));
@@ -325,14 +317,14 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
      * in time (see {@link PointInTimeType}).
      *
      * @param current the reference history primitive. Must not be {@code null}.
-     * @throws IllegalArgumentException thrown if reference is {@code null}
-     * @throws IllegalStateException thrown if this model isn't a assigned a history yet
+     * @throws IllegalArgumentException if reference is {@code null}
+     * @throws IllegalStateException if this model isn't a assigned a history yet
      * @throws IllegalArgumentException if reference isn't an history primitive for the history managed by this mode
      *
      * @see #setHistory(History)
      * @see PointInTimeType
      */
-    public void setCurrentPointInTime(HistoryOsmPrimitive current) throws IllegalArgumentException, IllegalStateException{
+    public void setCurrentPointInTime(HistoryOsmPrimitive current) {
         CheckParameterUtil.ensureParameterNotNull(current, "current");
         if (history == null)
             throw new IllegalStateException(tr("History not initialized yet. Failed to set current primitive."));
@@ -372,9 +364,9 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
      *
      * @param type the type of the point in time (must not be null)
      * @return the respective primitive. Can be null.
-     * @exception IllegalArgumentException thrown, if type is null
+     * @throws IllegalArgumentException if type is null
      */
-    public HistoryOsmPrimitive getPointInTime(PointInTimeType type) throws IllegalArgumentException  {
+    public HistoryOsmPrimitive getPointInTime(PointInTimeType type)  {
         CheckParameterUtil.ensureParameterNotNull(type, "type");
         if (type.equals(PointInTimeType.CURRENT_POINT_IN_TIME))
             return current;
@@ -543,7 +535,7 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
         private PointInTimeType pointInTimeType;
 
         protected void initKeyList() {
-            HashSet<String> keySet = new HashSet<>();
+            Set<String> keySet = new HashSet<>();
             if (current != null) {
                 keySet.addAll(current.getTags().keySet());
             }
@@ -569,11 +561,6 @@ public class HistoryBrowserModel extends Observable implements LayerChangeListen
         @Override
         public Object getValueAt(int row, int column) {
             return keys.get(row);
-        }
-
-        @Override
-        public boolean isCellEditable(int row, int column) {
-            return false;
         }
 
         public boolean hasTag(String key) {

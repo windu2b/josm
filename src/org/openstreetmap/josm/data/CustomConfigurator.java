@@ -18,8 +18,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
@@ -73,7 +75,7 @@ public final class CustomConfigurator {
 
     public static void log(String s) {
         summary.append(s);
-        summary.append("\n");
+        summary.append('\n');
     }
 
     public static String getLog() {
@@ -156,7 +158,7 @@ public final class CustomConfigurator {
      * @param text - message to display, HTML allowed
      */
     public static void messageBox(String type, String text) {
-        if (type==null || type.length()==0) type="plain";
+        if (type==null || type.isEmpty()) type="plain";
 
         switch (type.charAt(0)) {
             case 'i': JOptionPane.showMessageDialog(Main.parent, text, tr("Information"), JOptionPane.INFORMATION_MESSAGE); break;
@@ -201,7 +203,7 @@ public final class CustomConfigurator {
      * @param keys - which preferences keys you need to export ("imagery.entries", for example)
      */
     public static void exportPreferencesKeysToFile(String filename, boolean append, String... keys) {
-        HashSet<String> keySet = new HashSet<>();
+        Set<String> keySet = new HashSet<>();
         Collections.addAll(keySet, keys);
         exportPreferencesKeysToFile(filename, append, keySet);
     }
@@ -279,7 +281,6 @@ public final class CustomConfigurator {
         }
     }
 
-
     public static void deleteFile(String path, String base) {
         String dir = getDirectoryByAbbr(base);
         if (dir==null) {
@@ -302,28 +303,32 @@ public final class CustomConfigurator {
 
     public static void deleteFileOrDirectory(File f) {
         if (f.isDirectory()) {
-            for (File f1: f.listFiles()) {
-                deleteFileOrDirectory(f1);
+            File[] files = f.listFiles();
+            if (files != null) {
+                for (File f1: files) {
+                    deleteFileOrDirectory(f1);
+                }
             }
         }
         try {
             f.delete();
         } catch (Exception e) {
-            log("Warning: Can not delete file "+f.getPath());
+            log("Warning: Can not delete file "+f.getPath()+": "+e.getMessage());
         }
     }
 
     private static boolean busy=false;
 
-
     public static void pluginOperation(String install, String uninstall, String delete)  {
         final List<String> installList = new ArrayList<>();
         final List<String> removeList = new ArrayList<>();
         final List<String> deleteList = new ArrayList<>();
-        Collections.addAll(installList, install.toLowerCase().split(";"));
-        Collections.addAll(removeList, uninstall.toLowerCase().split(";"));
-        Collections.addAll(deleteList, delete.toLowerCase().split(";"));
-        installList.remove("");removeList.remove("");deleteList.remove("");
+        Collections.addAll(installList, install.toLowerCase(Locale.ENGLISH).split(";"));
+        Collections.addAll(removeList, uninstall.toLowerCase(Locale.ENGLISH).split(";"));
+        Collections.addAll(deleteList, delete.toLowerCase(Locale.ENGLISH).split(";"));
+        installList.remove("");
+        removeList.remove("");
+        deleteList.remove("");
 
         if (!installList.isEmpty()) {
             log("Plugins install: "+installList);
@@ -341,65 +346,65 @@ public final class CustomConfigurator {
             public void run() {
                 if (task.isCanceled()) return;
                 synchronized (CustomConfigurator.class) {
-                try { // proceed only after all other tasks were finished
-                    while (busy) CustomConfigurator.class.wait();
-                } catch (InterruptedException ex) {
-                    Main.warn("InterruptedException while reading local plugin information");
-                }
-
-                SwingUtilities.invokeLater(new Runnable() {
-                    @Override
-                    public void run() {
-                        List<PluginInformation> availablePlugins = task.getAvailablePlugins();
-                        List<PluginInformation> toInstallPlugins = new ArrayList<>();
-                        List<PluginInformation> toRemovePlugins = new ArrayList<>();
-                        List<PluginInformation> toDeletePlugins = new ArrayList<>();
-                        for (PluginInformation pi: availablePlugins) {
-                            String name = pi.name.toLowerCase();
-                            if (installList.contains(name)) toInstallPlugins.add(pi);
-                            if (removeList.contains(name)) toRemovePlugins.add(pi);
-                            if (deleteList.contains(name)) toDeletePlugins.add(pi);
-                        }
-                        if (!installList.isEmpty()) {
-                            PluginDownloadTask pluginDownloadTask = new PluginDownloadTask(Main.parent, toInstallPlugins, tr ("Installing plugins"));
-                            Main.worker.submit(pluginDownloadTask);
-                        }
-                        Collection<String> pls = new ArrayList<>(Main.pref.getCollection("plugins"));
-                        for (PluginInformation pi: toInstallPlugins) {
-                            if (!pls.contains(pi.name)) {
-                                pls.add(pi.name);
-                            }
-                        }
-                        for (PluginInformation pi: toRemovePlugins) {
-                            pls.remove(pi.name);
-                        }
-                        for (PluginInformation pi: toDeletePlugins) {
-                            pls.remove(pi.name);
-                            new File(Main.pref.getPluginsDirectory(), pi.name+".jar").deleteOnExit();
-                        }
-                        Main.pref.putCollection("plugins",pls);
+                    try { // proceed only after all other tasks were finished
+                        while (busy) CustomConfigurator.class.wait();
+                    } catch (InterruptedException ex) {
+                        Main.warn("InterruptedException while reading local plugin information");
                     }
-                });
-            }
-            }
 
+                    SwingUtilities.invokeLater(new Runnable() {
+                        @Override
+                        public void run() {
+                            List<PluginInformation> availablePlugins = task.getAvailablePlugins();
+                            List<PluginInformation> toInstallPlugins = new ArrayList<>();
+                            List<PluginInformation> toRemovePlugins = new ArrayList<>();
+                            List<PluginInformation> toDeletePlugins = new ArrayList<>();
+                            for (PluginInformation pi: availablePlugins) {
+                                String name = pi.name.toLowerCase(Locale.ENGLISH);
+                                if (installList.contains(name)) toInstallPlugins.add(pi);
+                                if (removeList.contains(name)) toRemovePlugins.add(pi);
+                                if (deleteList.contains(name)) toDeletePlugins.add(pi);
+                            }
+                            if (!installList.isEmpty()) {
+                                PluginDownloadTask pluginDownloadTask =
+                                        new PluginDownloadTask(Main.parent, toInstallPlugins, tr("Installing plugins"));
+                                Main.worker.submit(pluginDownloadTask);
+                            }
+                            Collection<String> pls = new ArrayList<>(Main.pref.getCollection("plugins"));
+                            for (PluginInformation pi: toInstallPlugins) {
+                                if (!pls.contains(pi.name)) {
+                                    pls.add(pi.name);
+                                }
+                            }
+                            for (PluginInformation pi: toRemovePlugins) {
+                                pls.remove(pi.name);
+                            }
+                            for (PluginInformation pi: toDeletePlugins) {
+                                pls.remove(pi.name);
+                                new File(Main.pref.getPluginsDirectory(), pi.name+".jar").deleteOnExit();
+                            }
+                            Main.pref.putCollection("plugins",pls);
+                        }
+                    });
+                }
+            }
         };
         Main.worker.submit(task);
         Main.worker.submit(r);
     }
 
     private static String getDirectoryByAbbr(String base) {
-            String dir;
-            if ("prefs".equals(base) || base.length()==0) {
-                dir = Main.pref.getPreferencesDir();
-            } else if ("cache".equals(base)) {
-                dir = Main.pref.getCacheDirectory().getAbsolutePath();
-            } else if ("plugins".equals(base)) {
-                dir = Main.pref.getPluginsDirectory().getAbsolutePath();
-            } else {
-                dir = null;
-            }
-            return dir;
+        String dir;
+        if ("prefs".equals(base) || base.isEmpty()) {
+            dir = Main.pref.getPreferencesDirectory().getAbsolutePath();
+        } else if ("cache".equals(base)) {
+            dir = Main.pref.getCacheDirectory().getAbsolutePath();
+        } else if ("plugins".equals(base)) {
+            dir = Main.pref.getPluginsDirectory().getAbsolutePath();
+        } else {
+            dir = null;
+        }
+        return dir;
     }
 
     public static Preferences clonePreferences(Preferences pref) {
@@ -414,13 +419,12 @@ public final class CustomConfigurator {
 
     public static class XMLCommandProcessor {
 
-        Preferences mainPrefs;
-        Map<String,Element> tasksMap = new HashMap<>();
+        private Preferences mainPrefs;
+        private Map<String,Element> tasksMap = new HashMap<>();
 
         private boolean lastV; // last If condition result
 
-
-        ScriptEngine engine ;
+        private ScriptEngine engine;
 
         public void openAndReadXML(File file) {
             log("-- Reading custom preferences from " + file.getAbsolutePath() + " --");
@@ -458,7 +462,7 @@ public final class CustomConfigurator {
                 engine = new ScriptEngineManager().getEngineByName("rhino");
                 engine.eval("API={}; API.pref={}; API.fragments={};");
 
-                engine.eval("homeDir='"+normalizeDirName(Main.pref.getPreferencesDir()) +"';");
+                engine.eval("homeDir='"+normalizeDirName(Main.pref.getPreferencesDirectory().getAbsolutePath()) +"';");
                 engine.eval("josmVersion="+Version.getInstance().getVersion()+";");
                 String className = CustomConfigurator.class.getName();
                 engine.eval("API.messageBox="+className+".messageBox");
@@ -600,7 +604,7 @@ public final class CustomConfigurator {
             if (path.contains("..") || path.startsWith("/") || path.contains(":")) {
                 return; // some basic protection
             }
-            if (address == null || path == null || address.length() == 0 || path.length() == 0) {
+            if (address == null || path == null || address.isEmpty() || path.isEmpty()) {
                 log("Error: Please specify url=\"where to get file\" and path=\"where to place it\"");
                 return;
             }
@@ -628,7 +632,7 @@ public final class CustomConfigurator {
             String locText = evalVars(elem.getAttribute(LanguageInfo.getJOSMLocaleCode()+".text"));
             if (locText.length()>0) text=locText;
             String var = elem.getAttribute("var");
-            if (var.length()==0) var="result";
+            if (var.isEmpty()) var="result";
 
             String input = evalVars(elem.getAttribute("input"));
             if ("true".equals(input)) {
@@ -651,14 +655,14 @@ public final class CustomConfigurator {
 
         private void processIfElement(Element elem) {
             String realValue = evalVars(elem.getAttribute("test"));
-            boolean v=false;
-            if ("true".equals(realValue)) v=true; else
-            if ("fales".equals(realValue)) v=true; else
-            {
+            boolean v = false;
+            if ("true".equals(realValue) || "false".equals(realValue)) {
+                processXmlFragment(elem);
+                v = true;
+            } else {
                 log("Error: Illegal test expression in if: %s=%s\n", elem.getAttribute("test"), realValue);
             }
 
-            if (v) processXmlFragment(elem);
             lastV = v;
         }
 
@@ -1000,7 +1004,7 @@ public final class CustomConfigurator {
         @SuppressWarnings("unchecked")
         Map<String, String> stringMap =  (Map<String, String>) engine.get("stringMap");
         @SuppressWarnings("unchecked")
-        Map<String, List<String>> listMap = (SortedMap<String, List<String>> ) engine.get("listMap");
+        Map<String, List<String>> listMap = (SortedMap<String, List<String>>) engine.get("listMap");
         @SuppressWarnings("unchecked")
         Map<String, List<Collection<String>>> listlistMap = (SortedMap<String, List<Collection<String>>>) engine.get("listlistMap");
         @SuppressWarnings("unchecked")

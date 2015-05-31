@@ -3,8 +3,8 @@ package org.openstreetmap.josm.io.remotecontrol.handler;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLDecoder;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.text.MessageFormat;
 import java.util.Collections;
 import java.util.HashMap;
@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -192,25 +193,26 @@ public abstract class RequestHandler {
      */
     protected void parseArgs() {
         try {
-            String req = URLDecoder.decode(this.request, "UTF-8");
-            HashMap<String, String> args = new HashMap<>();
-            if (req.indexOf('?') != -1) {
-                String query = req.substring(req.indexOf('?') + 1);
-                if (query.indexOf('#') != -1) {
-                            query = query.substring(0, query.indexOf('#'));
-                        }
-                String[] params = query.split("&", -1);
-                for (String param : params) {
-                    int eq = param.indexOf('=');
-                    if (eq != -1) {
-                        args.put(param.substring(0, eq), param.substring(eq + 1));
-                    }
-                }
-            }
-            this.args = args;
-        } catch (UnsupportedEncodingException ex) {
-            throw new IllegalStateException(ex);
+            this.args = getRequestParameter(new URI(this.request));
+        } catch (URISyntaxException ex) {
+            throw new RuntimeException(ex);
         }
+    }
+
+    /**
+     * @see <a href="http://blog.lunatech.com/2009/02/03/what-every-web-developer-must-know-about-url-encoding">
+     *      What every web developer must know about URL encoding</a>
+     */
+    static Map<String, String> getRequestParameter(URI uri) {
+        Map<String, String> r = new HashMap<>();
+        if (uri.getRawQuery() == null) {
+            return r;
+        }
+        for (String kv : uri.getRawQuery().split("&")) {
+            final String[] kvs = Utils.decodeUrl(kv).split("=", 2);
+            r.put(kvs[0], kvs.length > 1 ? kvs[1] : null);
+        }
+        return r;
     }
 
     void checkMandatoryParams() throws RequestHandlerBadRequestException {
@@ -220,13 +222,13 @@ public abstract class RequestHandler {
         boolean error = false;
         if(mandatory != null) for (String key : mandatory) {
             String value = args.get(key);
-            if ((value == null) || (value.length() == 0)) {
+            if (value == null || value.isEmpty()) {
                 error = true;
                 Main.warn("'" + myCommand + "' remote control request must have '" + key + "' parameter");
                 missingKeys.add(key);
             }
         }
-        HashSet<String> knownParams = new HashSet<>();
+        Set<String> knownParams = new HashSet<>();
         if (mandatory != null) Collections.addAll(knownParams, mandatory);
         if (optional != null) Collections.addAll(knownParams, optional);
         for (String par: args.keySet()) {
@@ -246,8 +248,7 @@ public abstract class RequestHandler {
      *
      * @param command The command.
      */
-    public void setCommand(String command)
-    {
+    public void setCommand(String command) {
         if (command.charAt(0) == '/') {
             command = command.substring(1);
         }
@@ -268,30 +269,35 @@ public abstract class RequestHandler {
                 : Main.pref.getBoolean(loadInNewLayerKey, loadInNewLayerDefault);
     }
 
-    protected final String decodeParam(String param) {
-        try {
-            return URLDecoder.decode(param, "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     public void setSender(String sender) {
         this.sender = sender;
     }
 
     public static class RequestHandlerException extends Exception {
 
+        /**
+         * Constructs a new {@code RequestHandlerException}.
+         * @param message the detail message. The detail message is saved for later retrieval by the {@link #getMessage()} method.
+         */
         public RequestHandlerException(String message) {
             super(message);
         }
+
+        /**
+         * Constructs a new {@code RequestHandlerException}.
+         * @param message the detail message. The detail message is saved for later retrieval by the {@link #getMessage()} method.
+         * @param cause the cause (which is saved for later retrieval by the {@link #getCause()} method).
+         */
         public RequestHandlerException(String message, Throwable cause) {
             super(message, cause);
         }
+
+        /**
+         * Constructs a new {@code RequestHandlerException}.
+         * @param cause the cause (which is saved for later retrieval by the {@link #getCause()} method).
+         */
         public RequestHandlerException(Throwable cause) {
             super(cause);
-        }
-        public RequestHandlerException() {
         }
     }
 
@@ -316,6 +322,35 @@ public abstract class RequestHandler {
 
         public RequestHandlerForbiddenException(String message) {
             super(message);
+        }
+    }
+
+    public abstract static class RawURLParseRequestHandler extends RequestHandler {
+        @Override
+        protected void parseArgs() {
+            Map<String, String> args = new HashMap<>();
+            if (request.indexOf('?') != -1) {
+                String query = request.substring(request.indexOf('?') + 1);
+                if (query.indexOf("url=") == 0) {
+                    args.put("url", Utils.decodeUrl(query.substring(4)));
+                } else {
+                    int urlIdx = query.indexOf("&url=");
+                    if (urlIdx != -1) {
+                        args.put("url", Utils.decodeUrl(query.substring(urlIdx + 5)));
+                        query = query.substring(0, urlIdx);
+                    } else if (query.indexOf('#') != -1) {
+                        query = query.substring(0, query.indexOf('#'));
+                    }
+                    String[] params = query.split("&", -1);
+                    for (String param : params) {
+                        int eq = param.indexOf('=');
+                        if (eq != -1) {
+                            args.put(param.substring(0, eq), Utils.decodeUrl(param.substring(eq + 1)));
+                        }
+                    }
+                }
+            }
+            this.args = args;
         }
     }
 }

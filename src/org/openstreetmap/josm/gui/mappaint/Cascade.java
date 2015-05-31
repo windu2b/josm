@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.regex.Pattern;
 
 import org.openstreetmap.josm.Main;
@@ -41,7 +42,7 @@ public final class Cascade implements Cloneable {
      */
     public <T> T get(String key, T def, Class<T> klass, boolean suppressWarnings) {
         if (def != null && !klass.isInstance(def))
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException(def+" is not an instance of "+klass);
         Object o = prop.get(key);
         if (o == null)
             return def;
@@ -111,7 +112,7 @@ public final class Cascade implements Cloneable {
                 if (alpha != 255)
                     return (T) String.format("#%06x%02x", ((Color) o).getRGB() & 0x00ffffff, alpha);
                 return (T) String.format("#%06x", ((Color) o).getRGB() & 0x00ffffff);
-                
+
             }
 
             return (T) o.toString();
@@ -125,9 +126,11 @@ public final class Cascade implements Cloneable {
             return ((Number) o).floatValue();
         if (o instanceof String && !((String) o).isEmpty()) {
             try {
-                return Float.parseFloat((String) o);
+                return Float.valueOf((String) o);
             } catch (NumberFormatException e) {
-                Main.debug("'"+o+"' cannot be converted to float");
+                if (Main.isDebugEnabled()) {
+                    Main.debug("'"+o+"' cannot be converted to float");
+                }
             }
         }
         return null;
@@ -145,12 +148,12 @@ public final class Cascade implements Cloneable {
         if (s != null)
             return !(s.isEmpty() || "false".equals(s) || "no".equals(s) || "0".equals(s) || "0.0".equals(s));
         if (o instanceof Number)
-            return ((Number) o).floatValue() != 0.0f;
+            return ((Number) o).floatValue() != 0;
         if (o instanceof List)
             return !((List) o).isEmpty();
         if (o instanceof float[])
             return ((float[]) o).length != 0;
-        
+
         return null;
     }
 
@@ -194,7 +197,7 @@ public final class Cascade implements Cloneable {
     @Override
     public Cascade clone() {
         @SuppressWarnings("unchecked")
-        HashMap<String, Object> clonedProp = (HashMap<String, Object>) ((HashMap) this.prop).clone();
+        Map<String, Object> clonedProp = (Map<String, Object>) ((HashMap) this.prop).clone();
         Cascade c = new Cascade();
         c.prop = clonedProp;
         return c;
@@ -203,19 +206,19 @@ public final class Cascade implements Cloneable {
     @Override
     public String toString() {
         StringBuilder res = new StringBuilder("Cascade{ ");
-        for (String key : prop.keySet()) {
-            res.append(key+":");
-            Object val = prop.get(key);
+        for (Entry<String, Object> entry : prop.entrySet()) {
+            res.append(entry.getKey()+":");
+            Object val = entry.getValue();
             if (val instanceof float[]) {
                 res.append(Arrays.toString((float[]) val));
             } else if (val instanceof Color) {
                 res.append(Utils.toString((Color)val));
             } else if (val != null) {
-                res.append(val.toString());
+                res.append(val);
             }
             res.append("; ");
         }
-        return res.append("}").toString();
+        return res.append('}').toString();
     }
 
     public boolean containsKey(String key) {

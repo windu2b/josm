@@ -11,7 +11,7 @@ import java.util.TreeSet;
  * @since 529
  */
 public final class TigerUtils {
-    
+
     private TigerUtils() {
         // Hide default constructor for utils classes
     }
@@ -45,7 +45,7 @@ public final class TigerUtils {
     }
 
     public static String combineTags(String name, Set<String> values) {
-        TreeSet<Object> resultSet = new TreeSet<>();
+        Set<Object> resultSet = new TreeSet<>();
         for (String value: values) {
             String[] parts = value.split(":");
             for (String part: parts) {
@@ -59,7 +59,7 @@ public final class TigerUtils {
         StringBuilder combined = new StringBuilder();
         for (Object part : resultSet) {
             if (combined.length() > 0) {
-                combined.append(":");
+                combined.append(':');
             }
             combined.append(part);
         }

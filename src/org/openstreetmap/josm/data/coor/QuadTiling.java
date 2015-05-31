@@ -1,14 +1,16 @@
 // License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.data.coor;
 
+import org.openstreetmap.josm.tools.Utils;
+
 public final class QuadTiling {
-    
+
     private QuadTiling() {
         // Hide default constructor for utils classes
     }
-    
+
     public static final int NR_LEVELS = 24;
-    public static final double WORLD_PARTS = (1 << NR_LEVELS);
+    public static final double WORLD_PARTS = 1 << NR_LEVELS;
 
     public static final int TILES_PER_LEVEL_SHIFT = 2; // Has to be 2. Other parts of QuadBuckets code rely on it
     public static final int TILES_PER_LEVEL = 1<<TILES_PER_LEVEL_SHIFT;
@@ -46,51 +48,50 @@ public final class QuadTiling {
         y += Y_BIAS;
         return new LatLon(y, x);
     }
-    
+
     static long xy2tile(long x, long y) {
         long tile = 0;
         int i;
-        for (i = NR_LEVELS-1; i >= 0; i--)
-        {
-            long xbit = ((x >> i) & 1);
-            long ybit = ((y >> i) & 1);
+        for (i = NR_LEVELS-1; i >= 0; i--) {
+            long xbit = (x >> i) & 1;
+            long ybit = (y >> i) & 1;
             tile <<= 2;
             // Note that x is the MSB
             tile |= (xbit<<1) | ybit;
         }
         return tile;
     }
-    
+
     static long coorToTile(LatLon coor) {
         return quadTile(coor);
     }
-    
+
     static long lon2x(double lon) {
         long ret = (long)((lon + 180.0) * WORLD_PARTS / 360.0);
-        if (ret == WORLD_PARTS) {
+        if (Utils.equalsEpsilon(ret, WORLD_PARTS)) {
             ret--;
         }
         return ret;
     }
-    
+
     static long lat2y(double lat) {
         long ret = (long)((lat + 90.0) * WORLD_PARTS / 180.0);
-        if (ret == WORLD_PARTS) {
+        if (Utils.equalsEpsilon(ret, WORLD_PARTS)) {
             ret--;
         }
         return ret;
     }
-    
+
     public static long quadTile(LatLon coor) {
         return xy2tile(lon2x(coor.lon()), lat2y(coor.lat()));
     }
-    
+
     public static int index(int level, long quad) {
         long mask = 0x00000003;
         int total_shift = TILES_PER_LEVEL_SHIFT*(NR_LEVELS-level-1);
         return (int)(mask & (quad >> total_shift));
     }
-    
+
     /**
      * Returns quad tiling index for given coordinates and level.
      *
@@ -101,7 +102,7 @@ public final class QuadTiling {
      * @since 2263
      */
     public static int index(LatLon coor, int level) {
-        // The nodes that don't return coordinates will all get stuck in a single tile. 
+        // The nodes that don't return coordinates will all get stuck in a single tile.
         // Hopefully there are not too many of them
         if (coor == null)
             return 0;

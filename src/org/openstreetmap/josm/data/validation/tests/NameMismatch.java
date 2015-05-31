@@ -1,10 +1,11 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.data.validation.tests;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.util.HashSet;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
@@ -45,11 +46,11 @@ public class NameMismatch extends Test.TagTest {
      * Report a missing translation.
      *
      * @param p The primitive whose translation is missing
+     * @param name The name whose translation is missing
      */
-    private void missingTranslation(OsmPrimitive p) {
+    private void missingTranslation(OsmPrimitive p, String name) {
         errors.add(new TestError(this, Severity.OTHER,
-            tr("A name:* translation is missing."),
-            NAME_TRANSLATION_MISSING, p));
+                tr("Missing name:*={0}. Add tag with correct language key.", name), NAME_TRANSLATION_MISSING, p));
     }
 
     /**
@@ -59,7 +60,7 @@ public class NameMismatch extends Test.TagTest {
      */
     @Override
     public void check(OsmPrimitive p) {
-        HashSet<String> names = new HashSet<>();
+        Set<String> names = new HashSet<>();
 
         for (Entry<String, String> entry : p.getKeys().entrySet()) {
             if (entry.getKey().startsWith("name:")) {
@@ -89,15 +90,14 @@ public class NameMismatch extends Test.TagTest {
         String[] splitNames = NAME_SPLIT_PATTERN.split(name);
         if (splitNames.length == 1) {
             /* The name is not composed of multiple parts. Complain. */
-            missingTranslation(p);
+            missingTranslation(p, splitNames[0]);
             return;
         }
 
         /* Check that each part corresponds to a translated name:*. */
         for (String n : splitNames) {
             if (!names.contains(n)) {
-                missingTranslation(p);
-                return;
+                missingTranslation(p, n);
             }
         }
     }

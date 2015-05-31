@@ -1,5 +1,4 @@
-// License: GPL. See LICENSE file for details.
-
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -29,6 +28,7 @@ import org.openstreetmap.josm.gui.preferences.server.ProxyPreference;
 import org.openstreetmap.josm.gui.preferences.server.ProxyPreferenceListener;
 import org.openstreetmap.josm.gui.widgets.JosmEditorPane;
 import org.openstreetmap.josm.io.CacheCustomContent;
+import org.openstreetmap.josm.io.OnlineResource;
 import org.openstreetmap.josm.tools.LanguageInfo;
 import org.openstreetmap.josm.tools.OpenBrowser;
 import org.openstreetmap.josm.tools.WikiReader;
@@ -94,6 +94,11 @@ public final class GettingStarted extends JPanel implements ProxyPreferenceListe
             return motd.getBytes(StandardCharsets.UTF_8);
         }
 
+        @Override
+        protected void checkOfflineAccess() {
+            OnlineResource.JOSM_WEBSITE.checkOfflineAccess(new WikiReader().getBaseUrlWiki(), Main.getJOSMWebsite());
+        }
+
         /**
          * Additionally check if JOSM has been updated and refresh MOTD
          */
@@ -150,12 +155,14 @@ public final class GettingStarted extends JPanel implements ProxyPreferenceListe
                     }
                 }
 
-                EventQueue.invokeLater(new Runnable() {
-                    @Override
-                    public void run() {
-                        lg.setText(fixImageLinks(content));
-                    }
-                });
+                if (content != null) {
+                    EventQueue.invokeLater(new Runnable() {
+                        @Override
+                        public void run() {
+                            lg.setText(fixImageLinks(content));
+                        }
+                    });
+                }
             }
         }, "MOTD-Loader");
         t.setDaemon(true);
@@ -169,7 +176,7 @@ public final class GettingStarted extends JPanel implements ProxyPreferenceListe
             String im = m.group(1);
             URL u = getClass().getResource(im);
             if (u != null) {
-                m.appendReplacement(sb, Matcher.quoteReplacement("src=\"" + u.toString() + "\""));
+                m.appendReplacement(sb, Matcher.quoteReplacement("src=\"" + u + "\""));
             }
         }
         m.appendTail(sb);

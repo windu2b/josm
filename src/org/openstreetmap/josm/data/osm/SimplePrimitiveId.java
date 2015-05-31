@@ -1,17 +1,16 @@
 // License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.data.osm;
 
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import groovyjarjarantlr.collections.List;
 
 public class SimplePrimitiveId implements PrimitiveId, Serializable {
+
+    private static final long serialVersionUID = 1L;
+
     private final long id;
     private final OsmPrimitiveType type;
 
-    public static final Pattern ID_PATTERN = Pattern.compile("((n(ode)?|w(ay)?|r(el(ation)?)?)/?)(\\d+)");
+    public static final Pattern ID_PATTERN = Pattern.compile("((n(ode)?|w(ay)?|r(el(ation)?)?)[ /]?)(\\d+)");
 
     public static final Pattern MULTIPLE_IDS_PATTERN = Pattern.compile("((n(ode)?|w(ay)?|r(el(ation)?)?)/?)(\\d+)(-(\\d+))?");
 

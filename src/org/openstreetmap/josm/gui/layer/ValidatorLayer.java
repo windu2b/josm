@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui.layer;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -72,7 +72,7 @@ public class ValidatorLayer extends Layer implements LayerChangeListener {
             while (errorMessages.hasMoreElements()) {
                 Object tn = errorMessages.nextElement().getUserObject();
                 if (tn instanceof TestError) {
-                    paintVisitor.visit(((TestError) tn));
+                    paintVisitor.visit((TestError) tn);
                 }
             }
 
@@ -136,10 +136,6 @@ public class ValidatorLayer extends Layer implements LayerChangeListener {
                 new RenameLayerAction(null, this),
                 SeparatorLayerAction.INSTANCE,
                 new LayerListPopup.InfoAction(this) };
-    }
-
-    @Override
-    public void destroy() {
     }
 
     @Override

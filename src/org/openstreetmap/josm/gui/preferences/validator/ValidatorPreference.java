@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui.preferences.validator;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -30,7 +30,7 @@ public final class ValidatorPreference extends DefaultTabPreferenceSetting {
     }
 
     private ValidatorPreference() {
-        super("validator", tr("Data validator"),
+        super(/* ICON(preferences/) */ "validator", tr("Data validator"),
                 tr("An OSM data validator that checks for common errors made by users and editor programs."),
                 false, new JTabbedPane());
     }

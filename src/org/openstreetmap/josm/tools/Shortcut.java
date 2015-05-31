@@ -1,4 +1,4 @@
-//License: GPL. For details, see LICENSE file.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.tools;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -18,6 +18,7 @@ import javax.swing.JMenu;
 import javax.swing.KeyStroke;
 
 import org.openstreetmap.josm.Main;
+import org.openstreetmap.josm.gui.util.GuiHelper;
 
 /**
  * Global shortcut class.
@@ -26,12 +27,11 @@ import org.openstreetmap.josm.Main;
  *       shortcut objects from, manages shortcuts and shortcut collisions, and
  *       finally manages loading and saving shortcuts to/from the preferences.
  *
- * Action authors: You only need the {@link #registerShortcut} factory. Ignore everything
- *                 else.
+ * Action authors: You only need the {@link #registerShortcut} factory. Ignore everything else.
  *
  * All: Use only public methods that are also marked to be used. The others are
  *      public so the shortcut preferences can use them.
- *
+ * @since 1084
  */
 public final class Shortcut {
     private String shortText;        // the unique ID of the shortcut
@@ -81,15 +81,15 @@ public final class Shortcut {
         return assignedModifier;
     }
 
-    public boolean getAssignedDefault() {
+    public boolean isAssignedDefault() {
         return assignedDefault;
     }
 
-    public boolean getAssignedUser() {
+    public boolean isAssignedUser() {
         return assignedUser;
     }
 
-    public boolean getAutomatic() {
+    public boolean isAutomatic() {
         return automatic;
     }
 
@@ -97,7 +97,7 @@ public final class Shortcut {
         return !automatic && !"core:none".equals(shortText);
     }
 
-    private boolean getReset() {
+    private boolean isReset() {
         return reset;
     }
 
@@ -147,7 +147,7 @@ public final class Shortcut {
 
     // create a shortcut object from an string as saved in the preferences
     private Shortcut(String prefString) {
-        List<String> s = (new ArrayList<>(Main.pref.getCollection(prefString)));
+        List<String> s = new ArrayList<>(Main.pref.getCollection(prefString));
         this.shortText = prefString.substring(15);
         this.longText = s.get(0);
         this.requestedKey = Integer.parseInt(s.get(1));
@@ -166,7 +166,7 @@ public final class Shortcut {
 
     // get a string that can be put into the preferences
     private boolean save() {
-        if (getAutomatic() || getReset() || !getAssignedUser()) {
+        if (isAutomatic() || isReset() || !isAssignedUser()) {
             return Main.pref.putCollection("shortcut.entry."+shortText, null);
         } else {
             return Main.pref.putCollection("shortcut.entry."+shortText, Arrays.asList(new String[]{longText,
@@ -217,8 +217,8 @@ public final class Shortcut {
         KeyStroke keyStroke = getKeyStroke();
         if (keyStroke == null) return "";
         String modifText = KeyEvent.getKeyModifiersText(keyStroke.getModifiers());
-        if ("".equals (modifText)) return KeyEvent.getKeyText (keyStroke.getKeyCode ());
-        return modifText + "+" + KeyEvent.getKeyText(keyStroke.getKeyCode ());
+        if ("".equals (modifText)) return KeyEvent.getKeyText(keyStroke.getKeyCode());
+        return modifText + "+" + KeyEvent.getKeyText(keyStroke.getKeyCode());
     }
 
     @Override
@@ -252,25 +252,34 @@ public final class Shortcut {
      */
     public static List<Shortcut> listAll() {
         List<Shortcut> l = new ArrayList<>();
-        for(Shortcut c : shortcuts.values())
-        {
-            if(!"core:none".equals(c.shortText)) {
+        for (Shortcut c : shortcuts.values()) {
+            if (!"core:none".equals(c.shortText)) {
                 l.add(c);
             }
         }
         return l;
     }
 
+    /** None group: used with KeyEvent.CHAR_UNDEFINED if no shortcut is defined */
     public static final int NONE = 5000;
     public static final int MNEMONIC = 5001;
+    /** Reserved group: for system shortcuts only */
     public static final int RESERVED = 5002;
+    /** Direct group: no modifier */
     public static final int DIRECT = 5003;
+    /** Alt group */
     public static final int ALT = 5004;
+    /** Shift group */
     public static final int SHIFT = 5005;
+    /** Command group. Matches CTRL modifier on Windows/Linux but META modifier on OS X */
     public static final int CTRL = 5006;
+    /** Alt-Shift group */
     public static final int ALT_SHIFT = 5007;
+    /** Alt-Command group. Matches ALT-CTRL modifier on Windows/Linux but ALT-META modifier on OS X */
     public static final int ALT_CTRL = 5008;
+    /** Command-Shift group. Matches CTRL-SHIFT modifier on Windows/Linux but META-SHIFT modifier on OS X */
     public static final int CTRL_SHIFT = 5009;
+    /** Alt-Command-Shift group. Matches ALT-CTRL-SHIFT modifier on Windows/Linux but ALT-META-SHIFT modifier on OS X */
     public static final int ALT_CTRL_SHIFT = 5010;
 
     /* for reassignment */
@@ -284,41 +293,42 @@ public final class Shortcut {
     private static void doInit() {
         if (initdone) return;
         initdone = true;
+        int commandDownMask = GuiHelper.getMenuShortcutKeyMaskEx();
         groups.put(NONE, -1);
         groups.put(MNEMONIC, KeyEvent.ALT_DOWN_MASK);
         groups.put(DIRECT, 0);
         groups.put(ALT, KeyEvent.ALT_DOWN_MASK);
         groups.put(SHIFT, KeyEvent.SHIFT_DOWN_MASK);
-        groups.put(CTRL, KeyEvent.CTRL_DOWN_MASK);
+        groups.put(CTRL, commandDownMask);
         groups.put(ALT_SHIFT, KeyEvent.ALT_DOWN_MASK|KeyEvent.SHIFT_DOWN_MASK);
-        groups.put(ALT_CTRL, KeyEvent.ALT_DOWN_MASK|KeyEvent.CTRL_DOWN_MASK);
-        groups.put(CTRL_SHIFT, KeyEvent.CTRL_DOWN_MASK|KeyEvent.SHIFT_DOWN_MASK);
-        groups.put(ALT_CTRL_SHIFT, KeyEvent.ALT_DOWN_MASK|KeyEvent.CTRL_DOWN_MASK|KeyEvent.SHIFT_DOWN_MASK);
+        groups.put(ALT_CTRL, KeyEvent.ALT_DOWN_MASK|commandDownMask);
+        groups.put(CTRL_SHIFT, commandDownMask|KeyEvent.SHIFT_DOWN_MASK);
+        groups.put(ALT_CTRL_SHIFT, KeyEvent.ALT_DOWN_MASK|commandDownMask|KeyEvent.SHIFT_DOWN_MASK);
 
         // (1) System reserved shortcuts
         Main.platform.initSystemShortcuts();
         // (2) User defined shortcuts
-        LinkedList<Shortcut> newshortcuts = new LinkedList<>();
+        List<Shortcut> newshortcuts = new LinkedList<>();
         for(String s : Main.pref.getAllPrefixCollectionKeys("shortcut.entry.")) {
             newshortcuts.add(new Shortcut(s));
         }
 
         for(Shortcut sc : newshortcuts) {
-            if (sc.getAssignedUser()
+            if (sc.isAssignedUser()
             && findShortcut(sc.getAssignedKey(), sc.getAssignedModifier()) == null) {
                 shortcuts.put(sc.getShortText(), sc);
             }
         }
         // Shortcuts at their default values
         for(Shortcut sc : newshortcuts) {
-            if (!sc.getAssignedUser() && sc.getAssignedDefault()
+            if (!sc.isAssignedUser() && sc.isAssignedDefault()
             && findShortcut(sc.getAssignedKey(), sc.getAssignedModifier()) == null) {
                 shortcuts.put(sc.getShortText(), sc);
             }
         }
         // Shortcuts that were automatically moved
         for(Shortcut sc : newshortcuts) {
-            if (!sc.getAssignedUser() && !sc.getAssignedDefault()
+            if (!sc.isAssignedUser() && !sc.isAssignedDefault()
             && findShortcut(sc.getAssignedKey(), sc.getAssignedModifier()) == null) {
                 shortcuts.put(sc.getShortText(), sc);
             }
@@ -401,16 +411,18 @@ public final class Shortcut {
         }
         Shortcut conflict = findShortcut(requestedKey, defaultModifier);
         if (conflict != null) {
+            if (Main.isPlatformOsx()) {
+                // Try to reassign Meta to Ctrl
+                int newmodifier = findNewOsxModifier(requestedGroup);
+                if ( findShortcut(requestedKey, newmodifier) == null ) {
+                    return reassignShortcut(shortText, longText, requestedKey, conflict, requestedGroup, requestedKey, newmodifier);
+                }
+            }
             for (int m : mods) {
                 for (int k : keys) {
                     int newmodifier = getGroupModifier(m);
                     if ( findShortcut(k, newmodifier) == null ) {
-                        Shortcut newsc = new Shortcut(shortText, longText, requestedKey, m, k, newmodifier, false, false);
-                        Main.info(tr("Silent shortcut conflict: ''{0}'' moved by ''{1}'' to ''{2}''.",
-                            shortText, conflict.getShortText(), newsc.getKeyText()));
-                        newsc.saveDefault();
-                        shortcuts.put(shortText, newsc);
-                        return newsc;
+                        return reassignShortcut(shortText, longText, requestedKey, conflict, m, k, newmodifier);
                     }
                 }
             }
@@ -422,6 +434,26 @@ public final class Shortcut {
         }
 
         return null;
+    }
+
+    private static int findNewOsxModifier(int requestedGroup) {
+        switch (requestedGroup) {
+            case CTRL: return KeyEvent.CTRL_DOWN_MASK;
+            case ALT_CTRL: return KeyEvent.ALT_DOWN_MASK|KeyEvent.CTRL_DOWN_MASK;
+            case CTRL_SHIFT: return KeyEvent.CTRL_DOWN_MASK|KeyEvent.SHIFT_DOWN_MASK;
+            case ALT_CTRL_SHIFT: return KeyEvent.ALT_DOWN_MASK|KeyEvent.CTRL_DOWN_MASK|KeyEvent.SHIFT_DOWN_MASK;
+            default: return 0;
+        }
+    }
+
+    private static Shortcut reassignShortcut(String shortText, String longText, int requestedKey, Shortcut conflict,
+            int m, int k, int newmodifier) {
+        Shortcut newsc = new Shortcut(shortText, longText, requestedKey, m, k, newmodifier, false, false);
+        Main.info(tr("Silent shortcut conflict: ''{0}'' moved by ''{1}'' to ''{2}''.",
+            shortText, conflict.getShortText(), newsc.getKeyText()));
+        newsc.saveDefault();
+        shortcuts.put(shortText, newsc);
+        return newsc;
     }
 
     /**

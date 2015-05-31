@@ -37,10 +37,9 @@ import org.openstreetmap.josm.gui.MapScaler;
 import org.openstreetmap.josm.gui.MapStatus;
 import org.openstreetmap.josm.gui.conflict.ConflictColors;
 import org.openstreetmap.josm.gui.dialogs.ConflictDialog;
-import org.openstreetmap.josm.gui.layer.gpx.GpxDrawHelper;
-import org.openstreetmap.josm.gui.layer.GpxLayer;
 import org.openstreetmap.josm.gui.layer.ImageryLayer;
 import org.openstreetmap.josm.gui.layer.OsmDataLayer;
+import org.openstreetmap.josm.gui.layer.gpx.GpxDrawHelper;
 import org.openstreetmap.josm.gui.layer.markerlayer.MarkerLayer;
 import org.openstreetmap.josm.gui.preferences.PreferenceSetting;
 import org.openstreetmap.josm.gui.preferences.PreferenceSettingFactory;
@@ -184,8 +183,7 @@ public class ColorPreference implements SubPreferenceSetting {
         defaultAll.addActionListener(new ActionListener(){
             @Override
             public void actionPerformed(ActionEvent e) {
-                for(int i = 0; i < colors.getRowCount(); ++i)
-                {
+                for(int i = 0; i < colors.getRowCount(); ++i) {
                     String name = (String)colors.getValueAt(i, 0);
                     Color c = Main.pref.getDefaultColor(name);
                     if (c != null) {
@@ -208,7 +206,8 @@ public class ColorPreference implements SubPreferenceSetting {
         defaultSet.setEnabled(false);
 
         colors = new JTable(tableModel) {
-            @Override public boolean isCellEditable(int row, int column) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
                 return false;
             }
             @Override public void valueChanged(ListSelectionEvent e) {
@@ -276,14 +275,13 @@ public class ColorPreference implements SubPreferenceSetting {
 
     @Override
     public boolean ok() {
-        Boolean ret = false;
+        boolean ret = false;
         for(String d : del) {
             Main.pref.put("color."+d, null);
         }
         for (int i = 0; i < colors.getRowCount(); ++i) {
             String key = (String)colors.getValueAt(i, 0);
-            if(Main.pref.putColor(key, (Color)colors.getValueAt(i, 1)))
-            {
+            if(Main.pref.putColor(key, (Color)colors.getValueAt(i, 1))) {
                 if(key.startsWith("mappaint.")) {
                     ret = true;
                 }

@@ -48,16 +48,16 @@ public class MemberTableModel extends AbstractTableModel implements TableModelLi
     /**
      * data of the table model: The list of members and the cached WayConnectionType of each member.
      **/
-    private List<RelationMember> members;
-    private List<WayConnectionType> connectionType = null;
+    private transient List<RelationMember> members;
+    private transient List<WayConnectionType> connectionType = null;
 
     private DefaultListSelectionModel listSelectionModel;
     private final CopyOnWriteArrayList<IMemberModelListener> listeners;
-    private final OsmDataLayer layer;
-    private final PresetHandler presetHandler;
+    private final transient OsmDataLayer layer;
+    private final transient PresetHandler presetHandler;
 
-    private final WayConnectionTypeCalculator wayConnectionTypeCalculator = new WayConnectionTypeCalculator();
-    private final RelationSorter relationSorter = new RelationSorter();
+    private final transient WayConnectionTypeCalculator wayConnectionTypeCalculator = new WayConnectionTypeCalculator();
+    private final transient RelationSorter relationSorter = new RelationSorter();
 
     /**
      * constructor
@@ -101,17 +101,20 @@ public class MemberTableModel extends AbstractTableModel implements TableModelLi
     /* --------------------------------------------------------------------------- */
     @Override
     public void dataChanged(DataChangedEvent event) {
-        // just trigger a repaint - the display name of the relation members may
-        // have changed
+        // just trigger a repaint - the display name of the relation members may have changed
         Collection<RelationMember> sel = getSelectedMembers();
         fireTableDataChanged();
         setSelectedMembers(sel);
     }
 
     @Override
-    public void nodeMoved(NodeMovedEvent event) {/* ignore */}
+    public void nodeMoved(NodeMovedEvent event) {
+        // ignore
+    }
     @Override
-    public void primitivesAdded(PrimitivesAddedEvent event) {/* ignore */}
+    public void primitivesAdded(PrimitivesAddedEvent event) {
+        // ignore
+    }
 
     @Override
     public void primitivesRemoved(PrimitivesRemovedEvent event) {
@@ -141,10 +144,15 @@ public class MemberTableModel extends AbstractTableModel implements TableModelLi
     }
 
     @Override
-    public void wayNodesChanged(WayNodesChangedEvent event) {/* ignore */}
+    public void wayNodesChanged(WayNodesChangedEvent event) {
+        // ignore
+    }
 
     @Override
-    public void otherDatasetChange(AbstractDatasetChangedEvent event) {/* ignore */}
+    public void otherDatasetChange(AbstractDatasetChangedEvent event) {
+        // ignore
+    }
+
     /* --------------------------------------------------------------------------- */
 
     public void addMemberModelListener(IMemberModelListener listener) {
@@ -166,8 +174,7 @@ public class MemberTableModel extends AbstractTableModel implements TableModelLi
     public void populate(Relation relation) {
         members.clear();
         if (relation != null) {
-            // make sure we work with clones of the relation members
-            // in the model.
+            // make sure we work with clones of the relation members in the model.
             members.addAll(new Relation(relation).getMembers());
         }
         fireTableDataChanged();
@@ -204,6 +211,10 @@ public class MemberTableModel extends AbstractTableModel implements TableModelLi
 
     @Override
     public void setValueAt(Object value, int rowIndex, int columnIndex) {
+        // fix #10524 - IndexOutOfBoundsException: Index: 2, Size: 2
+        if (rowIndex >= members.size()) {
+            return;
+        }
         RelationMember member = members.get(rowIndex);
         RelationMember newMember = new RelationMember(value.toString(), member.getMember());
         members.remove(rowIndex);
@@ -277,14 +288,14 @@ public class MemberTableModel extends AbstractTableModel implements TableModelLi
         if (rows == null || rows.length == 0)
             return false;
         Arrays.sort(rows);
-        return rows[0] > 0 && members.size() > 0;
+        return rows[0] > 0 && !members.isEmpty();
     }
 
     public boolean canMoveDown(int[] rows) {
         if (rows == null || rows.length == 0)
             return false;
         Arrays.sort(rows);
-        return members.size() > 0 && rows[rows.length - 1] < members.size() - 1;
+        return !members.isEmpty() && rows[rows.length - 1] < members.size() - 1;
     }
 
     public boolean canRemove(int[] rows) {
@@ -462,6 +473,10 @@ public class MemberTableModel extends AbstractTableModel implements TableModelLi
         if (idx == null || idx.length == 0)
             return;
         for (int row : idx) {
+            // fix #7885 - IndexOutOfBoundsException: Index: 39, Size: 39
+            if (row >= members.size()) {
+                continue;
+            }
             RelationMember oldMember = members.get(row);
             RelationMember newMember = new RelationMember(role, oldMember.getMember());
             members.remove(row);
@@ -505,7 +520,7 @@ public class MemberTableModel extends AbstractTableModel implements TableModelLi
      * @return the set of selected referers
      */
     public Set<OsmPrimitive> getChildPrimitives(Collection<? extends OsmPrimitive> referenceSet) {
-        HashSet<OsmPrimitive> ret = new HashSet<>();
+        Set<OsmPrimitive> ret = new HashSet<>();
         if (referenceSet == null) return null;
         for (RelationMember m: members) {
             if (referenceSet.contains(m.getMember())) {
@@ -597,7 +612,7 @@ public class MemberTableModel extends AbstractTableModel implements TableModelLi
     public static boolean hasMembersReferringTo(Collection<RelationMember> members, Collection<OsmPrimitive> primitives) {
         if (primitives == null || primitives.isEmpty())
             return false;
-        HashSet<OsmPrimitive> referrers = new HashSet<>();
+        Set<OsmPrimitive> referrers = new HashSet<>();
         for (RelationMember member : members) {
             referrers.add(member.getMember());
         }
@@ -701,7 +716,6 @@ public class MemberTableModel extends AbstractTableModel implements TableModelLi
         fireTableDataChanged();
         setSelectedMembers(sortedMembers);
     }
-
 
     WayConnectionType getWayConnection(int i) {
         if (connectionType == null) {

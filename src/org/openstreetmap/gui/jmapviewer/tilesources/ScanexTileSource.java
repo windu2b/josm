@@ -45,8 +45,9 @@ public class ScanexTileSource extends TMSTileSource {
     /* IRS by default */
     private ScanexLayer Layer = ScanexLayer.IRS;
 
-    public ScanexTileSource(String name, String url, int maxZoom) {
-        super(name, url, maxZoom);
+    public ScanexTileSource(TileSourceInfo info) {
+        super(info);
+        String url = info.getUrl();
 
         for (ScanexLayer layer : ScanexLayer.values()) {
             if (url.equalsIgnoreCase(layer.getName())) {
@@ -77,6 +78,7 @@ public class ScanexTileSource extends TMSTileSource {
         return this.Layer.getUri() + "&apikey=" + API_KEY + "&x=" + tilex + "&y=" + tiley + "&z=" + zoom;
     }
 
+    @Override
     public TileUpdate getTileUpdate() {
         return TileUpdate.IfNoneMatch;
     }
@@ -91,12 +93,12 @@ public class ScanexTileSource extends TMSTileSource {
 
     @Override
     public int LatToY(double lat, int zoom) {
-        return (int )(latToTileY(lat, zoom) * OsmMercator.TILE_SIZE);
+        return (int )(latToTileY(lat, zoom) * tileSize);
     }
- 
+
     @Override
     public double YToLat(int y, int zoom) {
-        return tileYToLat((double )y / OsmMercator.TILE_SIZE, zoom);
+        return tileYToLat((double )y / tileSize, zoom);
     }
 
     @Override

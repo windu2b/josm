@@ -10,9 +10,11 @@ import java.awt.event.KeyEvent;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -27,8 +29,6 @@ import org.openstreetmap.josm.data.osm.DatasetConsistencyTest;
 import org.openstreetmap.josm.gui.ExtendedDialog;
 import org.openstreetmap.josm.gui.widgets.JosmTextArea;
 import org.openstreetmap.josm.plugins.PluginHandler;
-import org.openstreetmap.josm.tools.BugReportExceptionHandler;
-import org.openstreetmap.josm.tools.OpenBrowser;
 import org.openstreetmap.josm.tools.PlatformHookUnixoid;
 import org.openstreetmap.josm.tools.Shortcut;
 import org.openstreetmap.josm.tools.Utils;
@@ -69,35 +69,33 @@ public final class ShowStatusReportAction extends JosmAction {
      */
     public static String getReportHeader() {
         StringBuilder text = new StringBuilder();
-        text.append(Version.getInstance().getReleaseAttributes());
-        text.append("\n");
-        text.append("Identification: " + Version.getInstance().getAgentString());
-        text.append("\n");
-        text.append("Memory Usage: ");
-        text.append(Runtime.getRuntime().totalMemory()/1024/1024);
-        text.append(" MB / ");
-        text.append(Runtime.getRuntime().maxMemory()/1024/1024);
-        text.append(" MB (");
-        text.append(Runtime.getRuntime().freeMemory()/1024/1024);
-        text.append(" MB allocated, but free)");
-        text.append("\n");
-        text.append("Java version: " + System.getProperty("java.version") + ", " + System.getProperty("java.vendor") + ", " + System.getProperty("java.vm.name"));
-        text.append("\n");
+        text.append(Version.getInstance().getReleaseAttributes())
+            .append("\nIdentification: ").append(Version.getInstance().getAgentString())
+            .append("\nMemory Usage: ")
+            .append(Runtime.getRuntime().totalMemory()/1024/1024)
+            .append(" MB / ")
+            .append(Runtime.getRuntime().maxMemory()/1024/1024)
+            .append(" MB (")
+            .append(Runtime.getRuntime().freeMemory()/1024/1024)
+            .append(" MB allocated, but free)\nJava version: ")
+            .append(System.getProperty("java.version")).append(", ")
+            .append(System.getProperty("java.vendor")).append(", ")
+            .append(System.getProperty("java.vm.name")).append('\n');
         if (Main.platform.getClass() == PlatformHookUnixoid.class) {
             // Add Java package details
             String packageDetails = ((PlatformHookUnixoid) Main.platform).getJavaPackageDetails();
             if (packageDetails != null) {
-                text.append("Java package: ");
-                text.append(packageDetails);
-                text.append("\n");
+                text.append("Java package: ")
+                    .append(packageDetails)
+                    .append('\n');
             }
             // Add WebStart package details if run from JNLP
             if (Package.getPackage("javax.jnlp") != null) {
                 String webStartDetails = ((PlatformHookUnixoid) Main.platform).getWebStartPackageDetails();
                 if (webStartDetails != null) {
-                    text.append("WebStart package: ");
-                    text.append(webStartDetails);
-                    text.append("\n");
+                    text.append("WebStart package: ")
+                        .append(webStartDetails)
+                        .append('\n');
                 }
             }
         }
@@ -113,40 +111,49 @@ public final class ShowStatusReportAction extends JosmAction {
                 if (value.contains("=")) {
                     String[] param = value.split("=");
                     // Hide some parameters for privacy concerns
-                    if (param[0].toLowerCase().startsWith("-dproxy")) {
+                    if (param[0].toLowerCase(Locale.ENGLISH).startsWith("-dproxy")) {
                         it.set(param[0]+"=xxx");
                     // Shorten some parameters for readability concerns
                     } else {
                         shortenParam(it, param, envJavaHome, envJavaHomeAlt);
                         shortenParam(it, param, propJavaHome, propJavaHomeAlt);
                     }
+                } else if (value.startsWith("-X")) {
+                    // Remove arguments like -Xbootclasspath/a, -Xverify:remote, that can be very long and unhelpful
+                    it.remove();
                 }
             }
             if (!vmArguments.isEmpty()) {
-                text.append("VM arguments: "+ vmArguments.toString().replace("\\\\", "\\"));
-                text.append("\n");
+                text.append("VM arguments: ").append(vmArguments.toString().replace("\\\\", "\\")).append('\n');
             }
         } catch (SecurityException e) {
             // Ignore exception
         }
-        if (Main.commandLineArgs.length > 0) {
-            text.append("Program arguments: "+ Arrays.toString(Main.commandLineArgs));
-            text.append("\n");
+        List<String> commandLineArgs = Main.getCommandLineArgs();
+        if (!commandLineArgs.isEmpty()) {
+            text.append("Program arguments: ").append(Arrays.toString(commandLineArgs.toArray())).append('\n');
         }
         if (Main.main != null) {
             DataSet dataset = Main.main.getCurrentDataSet();
             if (dataset != null) {
                 String result = DatasetConsistencyTest.runTests(dataset);
-                if (result.length() == 0) {
+                if (result.isEmpty()) {
                     text.append("Dataset consistency test: No problems found\n");
                 } else {
-                    text.append("\nDataset consistency test:\n"+result+"\n");
+                    text.append("\nDataset consistency test:\n").append(result).append('\n');
                 }
             }
         }
-        text.append("\n");
-        text.append(PluginHandler.getBugReportText());
-        text.append("\n");
+        text.append('\n').append(PluginHandler.getBugReportText()).append('\n');
+
+        Collection<String> errorsWarnings = Main.getLastErrorAndWarnings();
+        if (!errorsWarnings.isEmpty()) {
+            text.append("Last errors/warnings:\n");
+            for (String s : errorsWarnings) {
+                text.append("- ").append(s).append('\n');
+            }
+            text.append('\n');
+        }
 
         return text.toString();
     }
@@ -166,7 +173,7 @@ public final class ShowStatusReportAction extends JosmAction {
                 }
             }
             for (Entry<String, Setting<?>> entry : settings.entrySet()) {
-                text.append(entry.getKey()).append("=").append(entry.getValue().getValue().toString()).append("\n");
+                text.append(entry.getKey()).append('=').append(entry.getValue().getValue()).append('\n');
             }
         } catch (Exception x) {
             Main.error(x);
@@ -181,15 +188,14 @@ public final class ShowStatusReportAction extends JosmAction {
         ExtendedDialog ed = new ExtendedDialog(Main.parent,
                 tr("Status Report"),
                 new String[] {tr("Copy to clipboard and close"), tr("Report bug"), tr("Close") });
-        ed.setButtonIcons(new String[] {"copy.png", "bug.png", "cancel.png" });
+        ed.setButtonIcons(new String[] {"copy", "bug", "cancel" });
         ed.setContent(sp, false);
         ed.setMinimumSize(new Dimension(380, 200));
         ed.setPreferredSize(new Dimension(700, Main.parent.getHeight()-50));
 
         switch (ed.showDialog().getValue()) {
             case 1: Utils.copyToClipboard(text.toString()); break;
-            case 2: OpenBrowser.displayUrl(BugReportExceptionHandler.getBugReportUrl(
-                        Utils.strip(reportHeader)).toExternalForm()) ; break;
+            case 2: ReportBugAction.reportBug(reportHeader) ; break;
         }
     }
 }

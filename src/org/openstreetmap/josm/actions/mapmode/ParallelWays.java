@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.actions.mapmode;
 
 import java.util.ArrayList;
@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.openstreetmap.josm.Main;
@@ -25,7 +26,7 @@ import org.openstreetmap.josm.tools.Geometry;
  * @author Ole Jørgen Brønner (olejorgenb)
  */
 public class ParallelWays {
-    final List<Way> ways;
+    private final List<Way> ways;
     private final List<Node> sortedNodes;
 
     private final int nodeCount;
@@ -39,7 +40,7 @@ public class ParallelWays {
 
         // Make a deep copy of the ways, keeping the copied ways connected
         // TODO: This assumes the first/last nodes of the ways are the only possible shared nodes.
-        HashMap<Node, Node> splitNodeMap = new HashMap<>(sourceWays.size());
+        Map<Node, Node> splitNodeMap = new HashMap<>(sourceWays.size());
         for (Way w : sourceWays) {
             if (!splitNodeMap.containsKey(w.firstNode())) {
                 splitNodeMap.put(w.firstNode(), copyNode(w.firstNode(), copyTags));
@@ -193,5 +194,9 @@ public class ParallelWays {
             n.setCoor(source.getCoor());
             return n;
         }
+    }
+
+    public final List<Way> getWays() {
+        return ways;
     }
 }

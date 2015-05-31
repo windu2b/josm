@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui.layer.gpx;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -22,16 +22,16 @@ import org.openstreetmap.josm.gui.widgets.DateEditorWithSlider;
 import org.openstreetmap.josm.tools.GBC;
 
 public class DateFilterPanel extends JPanel {
-    DateEditorWithSlider dateFrom = new DateEditorWithSlider(tr("From"));
-    DateEditorWithSlider dateTo = new DateEditorWithSlider(tr("To"));
-    JCheckBox noTimestampCb  = new JCheckBox(tr("No timestamp"));
-    GpxLayer layer;
-    
-    ActionListener filterAppliedListener;
-    
-    final String PREF_DATE_0;
-    final String PREF_DATE_MIN;
-    final String PREF_DATE_MAX;
+    private DateEditorWithSlider dateFrom = new DateEditorWithSlider(tr("From"));
+    private DateEditorWithSlider dateTo = new DateEditorWithSlider(tr("To"));
+    private JCheckBox noTimestampCb  = new JCheckBox(tr("No timestamp"));
+    private transient GpxLayer layer;
+
+    private transient ActionListener filterAppliedListener;
+
+    private final String prefDate0;
+    private final String prefDateMin;
+    private final String prefDateMax;
 
     /**
      * Create the panel to filter tracks on GPX layer @param layer by date
@@ -40,44 +40,44 @@ public class DateFilterPanel extends JPanel {
      */
     public DateFilterPanel(GpxLayer layer, String preferencePrefix, boolean enabled) {
         super(new GridBagLayout());
-        PREF_DATE_0 = preferencePrefix+".showzerotimestamp";
-        PREF_DATE_MIN = preferencePrefix+".mintime";
-        PREF_DATE_MAX = preferencePrefix+".maxtime";
+        prefDate0 = preferencePrefix+".showzerotimestamp";
+        prefDateMin = preferencePrefix+".mintime";
+        prefDateMax = preferencePrefix+".maxtime";
         this.layer = layer;
-        
+
         final Date startTime, endTime;
         Date[] bounds = layer.data.getMinMaxTimeForAllTracks();
-        startTime = (bounds==null) ? new GregorianCalendar(2000, 1, 1).getTime():bounds[0];
-        endTime = (bounds==null) ? new Date() : bounds[1];
-                
-        dateFrom.setDate(startTime); 
+        startTime = (bounds.length == 0) ? new GregorianCalendar(2000, 1, 1).getTime():bounds[0];
+        endTime = (bounds.length == 0) ? new Date() : bounds[1];
+
+        dateFrom.setDate(startTime);
         dateTo.setDate(endTime);
-        dateFrom.setRange(startTime, endTime); 
-        dateTo.setRange(startTime, endTime); 
-        
+        dateFrom.setRange(startTime, endTime);
+        dateTo.setRange(startTime, endTime);
+
         add(noTimestampCb, GBC.std().grid(1,1).insets(0, 0, 5, 0));
         add(dateFrom, GBC.std().grid(2,1).fill(GBC.HORIZONTAL));
         add(dateTo, GBC.eol().grid(3,1).fill(GBC.HORIZONTAL));
-        
+
         setEnabled(enabled);
-        
+
         dateFrom.addDateListener(changeListener);
         dateTo.addDateListener(changeListener);
         noTimestampCb.addChangeListener(changeListener);
     }
-    
-    private ChangeListener changeListener = new ChangeListener() {
+
+    private transient ChangeListener changeListener = new ChangeListener() {
         @Override public void stateChanged(ChangeEvent e) {
             if (isEnabled()) applyFilterWithDelay();
         }
     };
-    
+
     private Timer t = new Timer(200 , new ActionListener() {
         @Override  public void actionPerformed(ActionEvent e) {
             applyFilter();
         }
     });
-    
+
     /**
      * Do filtering but little bit later (to reduce cpu load)
      */
@@ -88,21 +88,21 @@ public class DateFilterPanel extends JPanel {
             t.start();
         }
     }
-    
+
     public void applyFilter() {
         t.stop();
         filterTracksByDate();
         if (filterAppliedListener!=null)
            filterAppliedListener.actionPerformed(null);
     }
-    
+
     /**
      * Called by other components when it is correct time to save date filtering parameters
      */
     public void saveInPrefs() {
-        Main.pref.putLong(PREF_DATE_MIN, dateFrom.getDate().getTime());
-        Main.pref.putLong(PREF_DATE_MAX, dateTo.getDate().getTime());
-        Main.pref.put(PREF_DATE_0, noTimestampCb.isSelected());
+        Main.pref.putLong(prefDateMin, dateFrom.getDate().getTime());
+        Main.pref.putLong(prefDateMax, dateTo.getDate().getTime());
+        Main.pref.put(prefDate0, noTimestampCb.isSelected());
     }
 
     /**
@@ -110,17 +110,17 @@ public class DateFilterPanel extends JPanel {
      * Called by other components when it is needed.
      */
     public void loadFromPrefs() {
-        long t1 =Main.pref.getLong(PREF_DATE_MIN, 0);
+        long t1 =Main.pref.getLong(prefDateMin, 0);
         if (t1!=0) dateFrom.setDate(new Date(t1));
-        long t2 =Main.pref.getLong(PREF_DATE_MAX, 0);
+        long t2 =Main.pref.getLong(prefDateMax, 0);
         if (t2!=0) dateTo.setDate(new Date(t2));
-        noTimestampCb.setSelected(Main.pref.getBoolean(PREF_DATE_0, false));
+        noTimestampCb.setSelected(Main.pref.getBoolean(prefDate0, false));
     }
 
     public void setFilterAppliedListener(ActionListener filterAppliedListener) {
         this.filterAppliedListener = filterAppliedListener;
     }
-    
+
     private void filterTracksByDate() {
         Date from = dateFrom.getDate();
         Date to = dateTo.getDate();
@@ -129,7 +129,7 @@ public class DateFilterPanel extends JPanel {
 
     @Override
     public final void setEnabled(boolean enabled) {
-        super.setEnabled(enabled); 
+        super.setEnabled(enabled);
         for (Component c: getComponents()) {
             c.setEnabled(enabled);
         }

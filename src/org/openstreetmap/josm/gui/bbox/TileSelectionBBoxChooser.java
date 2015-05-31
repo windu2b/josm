@@ -82,7 +82,7 @@ import org.openstreetmap.josm.tools.ImageProvider;
 public class TileSelectionBBoxChooser extends JPanel implements BBoxChooser{
 
     /** the current bounding box */
-    private Bounds bbox;
+    private transient Bounds bbox;
     /** the map viewer showing the selected bounding box */
     private TileBoundsMapView mapViewer;
     /** a panel for entering a bounding box given by a  tile grid and a zoom level */
@@ -223,12 +223,12 @@ public class TileSelectionBBoxChooser extends JPanel implements BBoxChooser{
         private JosmTextField tfMinY;
         private JosmTextField tfMaxX;
         private JosmTextField tfMinX;
-        private TileCoordinateValidator valMaxY;
-        private TileCoordinateValidator valMinY;
-        private TileCoordinateValidator valMaxX;
-        private TileCoordinateValidator valMinX;
+        private transient TileCoordinateValidator valMaxY;
+        private transient TileCoordinateValidator valMinY;
+        private transient TileCoordinateValidator valMaxX;
+        private transient TileCoordinateValidator valMinX;
         private JSpinner spZoomLevel;
-        private TileBoundsBuilder tileBoundsBuilder = new TileBoundsBuilder();
+        private transient TileBoundsBuilder tileBoundsBuilder = new TileBoundsBuilder();
         private boolean doFireTileBoundChanged = true;
 
         protected JPanel buildTextPanel() {
@@ -413,7 +413,9 @@ public class TileSelectionBBoxChooser extends JPanel implements BBoxChooser{
             }
 
             @Override
-            public void focusGained(FocusEvent e) {/* irrelevant */}
+            public void focusGained(FocusEvent e) {
+                /* irrelevant */
+            }
 
             @Override
             public void focusLost(FocusEvent e) {
@@ -441,7 +443,7 @@ public class TileSelectionBBoxChooser extends JPanel implements BBoxChooser{
         public static final String TILE_BOUNDS_PROP = TileAddressInputPanel.class.getName() + ".tileBounds";
 
         private JosmTextField tfTileAddress;
-        private TileAddressValidator valTileAddress;
+        private transient TileAddressValidator valTileAddress;
 
         protected JPanel buildTextPanel() {
             JPanel pnl = new JPanel(new BorderLayout());
@@ -529,7 +531,7 @@ public class TileSelectionBBoxChooser extends JPanel implements BBoxChooser{
 
         private TileBounds tileBounds = null;
 
-        public TileAddressValidator(JTextComponent tc) throws IllegalArgumentException {
+        public TileAddressValidator(JTextComponent tc) {
             super(tc);
         }
 
@@ -588,7 +590,7 @@ public class TileSelectionBBoxChooser extends JPanel implements BBoxChooser{
         private int zoomLevel;
         private int tileIndex;
 
-        public TileCoordinateValidator(JTextComponent tc) throws IllegalArgumentException {
+        public TileCoordinateValidator(JTextComponent tc) {
             super(tc);
         }
 
@@ -630,20 +632,19 @@ public class TileSelectionBBoxChooser extends JPanel implements BBoxChooser{
 
     /**
      * Represents a rectangular area of tiles at a given zoom level.
-     *
      */
-    private static class TileBounds {
-        public Point min;
-        public Point max;
-        public int zoomLevel;
+    private static final class TileBounds {
+        private Point min;
+        private Point max;
+        private int zoomLevel;
 
-        public TileBounds() {
+        private TileBounds() {
             zoomLevel = 0;
             min = new Point(0,0);
             max = new Point(0,0);
         }
 
-        public TileBounds(Point min, Point max, int zoomLevel) {
+        private TileBounds(Point min, Point max, int zoomLevel) {
             this.min = min;
             this.max = max;
             this.zoomLevel = zoomLevel;
@@ -651,10 +652,10 @@ public class TileSelectionBBoxChooser extends JPanel implements BBoxChooser{
 
         @Override
         public String toString() {
-            StringBuilder sb = new StringBuilder();
-            sb.append("min=").append(min.x).append(",").append(min.y).append(",");
-            sb.append("max=").append(max.x).append(",").append(max.y).append(",");
-            sb.append("zoom=").append(zoomLevel);
+            StringBuilder sb = new StringBuilder(24);
+            sb.append("min=").append(min.x).append(',').append(min.y)
+              .append(",max=").append(max.x).append(',').append(max.y)
+              .append(",zoom=").append(zoomLevel);
             return sb.toString();
         }
     }
@@ -662,11 +663,11 @@ public class TileSelectionBBoxChooser extends JPanel implements BBoxChooser{
     /**
      * The map view used in this bounding box chooser
      */
-    private static class TileBoundsMapView extends JMapViewer {
+    private static final class TileBoundsMapView extends JMapViewer {
         private Point min;
         private Point max;
 
-        public TileBoundsMapView() {
+        private TileBoundsMapView() {
             setBorder(BorderFactory.createLineBorder(Color.DARK_GRAY));
             TileLoader loader = tileController.getTileLoader();
             if (loader instanceof OsmTileLoader) {

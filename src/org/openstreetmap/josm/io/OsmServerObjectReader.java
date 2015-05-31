@@ -1,4 +1,4 @@
-//License: GPL. For details, see LICENSE file.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.io;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -39,10 +39,10 @@ public class OsmServerObjectReader extends OsmServerReader {
      * @param type the type. Must not be null.
      * @param full true, if a full download is requested (i.e. a download including
      * immediate children); false, otherwise
-     * @throws IllegalArgumentException thrown if id &lt;= 0
-     * @throws IllegalArgumentException thrown if type is null
+     * @throws IllegalArgumentException if id &lt;= 0
+     * @throws IllegalArgumentException if type is null
      */
-    public OsmServerObjectReader(long id, OsmPrimitiveType type, boolean full) throws IllegalArgumentException {
+    public OsmServerObjectReader(long id, OsmPrimitiveType type, boolean full) {
         this(id, type, full, -1);
     }
 
@@ -52,14 +52,14 @@ public class OsmServerObjectReader extends OsmServerReader {
      * @param id the object id. &gt; 0 required.
      * @param type the type. Must not be null.
      * @param version the specific version number, if required; -1, otherwise
-     * @throws IllegalArgumentException thrown if id &lt;= 0
-     * @throws IllegalArgumentException thrown if type is null
+     * @throws IllegalArgumentException if id &lt;= 0
+     * @throws IllegalArgumentException if type is null
      */
-    public OsmServerObjectReader(long id, OsmPrimitiveType type, int version) throws IllegalArgumentException {
+    public OsmServerObjectReader(long id, OsmPrimitiveType type, int version) {
         this(id, type, false, version);
     }
 
-    protected OsmServerObjectReader(long id, OsmPrimitiveType type, boolean full, int version) throws IllegalArgumentException {
+    protected OsmServerObjectReader(long id, OsmPrimitiveType type, boolean full, int version) {
         if (id <= 0)
             throw new IllegalArgumentException(MessageFormat.format("Expected value > 0 for parameter ''{0}'', got {1}", "id", id));
         CheckParameterUtil.ensureParameterNotNull(type, "type");
@@ -74,8 +74,8 @@ public class OsmServerObjectReader extends OsmServerReader {
      * @param id the object id. Must not be null. Unique id &gt; 0 required.
      * @param full true, if a full download is requested (i.e. a download including
      * immediate children); false, otherwise
-     * @throws IllegalArgumentException thrown if id is null
-     * @throws IllegalArgumentException thrown if id.getUniqueId() &lt;= 0
+     * @throws IllegalArgumentException if id is null
+     * @throws IllegalArgumentException if id.getUniqueId() &lt;= 0
      */
     public OsmServerObjectReader(PrimitiveId id, boolean full) {
         this(id, full, -1);
@@ -86,8 +86,8 @@ public class OsmServerObjectReader extends OsmServerReader {
      *
      * @param id the object id. Must not be null. Unique id &gt; 0 required.
      * @param version the specific version number, if required; -1, otherwise
-     * @throws IllegalArgumentException thrown if id is null
-     * @throws IllegalArgumentException thrown if id.getUniqueId() &lt;= 0
+     * @throws IllegalArgumentException if id is null
+     * @throws IllegalArgumentException if id.getUniqueId() &lt;= 0
      */
     public OsmServerObjectReader(PrimitiveId id, int version) {
         this(id, false, version);
@@ -103,8 +103,7 @@ public class OsmServerObjectReader extends OsmServerReader {
     /**
      * Downloads and parses the data.
      *
-     * @param progressMonitor the progress monitor. Set to {@link NullProgressMonitor#INSTANCE} if
-     * null
+     * @param progressMonitor the progress monitor. Set to {@link NullProgressMonitor#INSTANCE} if null
      * @return the downloaded data
      * @throws OsmTransferException
      */
@@ -117,13 +116,13 @@ public class OsmServerObjectReader extends OsmServerReader {
         try {
             progressMonitor.indeterminateSubTask(tr("Downloading OSM data..."));
             StringBuilder sb = new StringBuilder();
-            sb.append(id.getType().getAPIName());
-            sb.append("/");
-            sb.append(id.getUniqueId());
+            sb.append(id.getType().getAPIName())
+              .append('/')
+              .append(id.getUniqueId());
             if (full && ! id.getType().equals(OsmPrimitiveType.NODE)) {
                 sb.append("/full");
             } else if (version > 0) {
-                sb.append("/").append(version);
+                sb.append('/').append(version);
             }
 
             try (InputStream in = getInputStream(sb.toString(), progressMonitor.createSubTaskMonitor(1, true))) {

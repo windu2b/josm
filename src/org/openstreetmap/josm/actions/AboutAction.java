@@ -1,4 +1,4 @@
-//License: GPL. For details, see LICENSE file.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.actions;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -42,7 +42,7 @@ public class AboutAction extends JosmAction {
      * Constructs a new {@code AboutAction}.
      */
     public AboutAction() {
-        super(tr("About"), "about", tr("Display the about screen."),
+        super(tr("About"), "logo", tr("Display the about screen."),
             Shortcut.registerShortcut("system:about", tr("About"),
             KeyEvent.VK_F1, Shortcut.SHIFT), true);
     }

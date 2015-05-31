@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.data.validation.tests;
 
 import static org.openstreetmap.josm.tools.I18n.marktr;
@@ -58,14 +58,14 @@ public class DuplicateNode extends Test {
                 LatLon coor = ((Node) o).getCoor();
                 if (coor == null)
                     return null;
-                if (precision==0)
+                if (precision == 0)
                     return coor.getRoundedToOsmPrecision();
                 return roundCoord(coor);
             } else if (o instanceof List<?>) {
                 LatLon coor = ((List<Node>) o).get(0).getCoor();
                 if (coor == null)
                     return null;
-                if (precision==0)
+                if (precision == 0)
                     return coor.getRoundedToOsmPrecision();
                 return roundCoord(coor);
             } else
@@ -385,7 +385,7 @@ public class DuplicateNode extends Test {
     public Command fixError(TestError testError) {
         if (!isFixable(testError)) return null;
         Collection<OsmPrimitive> sel = new LinkedList<>(testError.getPrimitives());
-        LinkedHashSet<Node> nodes = new LinkedHashSet<>(OsmPrimitive.getFilteredList(sel, Node.class));
+        Set<Node> nodes = new LinkedHashSet<>(OsmPrimitive.getFilteredList(sel, Node.class));
 
         // Filter nodes that have already been deleted (see #5764 and #5773)
         for (Iterator<Node> it = nodes.iterator(); it.hasNext();) {

@@ -10,7 +10,6 @@ import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParserFactory;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.osm.ChangesetDataSet;
@@ -18,6 +17,7 @@ import org.openstreetmap.josm.data.osm.ChangesetDataSet.ChangesetModificationTyp
 import org.openstreetmap.josm.gui.progress.NullProgressMonitor;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
+import org.openstreetmap.josm.tools.Utils;
 import org.openstreetmap.josm.tools.XmlParsingException;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
@@ -43,8 +43,9 @@ public class OsmChangesetContentParser {
             throw new XmlParsingException(message).rememberLocation(locator);
         }
 
-        protected void throwException(Exception e) throws XmlParsingException {
-            throw new XmlParsingException(e).rememberLocation(locator);
+        @Override
+        protected void throwException(String message, Exception e) throws XmlParsingException {
+            throw new XmlParsingException(message, e).rememberLocation(locator);
         }
 
         @Override
@@ -83,18 +84,12 @@ public class OsmChangesetContentParser {
                 }
                 data.put(currentPrimitive, currentModificationType);
                 break;
-            case "osmChange":
-                // do nothing
-                break;
             case "create":
-                currentModificationType = null;
-                break;
             case "modify":
-                currentModificationType = null;
-                break;
             case "delete":
                 currentModificationType = null;
                 break;
+            case "osmChange":
             case "tag":
             case "nd":
             case "member":
@@ -108,12 +103,12 @@ public class OsmChangesetContentParser {
 
         @Override
         public void error(SAXParseException e) throws SAXException {
-            throwException(e);
+            throwException(null, e);
         }
 
         @Override
         public void fatalError(SAXParseException e) throws SAXException {
-            throwException(e);
+            throwException(null, e);
         }
     }
 
@@ -155,7 +150,7 @@ public class OsmChangesetContentParser {
         try {
             progressMonitor.beginTask("");
             progressMonitor.indeterminateSubTask(tr("Parsing changeset content ..."));
-            SAXParserFactory.newInstance().newSAXParser().parse(source, new Parser());
+            Utils.parseSafeSAX(source, new Parser());
         } catch(XmlParsingException e) {
             throw e;
         } catch (ParserConfigurationException | SAXException | IOException e) {

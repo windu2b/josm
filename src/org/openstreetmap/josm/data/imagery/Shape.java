@@ -20,9 +20,9 @@ import org.openstreetmap.josm.tools.Geometry;
  */
 public class Shape {
 
-    private List<Coordinate> coords = new ArrayList<>();
+    private final List<Coordinate> coords = new ArrayList<>();
 
-    public Shape(String asString, String separator) throws IllegalArgumentException {
+    public Shape(String asString, String separator) {
         CheckParameterUtil.ensureParameterNotNull(asString, "asString");
         String[] components = asString.split(separator);
         if (components.length % 2 != 0)
@@ -32,7 +32,11 @@ public class Shape {
         }
     }
 
+    /**
+     * Constructs a new empty {@code Shape}.
+     */
     public Shape() {
+        // shape contents can be set later with addPoint()
     }
 
     public String encodeAsString(String separator) {
@@ -60,7 +64,7 @@ public class Shape {
         return Geometry.nodeInsidePolygon(new Node(latlon), nodes);
     }
 
-    public void addPoint(String sLat, String sLon) throws IllegalArgumentException {
+    public void addPoint(String sLat, String sLon) {
         CheckParameterUtil.ensureParameterNotNull(sLat, "sLat");
         CheckParameterUtil.ensureParameterNotNull(sLon, "sLon");
 
@@ -71,7 +75,7 @@ public class Shape {
             if (!LatLon.isValidLat(lat))
                 throw new IllegalArgumentException(tr("Illegal latitude value ''{0}''", lat));
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException(MessageFormat.format("Illegal double value ''{0}''", sLat));
+            throw new IllegalArgumentException(MessageFormat.format("Illegal double value ''{0}''", sLat), e);
         }
 
         try {
@@ -79,7 +83,7 @@ public class Shape {
             if (!LatLon.isValidLon(lon))
                 throw new IllegalArgumentException(tr("Illegal longitude value ''{0}''", lon));
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException(MessageFormat.format("Illegal double value ''{0}''", sLon));
+            throw new IllegalArgumentException(MessageFormat.format("Illegal double value ''{0}''", sLon), e);
         }
 
         coords.add(new Coordinate(LatLon.roundToOsmPrecision(lat), LatLon.roundToOsmPrecision(lon)));
@@ -106,6 +110,4 @@ public class Shape {
         }
         return true;
     }
-    
-    
 }

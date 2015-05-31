@@ -13,6 +13,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 import javax.swing.JOptionPane;
 
@@ -37,7 +38,7 @@ import org.openstreetmap.josm.tools.Shortcut;
  * @since 2575
  */
 public class SimplifyWayAction extends JosmAction {
-    
+
     /**
      * Constructs a new {@code SimplifyWayAction}.
      */
@@ -190,7 +191,7 @@ public class SimplifyWayAction extends JosmAction {
             i++;
         }
 
-        HashSet<Node> delNodes = new HashSet<>();
+        Set<Node> delNodes = new HashSet<>();
         delNodes.addAll(w.getNodes());
         delNodes.removeAll(newNodes);
 

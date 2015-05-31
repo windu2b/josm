@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui.dialogs;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -27,6 +27,7 @@ import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreePath;
 
 import org.openstreetmap.josm.Main;
+import org.openstreetmap.josm.actions.AbstractSelectAction;
 import org.openstreetmap.josm.actions.AutoScaleAction;
 import org.openstreetmap.josm.actions.relation.EditRelationAction;
 import org.openstreetmap.josm.command.Command;
@@ -76,12 +77,12 @@ public class ValidatorDialog extends ToggleDialog implements SelectionChangedLis
     private SideButton selectButton;
 
     private final JPopupMenu popupMenu = new JPopupMenu();
-    private final PopupMenuHandler popupMenuHandler = new PopupMenuHandler(popupMenu);
+    private final transient PopupMenuHandler popupMenuHandler = new PopupMenuHandler(popupMenu);
 
     /** Last selected element */
     private DefaultMutableTreeNode lastSelectedNode = null;
 
-    private OsmDataLayer linkedLayer;
+    private transient OsmDataLayer linkedLayer;
 
     /**
      * Constructor
@@ -101,12 +102,7 @@ public class ValidatorDialog extends ToggleDialog implements SelectionChangedLis
 
         List<SideButton> buttons = new LinkedList<>();
 
-        selectButton = new SideButton(new AbstractAction() {
-            {
-                putValue(NAME, tr("Select"));
-                putValue(SHORT_DESCRIPTION,  tr("Set the selected elements on the map to the selected items in the list above."));
-                putValue(SMALL_ICON, ImageProvider.get("dialogs","select"));
-            }
+        selectButton = new SideButton(new AbstractSelectAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 setSelectedItems();
@@ -193,7 +189,7 @@ public class ValidatorDialog extends ToggleDialog implements SelectionChangedLis
 
         Set<DefaultMutableTreeNode> processedNodes = new HashSet<>();
 
-        LinkedList<TestError> errorsToFix = new LinkedList<>();
+        List<TestError> errorsToFix = new LinkedList<>();
         for (TreePath path : selectionPaths) {
             DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
             if (node == null) {
@@ -270,7 +266,7 @@ public class ValidatorDialog extends ToggleDialog implements SelectionChangedLis
                         OsmValidator.addIgnoredError(s);
                     }
                     continue;
-                } else if (asked == JOptionPane.CANCEL_OPTION) {
+                } else if (asked == JOptionPane.CANCEL_OPTION || asked == JOptionPane.CLOSED_OPTION) {
                     continue;
                 }
             }
@@ -396,7 +392,9 @@ public class ValidatorDialog extends ToggleDialog implements SelectionChangedLis
     }
 
     @Override
-    public void layerAdded(Layer newLayer) {}
+    public void layerAdded(Layer newLayer) {
+        // Do nothing
+    }
 
     @Override
     public void layerRemoved(Layer oldLayer) {
@@ -551,8 +549,7 @@ public class ValidatorDialog extends ToggleDialog implements SelectionChangedLis
         if (newSelection.isEmpty()) {
             tree.setFilter(null);
         }
-        HashSet<OsmPrimitive> filter = new HashSet<>(newSelection);
-        tree.setFilter(filter);
+        tree.setFilter(new HashSet<>(newSelection));
     }
 
     @Override
@@ -571,7 +568,7 @@ public class ValidatorDialog extends ToggleDialog implements SelectionChangedLis
 
         public FixTask(Collection<TestError> testErrors) {
             super(tr("Fixing errors ..."), false /* don't ignore exceptions */);
-            this.testErrors = testErrors == null ? new ArrayList<TestError> (): testErrors;
+            this.testErrors = testErrors == null ? new ArrayList<TestError>(): testErrors;
         }
 
         @Override

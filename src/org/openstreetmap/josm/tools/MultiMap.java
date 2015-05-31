@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.tools;
 
 import java.util.ArrayList;
@@ -230,8 +230,8 @@ public class MultiMap<A, B> {
     @Override
     public String toString() {
         List<String> entries = new ArrayList<>(map.size());
-        for (A key : map.keySet()) {
-            entries.add(key + "->{" + Utils.join(",", map.get(key)) + "}");
+        for (Entry<A, Set<B>> entry : map.entrySet()) {
+            entries.add(entry.getKey() + "->{" + Utils.join(",", entry.getValue()) + "}");
         }
         return "(" + Utils.join(",", entries) + ")";
     }

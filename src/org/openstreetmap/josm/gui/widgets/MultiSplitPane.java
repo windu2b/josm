@@ -46,9 +46,9 @@ import org.openstreetmap.josm.gui.widgets.MultiSplitLayout.Node;
  * @author Hans Muller - SwingX
  */
 public class MultiSplitPane extends JPanel {
-    private AccessibleContext accessibleContext = null;
+    private transient AccessibleContext accessibleContext = null;
     private boolean continuousLayout = true;
-    private DividerPainter dividerPainter = new DefaultDividerPainter();
+    private transient DividerPainter dividerPainter = new DefaultDividerPainter();
 
     /**
      * Creates a MultiSplitPane with it's LayoutManager set to
@@ -144,7 +144,7 @@ public class MultiSplitPane extends JPanel {
      * @see #getDividerPainter
      * @see #setDividerPainter
      */
-    public abstract static class DividerPainter {
+    public interface DividerPainter {
         /**
          * Paint a single Divider.
          *
@@ -154,7 +154,7 @@ public class MultiSplitPane extends JPanel {
         public abstract void paint(Graphics g, Divider divider);
     }
 
-    private class DefaultDividerPainter extends DividerPainter {
+    private class DefaultDividerPainter implements DividerPainter {
         @Override
         public void paint(Graphics g, Divider divider) {
             if ((divider == activeDivider()) && !isContinuousLayout()) {
@@ -213,15 +213,14 @@ public class MultiSplitPane extends JPanel {
                 for(Divider divider : msl.dividersThatOverlap(clipR)) {
                     dp.paint(dpg, divider);
                 }
-            }
-            finally {
+            } finally {
                 dpg.dispose();
             }
         }
     }
 
     private boolean dragUnderway = false;
-    private MultiSplitLayout.Divider dragDivider = null;
+    private transient MultiSplitLayout.Divider dragDivider = null;
     private Rectangle initialDividerBounds = null;
     private boolean oldFloatingDividers = true;
     private int dragOffsetX = 0;
@@ -238,8 +237,7 @@ public class MultiSplitPane extends JPanel {
             MultiSplitLayout.Node nextNode = divider.nextSibling();
             if ((prevNode == null) || (nextNode == null)) {
                 dragUnderway = false;
-            }
-            else {
+            } else {
                 initialDividerBounds = divider.getBounds();
                 dragOffsetX = mx - initialDividerBounds.x;
                 dragOffsetY = my - initialDividerBounds.y;
@@ -250,8 +248,7 @@ public class MultiSplitPane extends JPanel {
                     dragMin = prevNodeBounds.x;
                     dragMax = nextNodeBounds.x + nextNodeBounds.width;
                     dragMax -= dragDivider.getBounds().width;
-                }
-                else {
+                } else {
                     dragMin = prevNodeBounds.y;
                     dragMax = nextNodeBounds.y + nextNodeBounds.height;
                     dragMax -= dragDivider.getBounds().height;
@@ -260,8 +257,7 @@ public class MultiSplitPane extends JPanel {
                 getMultiSplitLayout().setFloatingDividers(false);
                 dragUnderway = true;
             }
-        }
-        else {
+        } else {
             dragUnderway = false;
         }
     }
@@ -271,8 +267,7 @@ public class MultiSplitPane extends JPanel {
         if (dragDivider.isVertical()) {
             damageR.x = dragMin;
             damageR.width = dragMax - dragMin;
-        }
-        else {
+        } else {
             damageR.y = dragMin;
             damageR.height = dragMax - dragMin;
         }
@@ -289,8 +284,7 @@ public class MultiSplitPane extends JPanel {
             bounds.x = mx - dragOffsetX;
             bounds.x = Math.max(bounds.x, dragMin);
             bounds.x = Math.min(bounds.x, dragMax);
-        }
-        else {
+        } else {
             bounds.y = my - dragOffsetY;
             bounds.y = Math.max(bounds.y, dragMin);
             bounds.y = Math.min(bounds.y, dragMax);
@@ -299,8 +293,7 @@ public class MultiSplitPane extends JPanel {
         if (isContinuousLayout()) {
             revalidate();
             repaintDragLimits();
-        }
-        else {
+        } else {
             repaint(oldBounds.union(bounds));
         }
     }

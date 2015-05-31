@@ -18,7 +18,7 @@ import org.openstreetmap.josm.tools.Predicate;
 import org.openstreetmap.josm.tools.Utils;
 
 /**
- * An relation, having a set of tags and any number (0...n) of members.
+ * A relation, having a set of tags and any number (0...n) of members.
  *
  * @author Frederik Ramm
  */
@@ -162,11 +162,13 @@ public final class Relation extends OsmPrimitive implements IRelation {
         return members[idx].getType();
     }
 
-    @Override public void accept(Visitor visitor) {
+    @Override
+    public void accept(Visitor visitor) {
         visitor.visit(this);
     }
 
-    @Override public void accept(PrimitiveVisitor visitor) {
+    @Override
+    public void accept(PrimitiveVisitor visitor) {
         visitor.visit(this);
     }
 
@@ -207,9 +209,9 @@ public final class Relation extends OsmPrimitive implements IRelation {
      * as incomplete.
      *
      * @param id the id. &gt; 0 required
-     * @throws IllegalArgumentException thrown if id &lt; 0
+     * @throws IllegalArgumentException if id &lt; 0
      */
-    public Relation(long id) throws IllegalArgumentException {
+    public Relation(long id) {
         super(id, false);
     }
 
@@ -222,7 +224,8 @@ public final class Relation extends OsmPrimitive implements IRelation {
         super(id, version, false);
     }
 
-    @Override public void cloneFrom(OsmPrimitive osm) {
+    @Override
+    public void cloneFrom(OsmPrimitive osm) {
         boolean locked = writeLock();
         try {
             super.cloneFrom(osm);
@@ -233,7 +236,8 @@ public final class Relation extends OsmPrimitive implements IRelation {
         }
     }
 
-    @Override public void load(PrimitiveData data) {
+    @Override
+    public void load(PrimitiveData data) {
         boolean locked = writeLock();
         try {
             super.load(data);
@@ -262,24 +266,24 @@ public final class Relation extends OsmPrimitive implements IRelation {
         return data;
     }
 
-    @Override public String toString() {
+    @Override
+    public String toString() {
         StringBuilder result = new StringBuilder();
-        result.append("{Relation id=");
-        result.append(getUniqueId());
-        result.append(" version=");
-        result.append(getVersion());
-        result.append(" ");
-        result.append(getFlagsAsString());
-        result.append(" [");
+        result.append("{Relation id=")
+              .append(getUniqueId())
+              .append(" version=")
+              .append(getVersion())
+              .append(' ')
+              .append(getFlagsAsString())
+              .append(" [");
         for (RelationMember rm:getMembers()) {
-            result.append(OsmPrimitiveType.from(rm.getMember()));
-            result.append(" ");
-            result.append(rm.getMember().getUniqueId());
-            result.append(", ");
+            result.append(OsmPrimitiveType.from(rm.getMember()))
+                  .append(' ')
+                  .append(rm.getMember().getUniqueId())
+                  .append(", ");
         }
-        result.delete(result.length()-2, result.length());
-        result.append("]");
-        result.append("}");
+        result.delete(result.length()-2, result.length())
+              .append("]}");
         return result.toString();
     }
 
@@ -295,20 +299,23 @@ public final class Relation extends OsmPrimitive implements IRelation {
 
     @Override
     public int compareTo(OsmPrimitive o) {
-        return o instanceof Relation ? Long.valueOf(getUniqueId()).compareTo(o.getUniqueId()) : -1;
+        return o instanceof Relation ? Long.compare(getUniqueId(), o.getUniqueId()) : -1;
     }
 
+    /**
+     * Returns the first member.
+     * @return first member, or {@code null}
+     */
     public RelationMember firstMember() {
-        if (isIncomplete()) return null;
-
-        RelationMember[] members = this.members;
-        return (members.length == 0) ? null : members[0];
+        return (isIncomplete() || members.length == 0) ? null : members[0];
     }
-    public RelationMember lastMember() {
-        if (isIncomplete()) return null;
 
-        RelationMember[] members = this.members;
-        return (members.length == 0) ? null : members[members.length - 1];
+    /**
+     * Returns the last member.
+     * @return last member, or {@code null}
+     */
+    public RelationMember lastMember() {
+        return (isIncomplete() || members.length == 0) ? null : members[members.length - 1];
     }
 
     /**
@@ -383,7 +390,7 @@ public final class Relation extends OsmPrimitive implements IRelation {
      * member of this relation
      */
     public Set<OsmPrimitive> getMemberPrimitives() {
-        HashSet<OsmPrimitive> ret = new HashSet<>();
+        Set<OsmPrimitive> ret = new HashSet<>();
         RelationMember[] members = this.members;
         for (RelationMember m: members) {
             if (m.getMember() != null) {
@@ -470,7 +477,7 @@ public final class Relation extends OsmPrimitive implements IRelation {
     }
 
     @Override
-    public void setDataset(DataSet dataSet) {
+    void setDataset(DataSet dataSet) {
         super.setDataset(dataSet);
         checkMembers();
         bbox = null; // bbox might have changed if relation was in ds, was removed, modified, added back to dataset
@@ -501,7 +508,7 @@ public final class Relation extends OsmPrimitive implements IRelation {
     }
 
     /**
-     * Replies true if at least one child primitive is incomplete
+     * Determines if at least one child primitive is incomplete.
      *
      * @return true if at least one child primitive is incomplete
      */
@@ -514,8 +521,7 @@ public final class Relation extends OsmPrimitive implements IRelation {
     }
 
     /**
-     * Replies a collection with the incomplete children this relation
-     * refers to
+     * Replies a collection with the incomplete children this relation refers to.
      *
      * @return the incomplete children. Empty collection if no children are incomplete.
      */
@@ -547,5 +553,21 @@ public final class Relation extends OsmPrimitive implements IRelation {
     @Override
     public boolean isOutsideDownloadArea() {
         return false;
+    }
+
+    /**
+     * Returns the set of roles used in this relation.
+     * @return the set of roles used in this relation. Can be empty but never null
+     * @since 7556
+     */
+    public Set<String> getMemberRoles() {
+        Set<String> result = new HashSet<>();
+        for (RelationMember rm : members) {
+            String role = rm.getRole();
+            if (!role.isEmpty()) {
+                result.add(role);
+            }
+        }
+        return result;
     }
 }

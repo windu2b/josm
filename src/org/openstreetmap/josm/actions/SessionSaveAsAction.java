@@ -35,10 +35,12 @@ import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.gui.ExtendedDialog;
 import org.openstreetmap.josm.gui.HelpAwareOptionPane;
 import org.openstreetmap.josm.gui.layer.Layer;
+import org.openstreetmap.josm.gui.widgets.AbstractFileChooser;
 import org.openstreetmap.josm.io.session.SessionLayerExporter;
 import org.openstreetmap.josm.io.session.SessionWriter;
 import org.openstreetmap.josm.tools.GBC;
 import org.openstreetmap.josm.tools.MultiMap;
+import org.openstreetmap.josm.tools.Utils;
 import org.openstreetmap.josm.tools.WindowGeometry;
 
 /**
@@ -47,9 +49,9 @@ import org.openstreetmap.josm.tools.WindowGeometry;
  */
 public class SessionSaveAsAction extends DiskAccessAction {
 
-    private List<Layer> layers;
-    private Map<Layer, SessionLayerExporter> exporters;
-    private MultiMap<Layer, Layer> dependencies;
+    private transient List<Layer> layers;
+    private transient Map<Layer, SessionLayerExporter> exporters;
+    private transient MultiMap<Layer, Layer> dependencies;
 
     /**
      * Constructs a new {@code SessionSaveAsAction}.
@@ -81,7 +83,7 @@ public class SessionSaveAsAction extends DiskAccessAction {
         FileFilter joz = new ExtensionFileFilter("joz", "joz", tr("Session file (archive) (*.joz)"));
         FileFilter jos = new ExtensionFileFilter("jos", "jos", tr("Session file (*.jos)"));
 
-        JFileChooser fc;
+        AbstractFileChooser fc;
 
         if (zipRequired) {
             fc = createAndOpenFileChooser(false, false, tr("Save session"), joz, JFileChooser.FILES_ONLY, "lastDirectory");
@@ -104,7 +106,7 @@ public class SessionSaveAsAction extends DiskAccessAction {
         } else if (jos.equals(ff)) {
             zip = false;
         } else {
-            if (fn.toLowerCase().endsWith(".joz")) {
+            if (Utils.hasExtension(fn, "joz")) {
                 zip = true;
             } else {
                 zip = false;
@@ -122,7 +124,7 @@ public class SessionSaveAsAction extends DiskAccessAction {
             // TODO: resolve dependencies for layers excluded by the user
             layersOut.add(layer);
         }
-        
+
         int active = -1;
         Layer activeLayer = Main.map.mapView.getActiveLayer();
         if (activeLayer != null) {
@@ -236,6 +238,7 @@ public class SessionSaveAsAction extends DiskAccessAction {
             include.setEnabled(false);
             JLabel lbl = new JLabel(layer.getName(), layer.getIcon(), SwingConstants.LEFT);
             lbl.setToolTipText(tr("No exporter for this layer"));
+            lbl.setLabelFor(include);
             lbl.setEnabled(false);
             p.add(include, GBC.std());
             p.add(lbl, GBC.std());

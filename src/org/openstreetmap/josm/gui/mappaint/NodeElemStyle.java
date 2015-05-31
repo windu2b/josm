@@ -3,7 +3,6 @@ package org.openstreetmap.josm.gui.mappaint;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
-import java.awt.Image;
 import java.awt.Rectangle;
 import java.awt.Stroke;
 import java.util.Objects;
@@ -18,6 +17,7 @@ import org.openstreetmap.josm.gui.mappaint.BoxTextElemStyle.BoxProvider;
 import org.openstreetmap.josm.gui.mappaint.BoxTextElemStyle.SimpleBoxProvider;
 import org.openstreetmap.josm.gui.mappaint.MapPaintStyles.IconReference;
 import org.openstreetmap.josm.gui.mappaint.StyleCache.StyleList;
+import org.openstreetmap.josm.gui.util.RotationAngle;
 import org.openstreetmap.josm.tools.Utils;
 
 /**
@@ -25,13 +25,8 @@ import org.openstreetmap.josm.tools.Utils;
  */
 public class NodeElemStyle extends ElemStyle implements StyleKeys {
     public final MapImage mapImage;
+    public final RotationAngle mapImageAngle;
     public final Symbol symbol;
-
-    private Image enabledNodeIcon;
-    private Image disabledNodeIcon;
-
-    private boolean enabledNodeIconIsTemporary;
-    private boolean disabledNodeIconIsTemporary;
 
     public enum SymbolShape { SQUARE, CIRCLE, TRIANGLE, PENTAGON, HEXAGON, HEPTAGON, OCTAGON, NONAGON, DECAGON }
 
@@ -44,9 +39,9 @@ public class NodeElemStyle extends ElemStyle implements StyleKeys {
 
         public Symbol(SymbolShape symbol, int size, Stroke stroke, Color strokeColor, Color fillColor) {
             if (stroke != null && strokeColor == null)
-                throw new IllegalArgumentException();
+                throw new IllegalArgumentException("Stroke given without color");
             if (stroke == null && fillColor == null)
-                throw new IllegalArgumentException();
+                throw new IllegalArgumentException("Either a stroke or a fill color must be given");
             this.symbol = symbol;
             this.size = size;
             this.stroke = stroke;
@@ -80,26 +75,29 @@ public class NodeElemStyle extends ElemStyle implements StyleKeys {
         @Override
         public String toString() {
             return "symbol=" + symbol + " size=" + size +
-                    (stroke != null ? (" stroke=" + stroke + " strokeColor=" + strokeColor) : "") +
-                    (fillColor != null ? (" fillColor=" + fillColor) : "");
+                    (stroke != null ? " stroke=" + stroke + " strokeColor=" + strokeColor : "") +
+                    (fillColor != null ? " fillColor=" + fillColor : "");
         }
     }
 
     public static final NodeElemStyle SIMPLE_NODE_ELEMSTYLE;
+    public static final BoxProvider SIMPLE_NODE_ELEMSTYLE_BOXPROVIDER;
     static {
         MultiCascade mc = new MultiCascade();
         mc.getOrCreateCascade("default");
         SIMPLE_NODE_ELEMSTYLE = create(new Environment(null, mc, "default", null), 4.1f, true);
         if (SIMPLE_NODE_ELEMSTYLE == null) throw new AssertionError();
+        SIMPLE_NODE_ELEMSTYLE_BOXPROVIDER = SIMPLE_NODE_ELEMSTYLE.getBoxProvider();
     }
 
     public static final StyleList DEFAULT_NODE_STYLELIST = new StyleList(NodeElemStyle.SIMPLE_NODE_ELEMSTYLE);
     public static final StyleList DEFAULT_NODE_STYLELIST_TEXT = new StyleList(NodeElemStyle.SIMPLE_NODE_ELEMSTYLE, BoxTextElemStyle.SIMPLE_NODE_TEXT_ELEMSTYLE);
 
-    protected NodeElemStyle(Cascade c, MapImage mapImage, Symbol symbol, float default_major_z_index) {
+    protected NodeElemStyle(Cascade c, MapImage mapImage, Symbol symbol, float default_major_z_index, RotationAngle rotationAngle) {
         super(c, default_major_z_index);
         this.mapImage = mapImage;
         this.symbol = symbol;
+        this.mapImageAngle = rotationAngle;
     }
 
     public static NodeElemStyle create(Environment env) {
@@ -114,13 +112,30 @@ public class NodeElemStyle extends ElemStyle implements StyleKeys {
         if (mapImage == null) {
             symbol = createSymbol(env);
         }
+        RotationAngle rotationAngle = null;
+        final Float angle = c.get(ICON_ROTATION, null, Float.class, true);
+        if (angle != null) {
+            rotationAngle = RotationAngle.buildStaticRotation(angle);
+        } else {
+            final Keyword rotationKW = c.get(ICON_ROTATION, null, Keyword.class);
+            if (rotationKW != null) {
+                if ("way".equals(rotationKW.val)) {
+                    rotationAngle = RotationAngle.buildWayDirectionRotation();
+                } else {
+                    try {
+                        rotationAngle = RotationAngle.buildStaticRotation(rotationKW.val);
+                    } catch (IllegalArgumentException ignore) {
+                    }
+                }
+            }
+        }
 
         // optimization: if we neither have a symbol, nor a mapImage
         // we don't have to check for the remaining style properties and we don't
         // have to allocate a node element style.
         if (!allowDefault && symbol == null && mapImage == null) return null;
 
-        return new NodeElemStyle(c, mapImage, symbol, default_major_z_index);
+        return new NodeElemStyle(c, mapImage, symbol, default_major_z_index, rotationAngle);
     }
 
     public static MapImage createIcon(final Environment env, final String[] keys) {
@@ -147,10 +162,19 @@ public class NodeElemStyle extends ElemStyle implements StyleKeys {
         int width = widthF == null ? -1 : Math.round(widthF);
         int height = heightF == null ? -1 : Math.round(heightF);
 
+        float offsetXF = 0f;
+        float offsetYF = 0f;
+        if (keys[ICON_OFFSET_X_IDX] != null) {
+            offsetXF = c.get(keys[ICON_OFFSET_X_IDX], 0f, Float.class);
+            offsetYF = c.get(keys[ICON_OFFSET_Y_IDX], 0f, Float.class);
+        }
+
         final MapImage mapImage = new MapImage(iconRef.iconName, iconRef.source);
 
         mapImage.width = width;
         mapImage.height = height;
+        mapImage.offsetX = Math.round(offsetXF);
+        mapImage.offsetY = Math.round(offsetYF);
 
         mapImage.alpha = Math.min(255, Math.max(0, Integer.valueOf(Main.pref.getInteger("mappaint.icon-image-alpha", 255))));
         Integer pAlpha = Utils.color_float2int(c.get(keys[ICON_OPACITY_IDX], null, float.class));
@@ -240,25 +264,13 @@ public class NodeElemStyle extends ElemStyle implements StyleKeys {
     }
 
     @Override
-    public void paintPrimitive(OsmPrimitive primitive, MapPaintSettings settings, StyledMapRenderer painter, boolean selected, boolean member) {
+    public void paintPrimitive(OsmPrimitive primitive, MapPaintSettings settings, StyledMapRenderer painter,
+            boolean selected, boolean outermember, boolean member) {
         if (primitive instanceof Node) {
             Node n = (Node) primitive;
             if (mapImage != null && painter.isShowIcons()) {
-                final Image nodeIcon;
-                if (painter.isInactiveMode() || n.isDisabled()) {
-                    if (disabledNodeIcon == null || disabledNodeIconIsTemporary) {
-                        disabledNodeIcon = mapImage.getDisplayedNodeIcon(true);
-                        disabledNodeIconIsTemporary = mapImage.isTemporary();
-                    }
-                    nodeIcon = disabledNodeIcon;
-                } else {
-                    if (enabledNodeIcon == null || enabledNodeIconIsTemporary) {
-                        enabledNodeIcon = mapImage.getDisplayedNodeIcon(false);
-                        enabledNodeIconIsTemporary = mapImage.isTemporary();
-                    }
-                    nodeIcon = enabledNodeIcon;
-                }
-                painter.drawNodeIcon(n, nodeIcon, Utils.color_int2float(mapImage.alpha), selected, member);
+                painter.drawNodeIcon(n, mapImage, painter.isInactiveMode() || n.isDisabled(), selected, member,
+                        mapImageAngle == null ? 0.0 : mapImageAngle.getRotationAngle(primitive));
             } else if (symbol != null) {
                 Color fillColor = symbol.fillColor;
                 if (fillColor != null) {
@@ -305,9 +317,9 @@ public class NodeElemStyle extends ElemStyle implements StyleKeys {
                     }
                 }
 
-                final int size = Utils.max((selected ? settings.getSelectedNodeSize() : 0),
-                        (n.isTagged() ? settings.getTaggedNodeSize() : 0),
-                        (isConnection ? settings.getConnectionNodeSize() : 0),
+                final int size = Utils.max(selected ? settings.getSelectedNodeSize() : 0,
+                        n.isTagged() ? settings.getTaggedNodeSize() : 0,
+                        isConnection ? settings.getConnectionNodeSize() : 0,
                         settings.getUnselectedNodeSize());
 
                 final boolean fill = (selected && settings.isFillSelectedNode()) ||
@@ -319,7 +331,7 @@ public class NodeElemStyle extends ElemStyle implements StyleKeys {
 
             }
         } else if (primitive instanceof Relation && mapImage != null) {
-            painter.drawRestriction((Relation) primitive, mapImage);
+            painter.drawRestriction((Relation) primitive, mapImage, painter.isInactiveMode() || primitive.isDisabled());
         }
     }
 
@@ -346,6 +358,7 @@ public class NodeElemStyle extends ElemStyle implements StyleKeys {
         int hash = super.hashCode();
         hash = 17 * hash + (mapImage != null ? mapImage.hashCode() : 0);
         hash = 17 * hash + (symbol != null ? symbol.hashCode() : 0);
+        hash = 17 * hash + (mapImageAngle != null ? mapImageAngle.hashCode() : 0);
         return hash;
     }
 
@@ -362,6 +375,8 @@ public class NodeElemStyle extends ElemStyle implements StyleKeys {
             return false;
         if (!Objects.equals(symbol, other.symbol))
             return false;
+        if (!Objects.equals(mapImageAngle, other.mapImageAngle))
+            return false;
         return true;
     }
 
@@ -374,6 +389,9 @@ public class NodeElemStyle extends ElemStyle implements StyleKeys {
         }
         if (symbol != null) {
             s.append(" symbol=[" + symbol + "]");
+        }
+        if (mapImageAngle != null) {
+            s.append(" mapImageAngle=[" + mapImageAngle + "]");
         }
         s.append('}');
         return s.toString();

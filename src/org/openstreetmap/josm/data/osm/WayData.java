@@ -10,10 +10,17 @@ public class WayData extends PrimitiveData implements IWay {
 
     private List<Long> nodes = new ArrayList<>();
 
+    /**
+     * Constructs a new {@code NodeData}.
+     */
     public WayData() {
-
+        // contents can be set later with setters
     }
 
+    /**
+     * Constructs a new {@code WayData}.
+     * @param data way data to copy
+     */
     public WayData(WayData data) {
         super(data);
         nodes.addAll(data.getNodes());
@@ -50,7 +57,7 @@ public class WayData extends PrimitiveData implements IWay {
 
     @Override
     public String toString() {
-        return super.toString() + " WAY" + nodes.toString();
+        return super.toString() + " WAY" + nodes;
     }
 
     @Override

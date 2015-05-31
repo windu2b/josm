@@ -27,19 +27,27 @@ import org.openstreetmap.josm.data.osm.event.NodeMovedEvent;
 import org.openstreetmap.josm.data.osm.event.WayNodesChangedEvent;
 import org.openstreetmap.josm.data.osm.visitor.paint.relations.Multipolygon.PolyData.Intersection;
 
+/**
+ * Multipolygon data used to represent complex areas, see <a href="https://wiki.openstreetmap.org/wiki/Relation:multipolygon">wiki</a>.
+ * @since 2788
+ */
 public class Multipolygon {
+
     /** preference key for a collection of roles which indicate that the respective member belongs to an
      * <em>outer</em> polygon. Default is <tt>outer</tt>.
      */
     public static final String PREF_KEY_OUTER_ROLES = "mappaint.multipolygon.outer.roles";
+
     /** preference key for collection of role prefixes which indicate that the respective
      *  member belongs to an <em>outer</em> polygon. Default is empty.
      */
     public static final String PREF_KEY_OUTER_ROLE_PREFIXES = "mappaint.multipolygon.outer.role-prefixes";
+
     /** preference key for a collection of roles which indicate that the respective member belongs to an
      * <em>inner</em> polygon. Default is <tt>inner</tt>.
      */
     public static final String PREF_KEY_INNER_ROLES = "mappaint.multipolygon.inner.roles";
+
     /** preference key for collection of role prefixes which indicate that the respective
      *  member belongs to an <em>inner</em> polygon. Default is empty.
      */
@@ -52,9 +60,8 @@ public class Multipolygon {
      *
      * <p>The decision is taken based on preference settings, see the four preference keys
      * above.</p>
-     *
      */
-    private static class MultipolygonRoleMatcher implements PreferenceChangedListener{
+    private static class MultipolygonRoleMatcher implements PreferenceChangedListener {
         private final List<String> outerExactRoles = new ArrayList<>();
         private final List<String> outerRolePrefixes = new ArrayList<>();
         private final List<String> innerExactRoles = new ArrayList<>();
@@ -69,9 +76,9 @@ public class Multipolygon {
             innerExactRoles.add("inner");
         }
 
-        private void setNormalized(Collection<String> literals, List<String> target){
+        private void setNormalized(Collection<String> literals, List<String> target) {
             target.clear();
-            for(String l: literals) {
+            for (String l: literals) {
                 if (l == null) {
                     continue;
                 }
@@ -114,7 +121,7 @@ public class Multipolygon {
             }
         }
 
-        public boolean isOuterRole(String role){
+        public boolean isOuterRole(String role) {
             if (role == null) return false;
             for (String candidate: outerExactRoles) {
                 if (role.equals(candidate)) return true;
@@ -125,7 +132,7 @@ public class Multipolygon {
             return false;
         }
 
-        public boolean isInnerRole(String role){
+        public boolean isInnerRole(String role) {
             if (role == null) return false;
             for (String candidate: innerExactRoles) {
                 if (role.equals(candidate)) return true;
@@ -138,11 +145,10 @@ public class Multipolygon {
     }
 
     /*
-     * Init a private global matcher object which will listen to preference
-     * changes.
+     * Init a private global matcher object which will listen to preference changes.
      */
     private static MultipolygonRoleMatcher roleMatcher;
-    private static MultipolygonRoleMatcher getMultipolygonRoleMatcher() {
+    private static synchronized MultipolygonRoleMatcher getMultipolygonRoleMatcher() {
         if (roleMatcher == null) {
             roleMatcher = new MultipolygonRoleMatcher();
             if (Main.pref != null){
@@ -281,6 +287,10 @@ public class Multipolygon {
             return wayIds;
         }
 
+        public List<Node> getNodes() {
+            return nodes;
+        }
+
         private void resetNodes(DataSet dataSet) {
             if (!nodes.isEmpty()) {
                 DataSet ds = dataSet;
@@ -348,9 +358,8 @@ public class Multipolygon {
 
     private final List<Way> innerWays = new ArrayList<>();
     private final List<Way> outerWays = new ArrayList<>();
-    private final List<PolyData> innerPolygons = new ArrayList<>();
-    private final List<PolyData> outerPolygons = new ArrayList<>();
     private final List<PolyData> combinedPolygons = new ArrayList<>();
+    private final List<Node> openEnds = new ArrayList<>();
 
     private boolean incomplete;
 
@@ -384,10 +393,12 @@ public class Multipolygon {
             }
         }
 
+        final List<PolyData> innerPolygons = new ArrayList<>();
+        final List<PolyData> outerPolygons = new ArrayList<>();
         createPolygons(innerWays, innerPolygons);
         createPolygons(outerWays, outerPolygons);
         if (!outerPolygons.isEmpty()) {
-            addInnerToOuters();
+            addInnerToOuters(innerPolygons, outerPolygons);
         }
     }
 
@@ -407,6 +418,10 @@ public class Multipolygon {
 
         for (JoinedWay jw: joinWays(waysToJoin)) {
             result.add(new PolyData(jw));
+            if (!jw.isClosed()) {
+                openEnds.add(jw.getNodes().get(0));
+                openEnds.add(jw.getNodes().get(jw.getNodes().size() - 1));
+            }
         }
     }
 
@@ -492,7 +507,7 @@ public class Multipolygon {
                 }
             }
 
-            if (nodes == null) {
+            if (nodes == null && w != null) {
                 nodes = w.getNodes();
                 wayIds.add(w.getUniqueId());
             }
@@ -538,7 +553,7 @@ public class Multipolygon {
         return result;
     }
 
-    private final void addInnerToOuters()  {
+    private final void addInnerToOuters(List<PolyData> innerPolygons, List<PolyData> outerPolygons)  {
 
         if (innerPolygons.isEmpty()) {
             combinedPolygons.addAll(outerPolygons);
@@ -561,21 +576,45 @@ public class Multipolygon {
                 o.addInner(pdInner);
             }
         }
-
-        // Clear inner and outer polygons to reduce memory footprint
-        innerPolygons.clear();
-        outerPolygons.clear();
     }
 
+    /**
+     * Replies the list of outer ways.
+     * @return the list of outer ways
+     */
     public List<Way> getOuterWays() {
         return outerWays;
     }
 
+    /**
+     * Replies the list of inner ways.
+     * @return the list of inner ways
+     */
     public List<Way> getInnerWays() {
         return innerWays;
     }
 
     public List<PolyData> getCombinedPolygons() {
         return combinedPolygons;
+    }
+
+    public List<PolyData> getInnerPolygons() {
+        final List<PolyData> innerPolygons = new ArrayList<>();
+        createPolygons(innerWays, innerPolygons);
+        return innerPolygons;
+    }
+
+    public List<PolyData> getOuterPolygons() {
+        final List<PolyData> outerPolygons = new ArrayList<>();
+        createPolygons(outerWays, outerPolygons);
+        return outerPolygons;
+    }
+
+    /**
+     * Returns the start and end node of non-closed rings.
+     * @return the start and end node of non-closed rings.
+     */
+    public List<Node> getOpenEnds() {
+        return openEnds;
     }
 }

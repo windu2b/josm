@@ -14,8 +14,10 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 
 import javax.swing.AbstractAction;
 import javax.swing.Box;
@@ -44,8 +46,10 @@ import org.openstreetmap.josm.gui.preferences.PreferenceSetting;
 import org.openstreetmap.josm.gui.preferences.PreferenceSettingFactory;
 import org.openstreetmap.josm.gui.preferences.PreferenceTabbedPane;
 import org.openstreetmap.josm.gui.util.GuiHelper;
+import org.openstreetmap.josm.gui.widgets.AbstractFileChooser;
 import org.openstreetmap.josm.gui.widgets.JosmTextField;
 import org.openstreetmap.josm.tools.GBC;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * Advanced preferences, allowing to set preference entries directly.
@@ -63,7 +67,7 @@ public final class AdvancedPreference extends DefaultTabPreferenceSetting {
     }
 
     private AdvancedPreference() {
-        super("advanced", tr("Advanced Preferences"), tr("Setting Preference entries directly. Use with caution!"));
+        super(/* ICON(preferences/) */ "advanced", tr("Advanced Preferences"), tr("Setting Preference entries directly. Use with caution!"));
     }
 
     @Override
@@ -157,7 +161,7 @@ public final class AdvancedPreference extends DefaultTabPreferenceSetting {
         final JButton more = new JButton(tr("More..."));
         p.add(more, GBC.std().insets(5,5,0,0));
         more.addActionListener(new ActionListener() {
-            JPopupMenu menu = buildPopupMenu();
+            private JPopupMenu menu = buildPopupMenu();
             @Override public void actionPerformed(ActionEvent ev) {
                 menu.show(more, 0, 0);
             }
@@ -188,14 +192,15 @@ public final class AdvancedPreference extends DefaultTabPreferenceSetting {
         FileFilter filter = new FileFilter() {
             @Override
             public boolean accept(File f) {
-                return f.isDirectory() || f.getName().toLowerCase().endsWith(".xml");
+                return f.isDirectory() || Utils.hasExtension(f, "xml");
             }
             @Override
             public String getDescription() {
                 return tr("JOSM custom settings files (*.xml)");
             }
         };
-        JFileChooser fc = DiskAccessAction.createAndOpenFileChooser(!saveFileFlag, !saveFileFlag, title, filter, JFileChooser.FILES_ONLY, "customsettings.lastDirectory");
+        AbstractFileChooser fc = DiskAccessAction.createAndOpenFileChooser(!saveFileFlag, !saveFileFlag, title, filter,
+                JFileChooser.FILES_ONLY, "customsettings.lastDirectory");
         if (fc != null) {
             File[] sel = fc.isMultiSelectionEnabled() ? fc.getSelectedFiles() : (new File[]{fc.getSelectedFile()});
             if (sel.length==1 && !sel[0].getName().contains(".")) sel[0]=new File(sel[0].getAbsolutePath()+".xml");
@@ -286,7 +291,7 @@ public final class AdvancedPreference extends DefaultTabPreferenceSetting {
             }
             PrefEntry en = new PrefEntry(e.getKey(), value, def, false);
             // after changes we have nondefault value. Value is changed if is not equal to old value
-            if ( !Preferences.isEqual(old, value) ) {
+            if (!Objects.equals(old, value)) {
                 en.markAsChanged();
             }
             data.add(en);
@@ -308,7 +313,7 @@ public final class AdvancedPreference extends DefaultTabPreferenceSetting {
         return data;
     }
 
-    Map<String,String> profileTypes = new LinkedHashMap<>();
+    private Map<String,String> profileTypes = new LinkedHashMap<>();
 
     private JPopupMenu buildPopupMenu() {
         JPopupMenu menu = new JPopupMenu();
@@ -353,29 +358,41 @@ public final class AdvancedPreference extends DefaultTabPreferenceSetting {
             @Override
             public void menuSelected(MenuEvent me) {
                 p.removeAll();
-                for (File f: new File(".").listFiles()) {
-                   String s = f.getName();
-                   int idx = s.indexOf('_');
-                   if (idx>=0) {
-                        String t=s.substring(0,idx);
-                        if (profileTypes.containsKey(t)) {
-                            p.add(new ImportProfileAction(s, f, t));
-                        }
-                   }
+                File[] files = new File(".").listFiles();
+                if (files != null) {
+                    for (File f: files) {
+                       String s = f.getName();
+                       int idx = s.indexOf('_');
+                       if (idx>=0) {
+                            String t=s.substring(0,idx);
+                            if (profileTypes.containsKey(t)) {
+                                p.add(new ImportProfileAction(s, f, t));
+                            }
+                       }
+                    }
                 }
-                for (File f: Main.pref.getPreferencesDirFile().listFiles()) {
-                   String s = f.getName();
-                   int idx = s.indexOf('_');
-                   if (idx>=0) {
-                        String t=s.substring(0,idx);
-                        if (profileTypes.containsKey(t)) {
-                            p.add(new ImportProfileAction(s, f, t));
-                        }
-                   }
+                files = Main.pref.getPreferencesDirectory().listFiles();
+                if (files != null) {
+                    for (File f: files) {
+                       String s = f.getName();
+                       int idx = s.indexOf('_');
+                       if (idx>=0) {
+                            String t=s.substring(0,idx);
+                            if (profileTypes.containsKey(t)) {
+                                p.add(new ImportProfileAction(s, f, t));
+                            }
+                       }
+                    }
                 }
             }
-            @Override public void menuDeselected(MenuEvent me) { }
-            @Override public void menuCanceled(MenuEvent me) { }
+            @Override
+            public void menuDeselected(MenuEvent me) {
+                // Not implemented
+            }
+            @Override
+            public void menuCanceled(MenuEvent me) {
+                // Not implemented
+            }
         });
         return p;
     }
@@ -419,10 +436,10 @@ public final class AdvancedPreference extends DefaultTabPreferenceSetting {
             boolean canHas = true;
 
             // Make 'wmsplugin cache' search for e.g. 'cache.wmsplugin'
-            final String prefKeyLower = prefKey.toLowerCase();
-            final String prefValueLower = prefValue.toLowerCase();
+            final String prefKeyLower = prefKey.toLowerCase(Locale.ENGLISH);
+            final String prefValueLower = prefValue.toLowerCase(Locale.ENGLISH);
             for (String bit : input) {
-                bit = bit.toLowerCase();
+                bit = bit.toLowerCase(Locale.ENGLISH);
                 if (!prefKeyLower.contains(bit) && !prefValueLower.contains(bit)) {
                     canHas = false;
                     break;

@@ -66,8 +66,8 @@ public final class MultikeyActionsHandler {
 
     private class MyAction extends AbstractAction {
 
-        final MultikeyShortcutAction action;
-        final Shortcut shortcut;
+        private final transient MultikeyShortcutAction action;
+        private final transient Shortcut shortcut;
 
         MyAction(MultikeyShortcutAction action) {
             this.action = action;
@@ -84,7 +84,7 @@ public final class MultikeyActionsHandler {
 
         @Override
         public String toString() {
-            return "MultikeyAction" + action.toString();
+            return "MultikeyAction" + action;
         }
     }
 
@@ -123,7 +123,7 @@ public final class MultikeyActionsHandler {
      * Replies the unique instance of this class.
      * @return The unique instance of this class
      */
-    public static MultikeyActionsHandler getInstance() {
+    public static synchronized MultikeyActionsHandler getInstance() {
         if (instance == null) {
             instance = new MultikeyActionsHandler();
         }

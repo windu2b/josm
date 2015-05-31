@@ -215,8 +215,6 @@ public class MapPaintPreference implements SubPreferenceSetting {
         private boolean insertNewDefaults(List<SourceEntry> list) {
             boolean changed = false;
 
-            boolean addedMapcssStyle = false; // Migration code can be removed ~ Nov. 2014
-
             Collection<String> knownDefaults = new TreeSet<>(Main.pref.getCollection("mappaint.style.known-defaults"));
 
             Collection<ExtendedSourceEntry> defaults = getDefault();
@@ -234,10 +232,6 @@ public class MapPaintPreference implements SubPreferenceSetting {
                     list.add(insertionIdx, def);
                     insertionIdx++;
                     changed = true;
-                    /* Migration code can be removed ~ Nov. 2014 */
-                    if ("resource://styles/standard/elemstyles.mapcss".equals(def.url)) {
-                        addedMapcssStyle = true;
-                    }
                 } else {
                     if (i >= insertionIdx) {
                         insertionIdx = i + 1;
@@ -248,52 +242,7 @@ public class MapPaintPreference implements SubPreferenceSetting {
             for (SourceEntry def : defaults) {
                 knownDefaults.add(def.url);
             }
-            // XML style is not bundled anymore
-            knownDefaults.remove("resource://styles/standard/elemstyles.xml");
             Main.pref.putCollection("mappaint.style.known-defaults", knownDefaults);
-
-            /* Migration code can be removed ~ Nov. 2014 */
-            if (addedMapcssStyle) {
-                // change title of the XML entry
-                // only do this once. If the user changes it afterward, do not touch
-                if (!Main.pref.getBoolean("mappaint.style.migration.changedXmlName", false)) {
-                    SourceEntry josmXml = Utils.find(list, new Predicate<SourceEntry>() {
-                        @Override
-                        public boolean evaluate(SourceEntry se) {
-                            return "resource://styles/standard/elemstyles.xml".equals(se.url);
-                        }
-                    });
-                    if (josmXml != null) {
-                        josmXml.title = tr("JOSM default (XML; old version)");
-                        changed = true;
-                    }
-                    Main.pref.put("mappaint.style.migration.changedXmlName", true);
-                }
-            }
-
-            /* Migration code can be removed ~ Nov. 2014 */
-            if (!Main.pref.getBoolean("mappaint.style.migration.switchedToMapCSS", false)) {
-                SourceEntry josmXml = Utils.find(list, new Predicate<SourceEntry>() {
-                    @Override
-                    public boolean evaluate(SourceEntry se) {
-                        return "resource://styles/standard/elemstyles.xml".equals(se.url);
-                    }
-                });
-                SourceEntry josmMapCSS = Utils.find(list, new Predicate<SourceEntry>() {
-                    @Override
-                    public boolean evaluate(SourceEntry se) {
-                        return "resource://styles/standard/elemstyles.mapcss".equals(se.url);
-                    }
-                });
-                if (josmXml != null && josmMapCSS != null && josmXml.active) {
-                    josmMapCSS.active = true;
-                    josmXml.active = false;
-                    Main.info("Switched mappaint style from XML format to MapCSS (one time migration).");
-                    changed = true;
-                }
-                // in any case, do this check only once:
-                Main.pref.put("mappaint.style.migration.switchedToMapCSS", true);
-            }
 
             // XML style is not bundled anymore
             list.remove(Utils.find(list, new Predicate<SourceEntry>() {

@@ -28,6 +28,7 @@ import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.actions.AutoScaleAction;
 import org.openstreetmap.josm.actions.ZoomToAction;
 import org.openstreetmap.josm.data.osm.OsmPrimitive;
+import org.openstreetmap.josm.data.osm.Relation;
 import org.openstreetmap.josm.data.osm.RelationMember;
 import org.openstreetmap.josm.data.osm.Way;
 import org.openstreetmap.josm.gui.MapView;
@@ -43,17 +44,18 @@ public class MemberTable extends OsmPrimitivesTable implements IMemberModelListe
 
     /** the additional actions in popup menu */
     private ZoomToGapAction zoomToGap;
-    private HighlightHelper highlightHelper = new HighlightHelper();
+    private transient HighlightHelper highlightHelper = new HighlightHelper();
     private boolean highlightEnabled;
 
     /**
      * constructor for relation member table
      *
-     * @param layer the data layer of the relation
+     * @param layer the data layer of the relation. Must not be null
+     * @param relation the relation. Can be null
      * @param model the table model
      */
-    public MemberTable(OsmDataLayer layer, MemberTableModel model) {
-        super(model, new MemberTableColumnModel(layer.data), model.getSelectionModel());
+    public MemberTable(OsmDataLayer layer, Relation relation, MemberTableModel model) {
+        super(model, new MemberTableColumnModel(layer.data, relation), model.getSelectionModel());
         setLayer(layer);
         model.addMemberModelListener(this);
         init();
@@ -119,7 +121,7 @@ public class MemberTable extends OsmPrimitivesTable implements IMemberModelListe
         scrollRectToVisible(getCellRect(index, 0, true));
     }
 
-    ListSelectionListener highlighterListener = new ListSelectionListener() {
+    private transient ListSelectionListener highlighterListener = new ListSelectionListener() {
             @Override
             public void valueChanged(ListSelectionEvent lse) {
                 if (Main.isDisplayingMapView()) {
@@ -156,8 +158,6 @@ public class MemberTable extends OsmPrimitivesTable implements IMemberModelListe
      * pressing TAB or ENTER. The action alters the standard navigation path from cell to cell: <ul>
      * <li>it jumps over cells in the first column</li> <li>it automatically add a new empty row
      * when the user leaves the last cell in the table</li></ul>
-     *
-     *
      */
     class SelectNextColumnCellAction extends AbstractAction {
         @Override
@@ -190,7 +190,6 @@ public class MemberTable extends OsmPrimitivesTable implements IMemberModelListe
     /**
      * Action to be run when the user navigates to the previous cell in the table, for instance by
      * pressing Shift-TAB
-     *
      */
     private class SelectPreviousColumnCellAction extends AbstractAction {
 
@@ -269,6 +268,9 @@ public class MemberTable extends OsmPrimitivesTable implements IMemberModelListe
 
     private class ZoomToGapAction extends AbstractAction implements LayerChangeListener, ListSelectionListener {
 
+        /**
+         * Constructs a new {@code ZoomToGapAction}.
+         */
         public ZoomToGapAction() {
             putValue(NAME, tr("Zoom to Gap"));
             putValue(SHORT_DESCRIPTION, tr("Zoom to the gap in the way sequence"));
@@ -279,7 +281,8 @@ public class MemberTable extends OsmPrimitivesTable implements IMemberModelListe
             return getMemberTableModel().getWayConnection(getSelectedRows()[0]);
         }
 
-        private final Collection<Direction> connectionTypesOfInterest = Arrays.asList(WayConnectionType.Direction.FORWARD, WayConnectionType.Direction.BACKWARD);
+        private final Collection<Direction> connectionTypesOfInterest = Arrays.asList(
+                WayConnectionType.Direction.FORWARD, WayConnectionType.Direction.BACKWARD);
 
         private boolean hasGap() {
             WayConnectionType connectionType = getConnectionType();

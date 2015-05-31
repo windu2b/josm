@@ -3,11 +3,13 @@ package org.openstreetmap.josm.gui.dialogs.properties;
 
 import static org.openstreetmap.josm.tools.I18n.marktr;
 import static org.openstreetmap.josm.tools.I18n.tr;
+import static org.openstreetmap.josm.tools.I18n.trn;
 
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Font;
 import java.util.Map;
+import java.util.Objects;
 
 import javax.swing.JLabel;
 import javax.swing.JTable;
@@ -38,8 +40,8 @@ public class PropertiesCellRenderer extends DefaultTableCellRenderer {
             c.setBackground(defaults.getColor("Table."+(isSelected ? "selectionB" : "b")+"ackground"));
         }
     }
-    
-    @Override 
+
+    @Override
     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
         Component c = super.getTableCellRendererComponent(table, value, isSelected, false, row, column);
         if (value == null)
@@ -50,10 +52,37 @@ public class PropertiesCellRenderer extends DefaultTableCellRenderer {
                 str = (String) value;
             } else if (value instanceof Map<?, ?>) {
                 Map<?, ?> v = (Map<?, ?>) value;
-                if (v.size() != 1) {
-                    str=tr("<different>");
+                if (v.size() != 1) {    // Multiple values: give user a short summary of the values
+                    Integer blankCount;
+                    Integer otherCount;
+                    if (v.get("") == null) {
+                        blankCount = 0;
+                        otherCount = v.size();
+                    } else {
+                        blankCount = (Integer)v.get("");
+                        otherCount = v.size()-1;
+                    }
+                    StringBuilder sb = new StringBuilder("<");
+                    if (otherCount == 1) {
+                        for (Map.Entry<?, ?> entry : v.entrySet()) { // Find the non-blank value in the map
+                            if (!Objects.equals(entry.getKey(), "")) {
+                                /* I18n: properties display partial string joined with comma, frst is count, second is value */
+                                sb.append(tr("{0} ''{1}''", entry.getValue().toString(), entry.getKey()));
+                            }
+                        }
+                    } else {
+                        /* I18n: properties display partial string joined with comma */
+                        sb.append(trn("{0} different", "{0} different", otherCount, otherCount));
+                    }
+                    if(blankCount > 0) {
+                        /* I18n: properties display partial string joined with comma */
+                        sb.append(trn(", {0} unset", ", {0} unset", blankCount, blankCount));
+                    }
+                    sb.append('>');
+                    str = sb.toString();
                     c.setFont(c.getFont().deriveFont(Font.ITALIC));
-                } else {
+
+                } else {                // One value: display the value
                     final Map.Entry<?, ?> entry = v.entrySet().iterator().next();
                     str = (String) entry.getKey();
                 }

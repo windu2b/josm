@@ -356,9 +356,18 @@ public class FilterDialog extends ToggleDialog implements DataSetListener {
         filterModel.executeFilters(getAffectedPrimitives(event.getPrimitives()));
     }
 
+    /**
+     * This method is intendet for Plugins getting the filtermodel and using .addFilter() to
+     * add a new filter.
+     * @return the filtermodel
+     */
+    public FilterTableModel getFilterModel(){
+        return filterModel;
+    }
+
     abstract class AbstractFilterAction extends AbstractAction implements MultikeyShortcutAction {
 
-        protected Filter lastFilter;
+        protected transient Filter lastFilter;
 
         @Override
         public void actionPerformed(ActionEvent e) {

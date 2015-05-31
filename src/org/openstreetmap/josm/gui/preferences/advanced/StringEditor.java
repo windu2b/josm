@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui.preferences.advanced;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -19,8 +19,8 @@ import org.openstreetmap.josm.tools.GBC;
  */
 public class StringEditor extends ExtendedDialog {
 
-    PrefEntry entry;
-    JosmTextField tvalue;
+    private transient PrefEntry entry;
+    private JosmTextField tvalue;
 
     /**
      * Constructs a new {@code StringEditor}.

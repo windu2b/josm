@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui.preferences.advanced;
 
 import static org.openstreetmap.josm.tools.I18n.marktr;
@@ -42,7 +42,7 @@ import org.openstreetmap.josm.tools.GBC;
  */
 public class PreferencesTable extends JTable {
     private AllSettingsTableModel model;
-    private final List<PrefEntry> displayData;
+    private final transient List<PrefEntry> displayData;
 
     /**
      * Constructs a new {@code PreferencesTable}.
@@ -52,7 +52,7 @@ public class PreferencesTable extends JTable {
         this.displayData = displayData;
         model = new AllSettingsTableModel();
         setModel(model);
-        putClientProperty("terminateEditOnFocusLost", true);
+        putClientProperty("terminateEditOnFocusLost", Boolean.TRUE);
         getColumnModel().getColumn(1).setCellRenderer(new SettingCellRenderer());
         getColumnModel().getColumn(1).setCellEditor(new SettingCellEditor());
 
@@ -322,9 +322,9 @@ public class PreferencesTable extends JTable {
             if (isSelected) {
                 label.setForeground(foregroundColor);
             }
-            if(pe.isChanged()) {
+            if (pe.isChanged()) {
                 label.setBackground(changedColor);
-            } else if(!pe.isDefault()) {
+            } else if (!pe.isDefault()) {
                 label.setBackground(nonDefaultColor);
             }
 
@@ -332,9 +332,8 @@ public class PreferencesTable extends JTable {
                 label.setFont(label.getFont().deriveFont(Font.BOLD));
             }
             val = pe.getDefaultValue().getValue();
-            if(val != null)
-            {
-                if(pe.isDefault()) {
+            if (val != null) {
+                if (pe.isDefault()) {
                     label.setToolTipText(tr("Current value is default."));
                 } else {
                     label.setToolTipText(tr("Default value is ''{0}''.", val));

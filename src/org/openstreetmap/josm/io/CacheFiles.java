@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.TreeMap;
 
 import javax.imageio.ImageIO;
@@ -244,15 +245,18 @@ public class CacheFiles {
     public void cleanUp() {
         if(!this.enabled || maxsize == -1) return;
 
-        TreeMap<Long, File> modtime = new TreeMap<>();
+        SortedMap<Long, File> modtime = new TreeMap<>();
         long dirsize = 0;
 
-        for(File f : dir.listFiles()) {
-            if(isExpired(f)) {
-                f.delete();
-            } else {
-                dirsize += f.length();
-                modtime.put(f.lastModified(), f);
+        File[] files = dir.listFiles();
+        if (files != null) {
+            for(File f : files) {
+                if(isExpired(f)) {
+                    f.delete();
+                } else {
+                    dirsize += f.length();
+                    modtime.put(f.lastModified(), f);
+                }
             }
         }
 
@@ -282,17 +286,25 @@ public class CacheFiles {
      * @param size for CLEAN_SMALL_FILES: deletes all files smaller than (size) bytes
      */
     public void customCleanUp(int type, int size) {
+        File[] files;
         switch(type) {
         case CLEAN_ALL:
-            for(File f : dir.listFiles()) {
-                f.delete();
+            files = dir.listFiles();
+            if (files != null) {
+                for (File f : files) {
+                    f.delete();
+                }
             }
             break;
         case CLEAN_SMALL_FILES:
-            for(File f: dir.listFiles())
-                if(f.length() < size) {
-                    f.delete();
+            files = dir.listFiles();
+            if (files != null) {
+                for (File f: files) {
+                    if (f.length() < size) {
+                        f.delete();
+                    }
                 }
+            }
             break;
         case CLEAN_BY_DATE:
             cleanUp();
@@ -308,8 +320,11 @@ public class CacheFiles {
         if(!enabled) return -1;
         long dirsize = 0;
 
-        for(File f : this.dir.listFiles()) {
-            dirsize += f.length();
+        File[] files = dir.listFiles();
+        if (files != null) {
+            for(File f : files) {
+                dirsize += f.length();
+            }
         }
         return dirsize;
     }
@@ -359,6 +374,6 @@ public class CacheFiles {
     private boolean isExpired(File file) {
         if(CacheFiles.EXPIRE_NEVER == this.expire)
             return false;
-        return (file.lastModified() < (System.currentTimeMillis() - expire*1000));
+        return file.lastModified() < (System.currentTimeMillis() - expire*1000);
     }
 }

@@ -10,7 +10,7 @@ import org.openstreetmap.josm.tools.CheckParameterUtil;
  * Simple literal value, that does not depend on other expressions.
  */
 public class LiteralExpression implements Expression {
-    Object literal;
+    private final Object literal;
 
     public LiteralExpression(Object literal) {
         CheckParameterUtil.ensureParameterNotNull(literal);
@@ -27,7 +27,6 @@ public class LiteralExpression implements Expression {
         if (literal instanceof float[]) {
             return Arrays.toString((float[]) literal);
         }
-        return "<" + literal.toString() + ">";
+        return "<" + literal + ">";
     }
-
 }

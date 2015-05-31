@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui.dialogs;
 
 import static org.openstreetmap.josm.gui.help.HelpUtil.ht;
@@ -31,6 +31,7 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
 import org.openstreetmap.josm.Main;
+import org.openstreetmap.josm.actions.AbstractSelectAction;
 import org.openstreetmap.josm.data.SelectionChangedListener;
 import org.openstreetmap.josm.data.conflict.Conflict;
 import org.openstreetmap.josm.data.conflict.ConflictCollection;
@@ -67,23 +68,23 @@ public final class ConflictDialog extends ToggleDialog implements MapView.EditLa
      * Replies the color used to paint conflicts.
      *
      * @return the color used to paint conflicts
-     * @since 1221
      * @see #paintConflicts
+     * @since 1221
      */
     public static Color getColor() {
         return Main.pref.getColor(marktr("conflict"), Color.gray);
     }
 
     /** the collection of conflicts displayed by this conflict dialog */
-    private ConflictCollection conflicts;
+    private transient ConflictCollection conflicts;
 
     /** the model for the list of conflicts */
-    private ConflictListModel model;
+    private transient ConflictListModel model;
     /** the list widget for the list of conflicts */
     private JList<OsmPrimitive> lstConflicts;
 
     private final JPopupMenu popupMenu = new JPopupMenu();
-    private final PopupMenuHandler popupMenuHandler = new PopupMenuHandler(popupMenu);
+    private final transient PopupMenuHandler popupMenuHandler = new PopupMenuHandler(popupMenu);
 
     private ResolveAction actResolve;
     private SelectAction actSelect;
@@ -440,11 +441,8 @@ public final class ConflictDialog extends ToggleDialog implements MapView.EditLa
         }
     }
 
-    class SelectAction extends AbstractAction implements ListSelectionListener {
-        public SelectAction() {
-            putValue(NAME, tr("Select"));
-            putValue(SHORT_DESCRIPTION,  tr("Set the selected elements on the map to the selected items in the list above."));
-            putValue(SMALL_ICON, ImageProvider.get("dialogs", "select"));
+    final class SelectAction extends AbstractSelectAction implements ListSelectionListener {
+        private SelectAction() {
             putValue("help", ht("/Dialog/ConflictList#SelectAction"));
         }
 

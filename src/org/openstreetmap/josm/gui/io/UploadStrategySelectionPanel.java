@@ -17,8 +17,9 @@ import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-import java.util.HashMap;
+import java.util.EnumMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
@@ -50,9 +51,9 @@ public class UploadStrategySelectionPanel extends JPanel implements PropertyChan
 
     private static final Color BG_COLOR_ERROR = new Color(255,224,224);
 
-    private Map<UploadStrategy, JRadioButton> rbStrategy;
-    private Map<UploadStrategy, JLabel> lblNumRequests;
-    private Map<UploadStrategy, JMultilineLabel> lblStrategies;
+    private transient Map<UploadStrategy, JRadioButton> rbStrategy;
+    private transient Map<UploadStrategy, JLabel> lblNumRequests;
+    private transient Map<UploadStrategy, JMultilineLabel> lblStrategies;
     private JosmTextField tfChunkSize;
     private JPanel pnlMultiChangesetPolicyPanel;
     private JRadioButton rbFillOneChangeset;
@@ -72,9 +73,9 @@ public class UploadStrategySelectionPanel extends JPanel implements PropertyChan
         JPanel pnl = new JPanel();
         pnl.setLayout(new GridBagLayout());
         ButtonGroup bgStrategies = new ButtonGroup();
-        rbStrategy = new HashMap<>();
-        lblStrategies = new HashMap<>();
-        lblNumRequests = new HashMap<>();
+        rbStrategy = new EnumMap<>(UploadStrategy.class);
+        lblStrategies = new EnumMap<>(UploadStrategy.class);
+        lblNumRequests = new EnumMap<>(UploadStrategy.class);
         for (UploadStrategy strategy: UploadStrategy.values()) {
             rbStrategy.put(strategy, new JRadioButton());
             lblNumRequests.put(strategy, new JLabel());
@@ -104,7 +105,7 @@ public class UploadStrategySelectionPanel extends JPanel implements PropertyChan
         pnl.add(rbStrategy.get(UploadStrategy.SINGLE_REQUEST_STRATEGY), gc);
         gc.gridx = 1;
         gc.gridy = 1;
-        gc.weightx = 0.0;
+        gc.weightx = 1.0;
         gc.weighty = 0.0;
         gc.gridwidth = 2;
         JMultilineLabel lbl = lblStrategies.get(UploadStrategy.SINGLE_REQUEST_STRATEGY);
@@ -112,7 +113,7 @@ public class UploadStrategySelectionPanel extends JPanel implements PropertyChan
         pnl.add(lbl, gc);
         gc.gridx = 3;
         gc.gridy = 1;
-        gc.weightx = 1.0;
+        gc.weightx = 0.0;
         gc.weighty = 0.0;
         gc.gridwidth = 1;
         pnl.add(lblNumRequests.get(UploadStrategy.SINGLE_REQUEST_STRATEGY), gc);
@@ -125,7 +126,7 @@ public class UploadStrategySelectionPanel extends JPanel implements PropertyChan
         pnl.add(rbStrategy.get(UploadStrategy.CHUNKED_DATASET_STRATEGY), gc);
         gc.gridx = 1;
         gc.gridy = 2;
-        gc.weightx = 0.0;
+        gc.weightx = 1.0;
         gc.weighty = 0.0;
         gc.gridwidth = 1;
         lbl = lblStrategies.get(UploadStrategy.CHUNKED_DATASET_STRATEGY);
@@ -139,7 +140,7 @@ public class UploadStrategySelectionPanel extends JPanel implements PropertyChan
         pnl.add(tfChunkSize = new JosmTextField(4), gc);
         gc.gridx = 3;
         gc.gridy = 2;
-        gc.weightx = 1.0;
+        gc.weightx = 0.0;
         gc.weighty = 0.0;
         gc.gridwidth = 1;
         pnl.add(lblNumRequests.get(UploadStrategy.CHUNKED_DATASET_STRATEGY), gc);
@@ -152,7 +153,7 @@ public class UploadStrategySelectionPanel extends JPanel implements PropertyChan
         pnl.add(rbStrategy.get(UploadStrategy.INDIVIDUAL_OBJECTS_STRATEGY), gc);
         gc.gridx = 1;
         gc.gridy = 3;
-        gc.weightx = 0.0;
+        gc.weightx = 1.0;
         gc.weighty = 0.0;
         gc.gridwidth = 2;
         lbl = lblStrategies.get(UploadStrategy.INDIVIDUAL_OBJECTS_STRATEGY);
@@ -160,7 +161,7 @@ public class UploadStrategySelectionPanel extends JPanel implements PropertyChan
         pnl.add(lbl, gc);
         gc.gridx = 3;
         gc.gridy = 3;
-        gc.weightx = 1.0;
+        gc.weightx = 0.0;
         gc.weighty = 0.0;
         gc.gridwidth = 1;
         pnl.add(lblNumRequests.get(UploadStrategy.INDIVIDUAL_OBJECTS_STRATEGY), gc);
@@ -251,8 +252,6 @@ public class UploadStrategySelectionPanel extends JPanel implements PropertyChan
         UploadStrategySpecification spec = new UploadStrategySpecification();
         switch(strategy) {
         case INDIVIDUAL_OBJECTS_STRATEGY:
-            spec.setStrategy(strategy);
-            break;
         case SINGLE_REQUEST_STRATEGY:
             spec.setStrategy(strategy);
             break;
@@ -276,9 +275,9 @@ public class UploadStrategySelectionPanel extends JPanel implements PropertyChan
 
     protected UploadStrategy getUploadStrategy() {
         UploadStrategy strategy = null;
-        for (UploadStrategy s: rbStrategy.keySet()) {
-            if (rbStrategy.get(s).isSelected()) {
-                strategy = s;
+        for (Entry<UploadStrategy, JRadioButton> e : rbStrategy.entrySet()) {
+            if (e.getValue().isSelected()) {
+                strategy = e.getKey();
                 break;
             }
         }
@@ -286,10 +285,8 @@ public class UploadStrategySelectionPanel extends JPanel implements PropertyChan
     }
 
     protected int getChunkSize() {
-        int chunkSize;
         try {
-            chunkSize = Integer.parseInt(tfChunkSize.getText().trim());
-            return chunkSize;
+            return Integer.parseInt(tfChunkSize.getText().trim());
         } catch(NumberFormatException e) {
             return UploadStrategySpecification.UNSPECIFIED_CHUNK_SIZE;
         }
@@ -341,7 +338,7 @@ public class UploadStrategySelectionPanel extends JPanel implements PropertyChan
             rbStrategy.get(UploadStrategy.SINGLE_REQUEST_STRATEGY).setEnabled(true);
             JMultilineLabel lbl = lblStrategies.get(UploadStrategy.SINGLE_REQUEST_STRATEGY);
             lbl.setText(tr("Upload data in one request"));
-            lbl.setToolTipText("");
+            lbl.setToolTipText(null);
             lblNumRequests.get(UploadStrategy.SINGLE_REQUEST_STRATEGY).setVisible(true);
 
             pnlMultiChangesetPolicyPanel.setVisible(false);

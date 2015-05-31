@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.data.validation.tests;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -130,7 +130,7 @@ public class DuplicateRelation extends Test {
     /**
      * Class to store relation data (keys are usually cleanup and may not be equal to original relation)
      */
-    private class RelationPair {
+    private static class RelationPair {
         /** Member objects of the relation */
         private RelationMembers members;
         /** Tags of the relation */
@@ -168,7 +168,7 @@ public class DuplicateRelation extends Test {
     private MultiMap<RelationPair, OsmPrimitive> relations;
 
     /** MultiMap of all relations, regardless of keys */
-    private MultiMap<List<RelationMember>, OsmPrimitive> relations_nokeys;
+    private MultiMap<List<RelationMember>, OsmPrimitive> relationsNoKeys;
 
     /** List of keys without useful information */
     private final Set<String> ignoreKeys = new HashSet<>(OsmPrimitive.getUninterestingKeys());
@@ -185,7 +185,7 @@ public class DuplicateRelation extends Test {
     public void startTest(ProgressMonitor monitor) {
         super.startTest(monitor);
         relations = new MultiMap<>(1000);
-        relations_nokeys = new MultiMap<>(1000);
+        relationsNoKeys = new MultiMap<>(1000);
     }
 
     @Override
@@ -198,13 +198,13 @@ public class DuplicateRelation extends Test {
             }
         }
         relations = null;
-        for (Set<OsmPrimitive> duplicated : relations_nokeys.values()) {
+        for (Set<OsmPrimitive> duplicated : relationsNoKeys.values()) {
             if (duplicated.size() > 1) {
                 TestError testError = new TestError(this, Severity.WARNING, tr("Relations with same members"), SAME_RELATION, duplicated);
                 errors.add( testError );
             }
         }
-        relations_nokeys = null;
+        relationsNoKeys = null;
     }
 
     @Override
@@ -217,7 +217,7 @@ public class DuplicateRelation extends Test {
             rkeys.remove(key);
         RelationPair rKey = new RelationPair(rMembers, rkeys);
         relations.put(rKey, r);
-        relations_nokeys.put(rMembers, r);
+        relationsNoKeys.put(rMembers, r);
     }
 
     /**
@@ -228,7 +228,7 @@ public class DuplicateRelation extends Test {
     public Command fixError(TestError testError) {
         if (testError.getCode() == SAME_RELATION) return null;
         Collection<? extends OsmPrimitive> sel = testError.getPrimitives();
-        HashSet<Relation> relFix = new HashSet<>();
+        Set<Relation> relFix = new HashSet<>();
 
         for (OsmPrimitive osm : sel)
             if (osm instanceof Relation && !osm.isDeleted()) {
@@ -291,7 +291,7 @@ public class DuplicateRelation extends Test {
 
         // We fix it only if there is no more than one relation that is relation member.
         Collection<? extends OsmPrimitive> sel = testError.getPrimitives();
-        HashSet<Relation> relations = new HashSet<>();
+        Set<Relation> relations = new HashSet<>();
 
         for (OsmPrimitive osm : sel)
             if (osm instanceof Relation) {
@@ -308,6 +308,6 @@ public class DuplicateRelation extends Test {
                 ++relationsWithRelations;
             }
         }
-        return (relationsWithRelations <= 1);
+        return relationsWithRelations <= 1;
     }
 }

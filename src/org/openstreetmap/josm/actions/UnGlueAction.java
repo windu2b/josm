@@ -46,9 +46,9 @@ import org.openstreetmap.josm.tools.Shortcut;
  */
 public class UnGlueAction extends JosmAction {
 
-    private Node selectedNode;
-    private Way selectedWay;
-    private Set<Node> selectedNodes;
+    private transient Node selectedNode;
+    private transient Way selectedWay;
+    private transient Set<Node> selectedNodes;
 
     /**
      * Create a new UnGlueAction.
@@ -120,7 +120,7 @@ public class UnGlueAction extends JosmAction {
                     tmpNodes.add(n);
                 }
             }
-            if (tmpNodes.size() < 1) {
+            if (tmpNodes.isEmpty()) {
                 if (selection.size() > 1) {
                     errMsg =  tr("None of these nodes are glued to anything else.");
                 } else {
@@ -166,7 +166,7 @@ public class UnGlueAction extends JosmAction {
      * (i.e. copy node and remove all tags from the old one. Relations will not be removed)
      */
     private void unglueNode(ActionEvent e) {
-        LinkedList<Command> cmds = new LinkedList<>();
+        List<Command> cmds = new LinkedList<>();
 
         Node c = new Node(selectedNode);
         c.removeAll();
@@ -261,7 +261,7 @@ public class UnGlueAction extends JosmAction {
      * nodes into "selectedNodes".
      */
     private boolean checkSelection2(Collection<? extends OsmPrimitive> selection) {
-        if (selection.size() < 1)
+        if (selection.isEmpty())
             return false;
 
         selectedWay = null;
@@ -285,7 +285,7 @@ public class UnGlueAction extends JosmAction {
             }
         }
 
-        if (selectedNodes.size() < 1) {
+        if (selectedNodes.isEmpty()) {
             selectedNodes.addAll(selectedWay.getNodes());
         }
 
@@ -331,7 +331,7 @@ public class UnGlueAction extends JosmAction {
                 continue;
             }
             Relation newRel = null;
-            HashMap<String, Integer> rolesToReAdd = null; // <role name, index>
+            Map<String, Integer> rolesToReAdd = null; // <role name, index>
             int i = 0;
             for (RelationMember rm : r.getMembers()) {
                 if (rm.isNode() && rm.getMember() == originalNode) {
@@ -360,8 +360,8 @@ public class UnGlueAction extends JosmAction {
      * dupe a single node once, and put the copy on the selected way
      */
     private void unglueWays() {
-        LinkedList<Command> cmds = new LinkedList<>();
-        LinkedList<Node> newNodes = new LinkedList<>();
+        List<Command> cmds = new LinkedList<>();
+        List<Node> newNodes = new LinkedList<>();
 
         if (selectedWay == null) {
             Way wayWithSelectedNode = null;
@@ -408,15 +408,15 @@ public class UnGlueAction extends JosmAction {
      */
     private boolean unglueSelfCrossingWay() {
         // According to previous check, only one valid way through that node
-        LinkedList<Command> cmds = new LinkedList<>();
+        List<Command> cmds = new LinkedList<>();
         Way way = null;
         for (Way w: OsmPrimitive.getFilteredList(selectedNode.getReferrers(), Way.class))
             if (w.isUsable() && w.getNodesCount() >= 1) {
                 way = w;
             }
         List<Node> oldNodes = way.getNodes();
-        ArrayList<Node> newNodes = new ArrayList<>(oldNodes.size());
-        ArrayList<Node> addNodes = new ArrayList<>();
+        List<Node> newNodes = new ArrayList<>(oldNodes.size());
+        List<Node> addNodes = new ArrayList<>();
         boolean seen = false;
         for (Node n: oldNodes) {
             if (n == selectedNode) {
@@ -450,7 +450,7 @@ public class UnGlueAction extends JosmAction {
      *
      */
     private void unglueWays2() {
-        LinkedList<Command> cmds = new LinkedList<>();
+        List<Command> cmds = new LinkedList<>();
         List<Node> allNewNodes = new LinkedList<>();
         Way tmpWay = selectedWay;
 

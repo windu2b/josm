@@ -37,9 +37,12 @@ import org.xml.sax.SAXException;
 
 /**
  * Uploads the current selection to the server.
- *
+ * @since 2250
  */
-public class UploadSelectionAction extends JosmAction{
+public class UploadSelectionAction extends JosmAction {
+    /**
+     * Constructs a new {@code UploadSelectionAction}.
+     */
     public UploadSelectionAction() {
         super(
                 tr("Upload selection"),
@@ -65,7 +68,7 @@ public class UploadSelectionAction extends JosmAction{
     }
 
     protected Set<OsmPrimitive> getDeletedPrimitives(DataSet ds) {
-        HashSet<OsmPrimitive> ret = new HashSet<>();
+        Set<OsmPrimitive> ret = new HashSet<>();
         for (OsmPrimitive p: ds.allPrimitives()) {
             if (p.isDeleted() && !p.isNew() && p.isVisible() && p.isModified()) {
                 ret.add(p);
@@ -75,7 +78,7 @@ public class UploadSelectionAction extends JosmAction{
     }
 
     protected Set<OsmPrimitive> getModifiedPrimitives(Collection<OsmPrimitive> primitives) {
-        HashSet<OsmPrimitive> ret = new HashSet<>();
+        Set<OsmPrimitive> ret = new HashSet<>();
         for (OsmPrimitive p: primitives) {
             if (p.isNewOrUndeleted()) {
                 ret.add(p);
@@ -238,9 +241,9 @@ public class UploadSelectionAction extends JosmAction{
          *
          * @param base the base collection. Must not be null.
          * @return the "hull"
-         * @throws IllegalArgumentException thrown if base is null
+         * @throws IllegalArgumentException if base is null
          */
-        public Set<OsmPrimitive> build(Collection<OsmPrimitive> base) throws IllegalArgumentException{
+        public Set<OsmPrimitive> build(Collection<OsmPrimitive> base) {
             CheckParameterUtil.ensureParameterNotNull(base, "base");
             hull = new HashSet<>();
             for (OsmPrimitive p: base) {
@@ -302,7 +305,7 @@ public class UploadSelectionAction extends JosmAction{
          * @return primitives to check
          */
         protected Set<OsmPrimitive> getPrimitivesToCheckForParents() {
-            HashSet<OsmPrimitive> ret = new HashSet<>();
+            Set<OsmPrimitive> ret = new HashSet<>();
             for (OsmPrimitive p: toUpload) {
                 if (p.isDeleted() && !p.isNewOrUndeleted()) {
                     ret.add(p);

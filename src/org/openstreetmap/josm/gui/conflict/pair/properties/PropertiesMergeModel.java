@@ -259,9 +259,9 @@ public class PropertiesMergeModel extends Observable {
      * decides the conflict between two deleted states
      * @param decision the decision (must not be null)
      *
-     * @throws IllegalArgumentException thrown, if decision is null
+     * @throws IllegalArgumentException if decision is null
      */
-    public void decideDeletedStateConflict(MergeDecisionType decision) throws IllegalArgumentException{
+    public void decideDeletedStateConflict(MergeDecisionType decision) {
         CheckParameterUtil.ensureParameterNotNull(decision, "decision");
 
         boolean oldMergedDeletedState = getMergedDeletedState(this.deletedMergeDecision);
@@ -288,7 +288,7 @@ public class PropertiesMergeModel extends Observable {
         if (myCoords == null && theirCoords != null) return true;
         if (myCoords != null && theirCoords == null) return true;
         if (myCoords == null && theirCoords == null) return false;
-        return !myCoords.equalsEpsilon(theirCoords);
+        return myCoords != null && !myCoords.equalsEpsilon(theirCoords);
     }
 
     /**

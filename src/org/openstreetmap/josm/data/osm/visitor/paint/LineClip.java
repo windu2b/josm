@@ -64,33 +64,28 @@ public class LineClip {
         boolean accept = false;
         boolean done = false;
 
-        outcode0 = computeOutCode (x1, y1, xmin, ymin, xmax, ymax);
-        outcode1 = computeOutCode (x2, y2, xmin, ymin, xmax, ymax);
+        outcode0 = computeOutCode(x1, y1, xmin, ymin, xmax, ymax);
+        outcode1 = computeOutCode(x2, y2, xmin, ymin, xmax, ymax);
 
         do {
             if ((outcode0 | outcode1) == 0 ) {
                 accept = true;
                 done = true;
-            }
-            else if ( (outcode0 & outcode1) > 0 ) {
+            } else if ( (outcode0 & outcode1) > 0 ) {
                 done = true;
-            }
-            else {
+            } else {
                 long x = 0, y = 0;
                 outcodeOut = outcode0 != 0 ? outcode0: outcode1;
                 if ( (outcodeOut & OUT_TOP) > 0 ) {
                     x = x1 + (x2 - x1) * (ymax - y1)/(y2 - y1);
                     y = ymax;
-                }
-                else if ((outcodeOut & OUT_BOTTOM) > 0 ) {
+                } else if ((outcodeOut & OUT_BOTTOM) > 0 ) {
                     x = x1 + (x2 - x1) * (ymin - y1)/(y2 - y1);
                     y = ymin;
-                }
-                else if ((outcodeOut & OUT_RIGHT)> 0) {
+                } else if ((outcodeOut & OUT_RIGHT)> 0) {
                     y = y1 + (y2 - y1) * (xmax - x1)/(x2 - x1);
                     x = xmax;
-                }
-                else if ((outcodeOut & OUT_LEFT) > 0) {
+                } else if ((outcodeOut & OUT_LEFT) > 0) {
                     y = y1 + (y2 - y1) * (xmin - x1)/(x2 - x1);
                     x = xmin;
                 }
@@ -119,18 +114,16 @@ public class LineClip {
      * The outcode of the point.
      * We cannot use Rectangle.outcode since it does not work with long ints.
      */
-    private static int computeOutCode (long x, long y, long xmin, long ymin, long xmax, long ymax) {
+    private static int computeOutCode(long x, long y, long xmin, long ymin, long xmax, long ymax) {
         int code = 0;
         if (y > ymax) {
             code |= OUT_TOP;
-        }
-        else if (y < ymin) {
+        } else if (y < ymin) {
             code |= OUT_BOTTOM;
         }
         if (x > xmax) {
             code |= OUT_RIGHT;
-        }
-        else if (x < xmin) {
+        } else if (x < xmin) {
             code |= OUT_LEFT;
         }
         return code;

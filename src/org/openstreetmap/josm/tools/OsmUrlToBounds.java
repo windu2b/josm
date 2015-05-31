@@ -5,8 +5,6 @@ import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.awt.HeadlessException;
 import java.awt.Toolkit;
-import java.io.UnsupportedEncodingException;
-import java.net.URLDecoder;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -21,13 +19,13 @@ public final class OsmUrlToBounds {
         // Hide default constructor for utils classes
     }
 
-    public static Bounds parse(String url) throws IllegalArgumentException {
+    public static Bounds parse(String url) {
         try {
             // a percent sign indicates an encoded URL (RFC 1738).
             if (url.contains("%")) {
-                url = URLDecoder.decode(url, "UTF-8");
+                url = Utils.decodeUrl(url);
             }
-        } catch (UnsupportedEncodingException | IllegalArgumentException x) {
+        } catch (IllegalArgumentException x) {
             Main.error(x);
         }
         Bounds b = parseShortLink(url);
@@ -43,7 +41,7 @@ public final class OsmUrlToBounds {
             return null;
         }
         String[] args = url.substring(i+1).split("&");
-        HashMap<String, String> map = new HashMap<>();
+        Map<String, String> map = new HashMap<>();
         for (String arg : args) {
             int eq = arg.indexOf('=');
             if (eq != -1) {
@@ -82,7 +80,7 @@ public final class OsmUrlToBounds {
      * @param url string for parsing
      * @return Bounds if hashurl, {@code null} otherwise
      */
-    private static Bounds parseHashURLs(String url) throws IllegalArgumentException {
+    private static Bounds parseHashURLs(String url) {
         int startIndex = url.indexOf("#map=");
         if (startIndex == -1) return null;
         int endIndex = url.indexOf('&', startIndex);
@@ -292,10 +290,10 @@ public final class OsmUrlToBounds {
      */
     public static String getURL(double dlat, double dlon, int zoom) {
         // Truncate lat and lon to something more sensible
-        int decimals = (int) Math.pow(10, (zoom / 3));
-        double lat = (Math.round(dlat * decimals));
+        int decimals = (int) Math.pow(10, zoom / 3d);
+        double lat = Math.round(dlat * decimals);
         lat /= decimals;
-        double lon = (Math.round(dlon * decimals));
+        double lon = Math.round(dlon * decimals);
         lon /= decimals;
         return Main.getOSMWebsite() + "/#map="+zoom+"/"+lat+"/"+lon;
     }

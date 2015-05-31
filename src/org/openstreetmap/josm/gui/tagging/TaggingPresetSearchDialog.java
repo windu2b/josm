@@ -19,18 +19,18 @@ public final class TaggingPresetSearchDialog extends ExtendedDialog {
     private TaggingPresetSelector selector;
 
     private static TaggingPresetSearchDialog instance;
-    
+
     /**
      * Returns the unique instance of {@code TaggingPresetSearchDialog}.
      * @return the unique instance of {@code TaggingPresetSearchDialog}.
      */
-    public static TaggingPresetSearchDialog getInstance() {
+    public static synchronized TaggingPresetSearchDialog getInstance() {
         if (instance == null) {
             instance = new TaggingPresetSearchDialog();
         }
         return instance;
     }
-    
+
     private TaggingPresetSearchDialog() {
         super(Main.parent, tr("Presets"), new String[] {tr("Select"), tr("Cancel")});
         selector = new TaggingPresetSelector(true, true);

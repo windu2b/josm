@@ -51,6 +51,7 @@ public class MarkerSessionExporter implements SessionLayerExporter {
         export.setSelected(true);
         final JLabel lbl = new JLabel(layer.getName(), layer.getIcon(), SwingConstants.LEFT);
         lbl.setToolTipText(layer.getToolTipText());
+        lbl.setLabelFor(export);
         p.add(export, GBC.std());
         p.add(lbl, GBC.std());
         p.add(GBC.glue(1,0), GBC.std().fill(GBC.HORIZONTAL));
@@ -99,7 +100,7 @@ public class MarkerSessionExporter implements SessionLayerExporter {
 
         public void write(MarkerLayer layer) {
             GpxData data = new GpxData();
-            data.attr.put(GpxData.META_DESC, "exported JOSM marker layer");
+            data.put(GpxData.META_DESC, "exported JOSM marker layer");
             for (Marker m : layer.data) {
                 data.waypoints.add(m.convertToWayPoint());
             }

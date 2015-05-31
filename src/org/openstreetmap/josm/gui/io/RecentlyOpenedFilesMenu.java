@@ -24,12 +24,12 @@ import org.openstreetmap.josm.tools.ImageProvider;
  * Show list of recently opened files
  */
 public class RecentlyOpenedFilesMenu extends JMenu {
-    ClearAction clearAction;
+    private ClearAction clearAction;
 
     public RecentlyOpenedFilesMenu() {
         super(tr("Open Recent"));
         setToolTipText(tr("List of recently opened files"));
-        setIcon(ImageProvider.get("openrecent.png"));
+        setIcon(new ImageProvider("openrecent").setSize(ImageProvider.ImageSizes.MENU).get());
         putClientProperty("help", ht("/Action/OpenRecent"));
 
         // build dynamically
@@ -58,7 +58,7 @@ public class RecentlyOpenedFilesMenu extends JMenu {
                 {
                     putValue(NAME, file);
                     putValue("help", ht("/Action/OpenRecent"));
-                    putValue("toolbar", false);
+                    putValue("toolbar", Boolean.FALSE);
                 }
                 @Override
                 public void actionPerformed(ActionEvent e) {

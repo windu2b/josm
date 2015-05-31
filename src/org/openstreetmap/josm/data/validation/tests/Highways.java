@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.data.validation.tests;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -11,6 +11,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import org.openstreetmap.josm.command.ChangePropertyCommand;
 import org.openstreetmap.josm.command.Command;
@@ -41,7 +42,7 @@ public class Highways extends Test {
     /**
      * Classified highways in order of importance
      */
-    protected static final List<String> CLASSIFIED_HIGHWAYS = Arrays.asList(
+    private static final Set<String> CLASSIFIED_HIGHWAYS = new HashSet<>(Arrays.asList(
             "motorway",  "motorway_link",
             "trunk",     "trunk_link",
             "primary",   "primary_link",
@@ -49,19 +50,19 @@ public class Highways extends Test {
             "tertiary",  "tertiary_link",
             "unclassified",
             "residential",
-            "living_street");
+            "living_street"));
 
-    protected static final List<String> KNOWN_SOURCE_MAXSPEED_CONTEXTS = Arrays.asList(
-            "urban", "rural", "zone", "zone30", "zone:30", "nsl_single", "nsl_dual", "motorway", "trunk", "living_street", "bicycle_road");
+    private static final Set<String> KNOWN_SOURCE_MAXSPEED_CONTEXTS = new HashSet<>(Arrays.asList(
+            "urban", "rural", "zone", "zone30", "zone:30", "nsl_single", "nsl_dual", "motorway", "trunk", "living_street", "bicycle_road"));
 
-    protected static final List<String> ISO_COUNTRIES = Arrays.asList(Locale.getISOCountries());
+    private static final Set<String> ISO_COUNTRIES = new HashSet<>(Arrays.asList(Locale.getISOCountries()));
 
-    boolean leftByPedestrians = false;
-    boolean leftByCyclists = false;
-    boolean leftByCars = false;
-    int pedestrianWays = 0;
-    int cyclistWays = 0;
-    int carsWays = 0;
+    private boolean leftByPedestrians = false;
+    private boolean leftByCyclists = false;
+    private boolean leftByCars = false;
+    private int pedestrianWays = 0;
+    private int cyclistWays = 0;
+    private int carsWays = 0;
 
     /**
      * Constructs a new {@code Highways} test.
@@ -85,7 +86,9 @@ public class Highways extends Test {
     @Override
     public void visit(Node n) {
         if (n.isUsable()) {
-            if (!n.hasTag("highway", "crossing") && !n.hasTag("crossing", "no") && n.isReferredByWays(2)) {
+            if (!n.hasTag("crossing", "no")
+             && !(n.hasKey("crossing") && (n.hasTag("highway", "crossing") || n.hasTag("highway", "traffic_signals")))
+             && n.isReferredByWays(2)) {
                 testMissingPedestrianCrossing(n);
             }
             if (n.hasKey("source:maxspeed")) {
@@ -149,9 +152,9 @@ public class Highways extends Test {
             return true;
         }
 
-        final HashSet<OsmPrimitive> referrers = new HashSet<>();
-        
-        if (way.isClosed()) { 
+        final Set<OsmPrimitive> referrers = new HashSet<>();
+
+        if (way.isClosed()) {
             // for closed way we need to check all adjacent ways
             for (Node n: way.getNodes()) {
                 referrers.addAll(n.getReferrers());

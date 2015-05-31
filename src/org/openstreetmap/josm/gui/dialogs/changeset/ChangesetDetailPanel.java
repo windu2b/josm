@@ -39,6 +39,7 @@ import org.openstreetmap.josm.gui.help.HelpUtil;
 import org.openstreetmap.josm.gui.layer.OsmDataLayer;
 import org.openstreetmap.josm.gui.widgets.JosmTextArea;
 import org.openstreetmap.josm.gui.widgets.JosmTextField;
+import org.openstreetmap.josm.io.OnlineResource;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.date.DateUtils;
 
@@ -62,7 +63,7 @@ public class ChangesetDetailPanel extends JPanel implements PropertyChangeListen
     private final SelectInCurrentLayerAction     actSelectInCurrentLayer     = new SelectInCurrentLayerAction();
     private final ZoomInCurrentLayerAction       actZoomInCurrentLayerAction = new ZoomInCurrentLayerAction();
 
-    private Changeset current = null;
+    private transient Changeset current = null;
 
     protected JPanel buildActionButtonPanel() {
         JPanel pnl = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -344,12 +345,7 @@ public class ChangesetDetailPanel extends JPanel implements PropertyChangeListen
         }
 
         public void initProperties(Changeset cs) {
-            if (cs == null) {
-                setEnabled(false);
-                return;
-            } else {
-                setEnabled(true);
-            }
+            setEnabled(cs != null && !Main.isOffline(OnlineResource.OSM_API));
         }
     }
 

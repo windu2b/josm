@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 Drew Noakes
+ * Copyright 2002-2015 Drew Noakes
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
  *
  * More information about this project is available at:
  *
- *    http://drewnoakes.com/code/exif/
- *    http://code.google.com/p/metadata-extractor/
+ *    https://drewnoakes.com/code/exif/
+ *    https://github.com/drewnoakes/metadata-extractor
  */
 package com.drew.metadata.iptc;
 
@@ -26,11 +26,11 @@ import com.drew.lang.annotations.Nullable;
 import com.drew.metadata.TagDescriptor;
 
 /**
- * Provides human-readable string representations of tag values stored in a <code>IptcDirectory</code>.
- * <p/>
+ * Provides human-readable string representations of tag values stored in a {@link IptcDirectory}.
+ * <p>
  * As the IPTC directory already stores values as strings, this class simply returns the tag's value.
  *
- * @author Drew Noakes http://drewnoakes.com
+ * @author Drew Noakes https://drewnoakes.com
  */
 public class IptcDescriptor extends TagDescriptor<IptcDirectory>
 {
@@ -39,6 +39,7 @@ public class IptcDescriptor extends TagDescriptor<IptcDirectory>
         super(directory);
     }
 
+    @Override
     @Nullable
     public String getDescription(int tagType)
     {
@@ -47,6 +48,10 @@ public class IptcDescriptor extends TagDescriptor<IptcDirectory>
                 return getFileFormatDescription();
             case IptcDirectory.TAG_KEYWORDS:
                 return getKeywordsDescription();
+            case IptcDirectory.TAG_TIME_CREATED:
+                return getTimeCreatedDescription();
+            case IptcDirectory.TAG_DIGITAL_TIME_CREATED:
+                return getDigitalTimeCreatedDescription();
             default:
                 return super.getDescription(tagType);
         }
@@ -225,7 +230,23 @@ public class IptcDescriptor extends TagDescriptor<IptcDirectory>
     @Nullable
     public String getTimeCreatedDescription()
     {
-        return _directory.getString(IptcDirectory.TAG_TIME_CREATED);
+        String s = _directory.getString(IptcDirectory.TAG_TIME_CREATED);
+        if (s == null)
+            return null;
+        if (s.length() == 6 || s.length() == 11)
+            return s.substring(0, 2) + ':' + s.substring(2, 4) + ':' + s.substring(4);
+        return s;
+    }
+
+    @Nullable
+    public String getDigitalTimeCreatedDescription()
+    {
+        String s = _directory.getString(IptcDirectory.TAG_DIGITAL_TIME_CREATED);
+        if (s == null)
+            return null;
+        if (s.length() == 6 || s.length() == 11)
+            return s.substring(0, 2) + ':' + s.substring(2, 4) + ':' + s.substring(4);
+        return s;
     }
 
     @Nullable

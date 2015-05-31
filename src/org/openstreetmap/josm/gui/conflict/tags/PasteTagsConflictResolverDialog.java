@@ -16,6 +16,7 @@ import java.awt.event.ActionEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,7 +46,7 @@ import org.openstreetmap.josm.tools.WindowGeometry;
 public class PasteTagsConflictResolverDialog extends JDialog  implements PropertyChangeListener {
     private static final Map<OsmPrimitiveType, String> PANE_TITLES;
     static {
-        PANE_TITLES = new HashMap<>();
+        PANE_TITLES = new EnumMap<>(OsmPrimitiveType.class);
         PANE_TITLES.put(OsmPrimitiveType.NODE, tr("Tags from nodes"));
         PANE_TITLES.put(OsmPrimitiveType.WAY, tr("Tags from ways"));
         PANE_TITLES.put(OsmPrimitiveType.RELATION, tr("Tags from relations"));
@@ -57,16 +58,20 @@ public class PasteTagsConflictResolverDialog extends JDialog  implements Propert
     }
 
     private TagConflictResolver allPrimitivesResolver;
-    private Map<OsmPrimitiveType, TagConflictResolver> resolvers;
+    private transient Map<OsmPrimitiveType, TagConflictResolver> resolvers;
     private JTabbedPane tpResolvers;
     private Mode mode;
     private boolean canceled = false;
 
-    private ImageIcon iconResolved;
-    private ImageIcon iconUnresolved;
+    private final ImageIcon iconResolved;
+    private final ImageIcon iconUnresolved;
     private StatisticsTableModel statisticsModel;
     private JPanel pnlTagResolver;
 
+    /**
+     * Constructs a new {@code PasteTagsConflictResolverDialog}.
+     * @param owner parent component
+     */
     public PasteTagsConflictResolverDialog(Component owner) {
         super(JOptionPane.getFrameForComponent(owner), ModalityType.DOCUMENT_MODAL);
         build();
@@ -77,7 +82,7 @@ public class PasteTagsConflictResolverDialog extends JDialog  implements Propert
     protected final void build() {
         setTitle(tr("Conflicts in pasted tags"));
         allPrimitivesResolver = new TagConflictResolver();
-        resolvers = new HashMap<>();
+        resolvers = new EnumMap<>(OsmPrimitiveType.class);
         for (OsmPrimitiveType type: OsmPrimitiveType.dataValues()) {
             resolvers.put(type, new TagConflictResolver());
             resolvers.get(type).getModel().addPropertyChangeListener(this);
@@ -113,8 +118,8 @@ public class PasteTagsConflictResolverDialog extends JDialog  implements Propert
         // -- apply button
         ApplyAction applyAction = new ApplyAction();
         allPrimitivesResolver.getModel().addPropertyChangeListener(applyAction);
-        for (OsmPrimitiveType type: resolvers.keySet()) {
-            resolvers.get(type).getModel().addPropertyChangeListener(applyAction);
+        for (TagConflictResolver r : resolvers.values()) {
+            r.getModel().addPropertyChangeListener(applyAction);
         }
         pnl.add(new SideButton(applyAction));
 
@@ -263,9 +268,9 @@ public class PasteTagsConflictResolverDialog extends JDialog  implements Propert
         return this.canceled;
     }
 
-    class CancelAction extends AbstractAction {
+    final class CancelAction extends AbstractAction {
 
-        public CancelAction() {
+        private CancelAction() {
             putValue(Action.SHORT_DESCRIPTION, tr("Cancel conflict resolution"));
             putValue(Action.NAME, tr("Cancel"));
             putValue(Action.SMALL_ICON, ImageProvider.get("", "cancel"));
@@ -279,9 +284,9 @@ public class PasteTagsConflictResolverDialog extends JDialog  implements Propert
         }
     }
 
-    class ApplyAction extends AbstractAction implements PropertyChangeListener {
+    final class ApplyAction extends AbstractAction implements PropertyChangeListener {
 
-        public ApplyAction() {
+        private ApplyAction() {
             putValue(Action.SHORT_DESCRIPTION, tr("Apply resolved conflicts"));
             putValue(Action.NAME, tr("Apply"));
             putValue(Action.SMALL_ICON, ImageProvider.get("ok"));
@@ -300,8 +305,8 @@ public class PasteTagsConflictResolverDialog extends JDialog  implements Propert
                 setEnabled(allPrimitivesResolver.getModel().isResolvedCompletely());
             } else {
                 boolean enabled = true;
-                for (OsmPrimitiveType type: resolvers.keySet()) {
-                    enabled &= resolvers.get(type).getModel().isResolvedCompletely();
+                for (TagConflictResolver val: resolvers.values()) {
+                    enabled &= val.getModel().isResolvedCompletely();
                 }
                 setEnabled(enabled);
             }
@@ -353,19 +358,19 @@ public class PasteTagsConflictResolverDialog extends JDialog  implements Propert
         }
     }
 
-    public static class StatisticsInfo {
+    private static final class StatisticsInfo {
         public int numTags;
         public Map<OsmPrimitiveType, Integer> sourceInfo;
         public Map<OsmPrimitiveType, Integer> targetInfo;
 
-        public StatisticsInfo() {
+        private StatisticsInfo() {
             sourceInfo = new HashMap<>();
             targetInfo = new HashMap<>();
         }
     }
 
-    private static class StatisticsTableColumnModel extends DefaultTableColumnModel {
-        public StatisticsTableColumnModel() {
+    private static final class StatisticsTableColumnModel extends DefaultTableColumnModel {
+        private StatisticsTableColumnModel() {
             TableCellRenderer renderer = new StatisticsInfoRenderer();
             TableColumn col = null;
 
@@ -392,11 +397,11 @@ public class PasteTagsConflictResolverDialog extends JDialog  implements Propert
         }
     }
 
-    private static class StatisticsTableModel extends DefaultTableModel {
+    private static final class StatisticsTableModel extends DefaultTableModel {
         private static final String[] HEADERS = new String[] {tr("Paste ..."), tr("From ..."), tr("To ...") };
-        private List<StatisticsInfo> data;
+        private transient List<StatisticsInfo> data;
 
-        public StatisticsTableModel() {
+        private StatisticsTableModel() {
             data = new ArrayList<>();
         }
 
@@ -502,7 +507,7 @@ public class PasteTagsConflictResolverDialog extends JDialog  implements Propert
         }
     }
 
-    private static class StatisticsInfoTable extends JPanel {
+    private static final class StatisticsInfoTable extends JPanel {
 
         private JTable infoTable;
 
@@ -515,7 +520,7 @@ public class PasteTagsConflictResolverDialog extends JDialog  implements Propert
             add(infoTable, BorderLayout.CENTER);
         }
 
-        public StatisticsInfoTable(StatisticsTableModel model) {
+        private StatisticsInfoTable(StatisticsTableModel model) {
             build(model);
         }
 

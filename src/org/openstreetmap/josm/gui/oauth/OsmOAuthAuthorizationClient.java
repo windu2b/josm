@@ -8,12 +8,10 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -51,9 +49,9 @@ public class OsmOAuthAuthorizationClient {
     private HttpURLConnection connection;
 
     private static class SessionId {
-        String id;
-        String token;
-        String userName;
+        private String id;
+        private String token;
+        private String userName;
     }
 
     /**
@@ -72,7 +70,7 @@ public class OsmOAuthAuthorizationClient {
      * @param parameters the OAuth parameters. Must not be null.
      * @throws IllegalArgumentException if parameters is null
      */
-    public OsmOAuthAuthorizationClient(OAuthParameters parameters) throws IllegalArgumentException {
+    public OsmOAuthAuthorizationClient(OAuthParameters parameters) {
         CheckParameterUtil.ensureParameterNotNull(parameters, "parameters");
         oauthProviderParameters = new OAuthParameters(parameters);
         consumer = oauthProviderParameters.buildConsumer();
@@ -88,7 +86,7 @@ public class OsmOAuthAuthorizationClient {
      * @throws IllegalArgumentException if parameters is null
      * @throws IllegalArgumentException if requestToken is null
      */
-    public OsmOAuthAuthorizationClient(OAuthParameters parameters, OAuthToken requestToken) throws IllegalArgumentException {
+    public OsmOAuthAuthorizationClient(OAuthParameters parameters, OAuthToken requestToken) {
         CheckParameterUtil.ensureParameterNotNull(parameters, "parameters");
         oauthProviderParameters = new OAuthParameters(parameters);
         consumer = oauthProviderParameters.buildConsumer();
@@ -187,13 +185,12 @@ public class OsmOAuthAuthorizationClient {
      * @return  the authorise URL for this request
      */
     public String getAuthoriseUrl(OAuthToken requestToken) {
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder(32);
 
         // OSM is an OAuth 1.0 provider and JOSM isn't a web app. We just add the oauth request token to
         // the authorisation request, no callback parameter.
         //
-        sb.append(oauthProviderParameters.getAuthoriseUrl()).append("?")
-        .append(OAuth.OAUTH_TOKEN).append("=").append(requestToken.getKey());
+        sb.append(oauthProviderParameters.getAuthoriseUrl()).append('?'+OAuth.OAUTH_TOKEN+'=').append(requestToken.getKey());
         return sb.toString();
     }
 
@@ -250,22 +247,18 @@ public class OsmOAuthAuthorizationClient {
     }
 
     protected String buildPostRequest(Map<String,String> parameters) throws OsmOAuthAuthorizationException {
-        try {
-            StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder(32);
 
-            for(Iterator<Entry<String,String>> it = parameters.entrySet().iterator(); it.hasNext();) {
-                Entry<String,String> entry = it.next();
-                String value = entry.getValue();
-                value = (value == null) ? "" : value;
-                sb.append(entry.getKey()).append("=").append(URLEncoder.encode(value, "UTF-8"));
-                if (it.hasNext()) {
-                    sb.append("&");
-                }
+        for(Iterator<Entry<String,String>> it = parameters.entrySet().iterator(); it.hasNext();) {
+            Entry<String,String> entry = it.next();
+            String value = entry.getValue();
+            value = (value == null) ? "" : value;
+            sb.append(entry.getKey()).append('=').append(Utils.encodeUrl(value));
+            if (it.hasNext()) {
+                sb.append('&');
             }
-            return sb.toString();
-        } catch(UnsupportedEncodingException e) {
-            throw new OsmOAuthAuthorizationException(e);
         }
+        return sb.toString();
     }
 
     /**
@@ -509,7 +502,7 @@ public class OsmOAuthAuthorizationClient {
      * @throws OsmOAuthAuthorizationException if the authorisation fails
      * @throws OsmTransferCanceledException if the task is canceled by the user
      */
-    public void authorise(OAuthToken requestToken, String osmUserName, String osmPassword, OsmPrivileges privileges, ProgressMonitor monitor) throws IllegalArgumentException, OsmOAuthAuthorizationException, OsmTransferCanceledException{
+    public void authorise(OAuthToken requestToken, String osmUserName, String osmPassword, OsmPrivileges privileges, ProgressMonitor monitor) throws OsmOAuthAuthorizationException, OsmTransferCanceledException{
         CheckParameterUtil.ensureParameterNotNull(requestToken, "requestToken");
         CheckParameterUtil.ensureParameterNotNull(osmUserName, "osmUserName");
         CheckParameterUtil.ensureParameterNotNull(osmPassword, "osmPassword");
@@ -525,25 +518,25 @@ public class OsmOAuthAuthorizationClient {
             SessionId sessionId = fetchOsmWebsiteSessionId();
             sessionId.userName = osmUserName;
             if (canceled)
-                throw new OsmTransferCanceledException();
+                throw new OsmTransferCanceledException("Authorization canceled");
             monitor.worked(1);
 
             monitor.indeterminateSubTask(tr("Authenticating the session for user ''{0}''...", osmUserName));
             authenticateOsmSession(sessionId, osmUserName, osmPassword);
             if (canceled)
-                throw new OsmTransferCanceledException();
+                throw new OsmTransferCanceledException("Authorization canceled");
             monitor.worked(1);
 
             monitor.indeterminateSubTask(tr("Authorizing request token ''{0}''...", requestToken.getKey()));
             sendAuthorisationRequest(sessionId, requestToken, privileges);
             if (canceled)
-                throw new OsmTransferCanceledException();
+                throw new OsmTransferCanceledException("Authorization canceled");
             monitor.worked(1);
 
             monitor.indeterminateSubTask(tr("Logging out session ''{0}''...", sessionId));
             logoutOsmSession(sessionId);
             if (canceled)
-                throw new OsmTransferCanceledException();
+                throw new OsmTransferCanceledException("Authorization canceled");
             monitor.worked(1);
         } catch(OsmOAuthAuthorizationException e) {
             if (canceled)

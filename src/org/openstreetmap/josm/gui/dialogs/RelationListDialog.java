@@ -67,6 +67,7 @@ import org.openstreetmap.josm.gui.SideButton;
 import org.openstreetmap.josm.gui.dialogs.relation.RelationEditor;
 import org.openstreetmap.josm.gui.layer.Layer;
 import org.openstreetmap.josm.gui.layer.OsmDataLayer;
+import org.openstreetmap.josm.gui.util.GuiHelper;
 import org.openstreetmap.josm.gui.util.HighlightHelper;
 import org.openstreetmap.josm.gui.widgets.DisableShortcutsOnFocusGainedTextField;
 import org.openstreetmap.josm.gui.widgets.JosmTextField;
@@ -94,7 +95,7 @@ public class RelationListDialog extends ToggleDialog implements DataSetListener 
 
     /** the popup menu and its handler */
     private final JPopupMenu popupMenu = new JPopupMenu();
-    private final PopupMenuHandler popupMenuHandler = new PopupMenuHandler(popupMenu);
+    private final transient PopupMenuHandler popupMenuHandler = new PopupMenuHandler(popupMenu);
 
     private final JosmTextField filter;
 
@@ -114,8 +115,9 @@ public class RelationListDialog extends ToggleDialog implements DataSetListener 
     /** add all selected primitives to the given relations */
     private final AddSelectionToRelations addSelectionToRelations = new AddSelectionToRelations();
 
-    HighlightHelper highlightHelper = new HighlightHelper();
+    private final transient HighlightHelper highlightHelper = new HighlightHelper();
     private boolean highlightEnabled = Main.pref.getBoolean("draw.target-highlight", true);
+
     /**
      * Constructs <code>RelationListDialog</code>
      */
@@ -171,12 +173,16 @@ public class RelationListDialog extends ToggleDialog implements DataSetListener 
 
         InputMapUtils.unassignCtrlShiftUpDown(displaylist, JComponent.WHEN_FOCUSED);
 
-        // Select relation on Ctrl-Enter
+        // Select relation on Enter
         InputMapUtils.addEnterAction(displaylist, selectRelationAction);
 
         // Edit relation on Ctrl-Enter
         displaylist.getActionMap().put("edit", editAction);
         displaylist.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, KeyEvent.CTRL_MASK), "edit");
+
+        // Do not hide copy action because of default JList override (fix #9815)
+        displaylist.getActionMap().put("copy", Main.main.menu.copy);
+        displaylist.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_C, GuiHelper.getMenuShortcutKeyMaskEx()), "copy");
 
         updateActionsRelationLists();
     }
@@ -196,7 +202,8 @@ public class RelationListDialog extends ToggleDialog implements DataSetListener 
         }
     }
 
-    @Override public void showNotify() {
+    @Override
+    public void showNotify() {
         MapView.addLayerChangeListener(newAction);
         newAction.updateEnabledState();
         DatasetEventManager.getInstance().addDatasetListener(this, FireMode.IN_EDT);
@@ -204,7 +211,8 @@ public class RelationListDialog extends ToggleDialog implements DataSetListener 
         dataChanged(null);
     }
 
-    @Override public void hideNotify() {
+    @Override
+    public void hideNotify() {
         MapView.removeLayerChangeListener(newAction);
         DatasetEventManager.getInstance().removeDatasetListener(this);
         DataSet.removeSelectionListener(addSelectionToRelations);
@@ -322,7 +330,8 @@ public class RelationListDialog extends ToggleDialog implements DataSetListener 
             EditRelationAction.launchEditor(getSelected());
         }
 
-        @Override public void mouseClicked(MouseEvent e) {
+        @Override
+        public void mouseClicked(MouseEvent e) {
             if (!Main.main.hasEditLayer()) return;
             if (isDoubleClick(e)) {
                 if (e.isControlDown()) {
@@ -380,10 +389,10 @@ public class RelationListDialog extends ToggleDialog implements DataSetListener 
      *
      */
     private class RelationListModel extends AbstractListModel<Relation> {
-        private final List<Relation> relations = new ArrayList<>();
-        private List<Relation> filteredRelations;
+        private final transient List<Relation> relations = new ArrayList<>();
+        private transient List<Relation> filteredRelations;
         private DefaultListSelectionModel selectionModel;
-        private SearchCompiler.Match filter;
+        private transient SearchCompiler.Match filter;
 
         public RelationListModel(DefaultListSelectionModel selectionModel) {
             this.selectionModel = selectionModel;
@@ -570,7 +579,7 @@ public class RelationListDialog extends ToggleDialog implements DataSetListener 
         }
 
         public void updateTitle() {
-            if (relations.size() > 0 && relations.size() != getSize()) {
+            if (!relations.isEmpty() && relations.size() != getSize()) {
                 RelationListDialog.this.setTitle(tr("Relations: {0}/{1}", getSize(), relations.size()));
             } else if (getSize() > 0) {
                 RelationListDialog.this.setTitle(tr("Relations: {0}", getSize()));
@@ -630,10 +639,14 @@ public class RelationListDialog extends ToggleDialog implements DataSetListener 
     /* ---------------------------------------------------------------------------------- */
 
     @Override
-    public void nodeMoved(NodeMovedEvent event) {/* irrelevant in this context */}
+    public void nodeMoved(NodeMovedEvent event) {
+        /* irrelevant in this context */
+    }
 
     @Override
-    public void wayNodesChanged(WayNodesChangedEvent event) {/* irrelevant in this context */}
+    public void wayNodesChanged(WayNodesChangedEvent event) {
+        /* irrelevant in this context */
+    }
 
     @Override
     public void primitivesAdded(final PrimitivesAddedEvent event) {

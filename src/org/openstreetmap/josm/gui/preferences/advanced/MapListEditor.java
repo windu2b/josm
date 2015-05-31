@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui.preferences.advanced;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -41,16 +41,16 @@ import org.openstreetmap.josm.tools.WindowGeometry;
  */
 public class MapListEditor extends ExtendedDialog {
 
-    EntryListModel entryModel;
-    PrefEntry entry;
+    private EntryListModel entryModel;
+    private transient PrefEntry entry;
 
-    JList<String> entryList;
-    JTable table;
-    MapTableModel tableModel;
+    private JList<String> entryList;
+    private JTable table;
+    private MapTableModel tableModel;
 
-    List<List<String>> dataKeys;
-    List<List<String>> dataValues;
-    Integer entryIdx;
+    private List<List<String>> dataKeys;
+    private List<List<String>> dataValues;
+    private Integer entryIdx;
 
     public MapListEditor(JComponent gui, PrefEntry entry, MapListSetting setting) {
         super(gui, tr("Change list of maps setting"), new String[] {tr("OK"), tr("Cancel")});
@@ -119,7 +119,7 @@ public class MapListEditor extends ExtendedDialog {
 
         tableModel = new MapTableModel();
         table = new JTable(tableModel);
-        table.putClientProperty("terminateEditOnFocusLost", true);
+        table.putClientProperty("terminateEditOnFocusLost", Boolean.TRUE);
         table.getTableHeader().getColumnModel().getColumn(0).setHeaderValue(tr("Key"));
         table.getTableHeader().getColumnModel().getColumn(1).setHeaderValue(tr("Value"));
         DefaultCellEditor editor = new DefaultCellEditor(new JosmTextField());

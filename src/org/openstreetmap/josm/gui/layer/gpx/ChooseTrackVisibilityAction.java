@@ -12,6 +12,7 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Map;
@@ -31,6 +32,7 @@ import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableRowSorter;
 
 import org.openstreetmap.josm.Main;
+import org.openstreetmap.josm.data.gpx.GpxConstants;
 import org.openstreetmap.josm.data.gpx.GpxTrack;
 import org.openstreetmap.josm.gui.ExtendedDialog;
 import org.openstreetmap.josm.gui.NavigatableComponent;
@@ -45,10 +47,10 @@ import org.openstreetmap.josm.tools.WindowGeometry;
  * they can be chosen from the gpx layer context menu.
  */
 public class ChooseTrackVisibilityAction extends AbstractAction {
-    private final GpxLayer layer;
+    private final transient GpxLayer layer;
 
-    DateFilterPanel dateFilter;
-    JTable table;
+    private DateFilterPanel dateFilter;
+    private JTable table;
 
     /**
      * Constructs a new {@code ChooseTrackVisibilityAction}.
@@ -87,7 +89,9 @@ public class ChooseTrackVisibilityAction extends AbstractAction {
     /**
      * Comparator for TrackLength objects
      */
-    private static final class LengthContentComparator implements Comparator<TrackLength> {
+    private static final class LengthContentComparator implements Comparator<TrackLength>, Serializable {
+
+        private static final long serialVersionUID = 1L;
 
         /**
          * Compare 2 TrackLength objects relative to the real length
@@ -110,8 +114,8 @@ public class ChooseTrackVisibilityAction extends AbstractAction {
         int i = 0;
         for (GpxTrack trk : layer.data.tracks) {
             Map<String, Object> attr = trk.getAttributes();
-            String name = (String) (attr.containsKey("name") ? attr.get("name") : "");
-            String desc = (String) (attr.containsKey("desc") ? attr.get("desc") : "");
+            String name = (String) (attr.containsKey(GpxConstants.GPX_NAME) ? attr.get(GpxConstants.GPX_NAME) : "");
+            String desc = (String) (attr.containsKey(GpxConstants.GPX_DESC) ? attr.get(GpxConstants.GPX_DESC) : "");
             String time = GpxLayer.getTimespanForTrack(trk);
             TrackLength length = new TrackLength(trk.length());
             String url = (String) (attr.containsKey("url") ? attr.get("url") : "");
@@ -179,7 +183,7 @@ public class ChooseTrackVisibilityAction extends AbstractAction {
         return t;
     }
 
-    boolean noUpdates=false;
+    private boolean noUpdates=false;
 
     /** selects all rows (=tracks) in the table that are currently visible on the layer*/
     private void selectVisibleTracksInTable() {
@@ -259,8 +263,9 @@ public class ChooseTrackVisibilityAction extends AbstractAction {
         msg.add(scrollPane, GBC.eol().fill(GBC.BOTH));
 
         // build dialog
-        ExtendedDialog ed = new ExtendedDialog(Main.parent, tr("Set track visibility for {0}", layer.getName()), new String[]{tr("Show all"), tr("Show selected only"), tr("Cancel")});
-        ed.setButtonIcons(new String[]{"dialogs/layerlist/eye", "dialogs/filter", "cancel"});
+        ExtendedDialog ed = new ExtendedDialog(Main.parent, tr("Set track visibility for {0}", layer.getName()),
+                new String[]{tr("Show all"), tr("Show selected only"), tr("Cancel")});
+        ed.setButtonIcons(new String[]{"eye", "dialogs/filter", "cancel"});
         ed.setContent(msg, false);
         ed.setDefaultButton(2);
         ed.setCancelButton(3);

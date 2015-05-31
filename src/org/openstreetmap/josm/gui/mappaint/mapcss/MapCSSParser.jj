@@ -8,27 +8,33 @@ PARSER_BEGIN(MapCSSParser)
 package org.openstreetmap.josm.gui.mappaint.mapcss.parsergen;
 
 import java.io.InputStream;
+import java.io.Reader;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
+import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.gui.mappaint.Keyword;
 import org.openstreetmap.josm.gui.mappaint.mapcss.Condition;
 import org.openstreetmap.josm.gui.mappaint.mapcss.Condition.Context;
 import org.openstreetmap.josm.gui.mappaint.mapcss.Expression;
+import org.openstreetmap.josm.gui.mappaint.mapcss.ExpressionFactory;
+import org.openstreetmap.josm.gui.mappaint.mapcss.ExpressionFactory.NullExpression;
 import org.openstreetmap.josm.gui.mappaint.mapcss.Instruction;
+import org.openstreetmap.josm.gui.mappaint.mapcss.LiteralExpression;
+import org.openstreetmap.josm.gui.mappaint.mapcss.MapCSSException;
 import org.openstreetmap.josm.gui.mappaint.mapcss.MapCSSRule;
 import org.openstreetmap.josm.gui.mappaint.mapcss.MapCSSRule.Declaration;
 import org.openstreetmap.josm.gui.mappaint.mapcss.MapCSSStyleSource;
 import org.openstreetmap.josm.gui.mappaint.mapcss.Selector;
-import org.openstreetmap.josm.gui.mappaint.mapcss.ExpressionFactory;
-import org.openstreetmap.josm.gui.mappaint.mapcss.LiteralExpression;
-import org.openstreetmap.josm.gui.mappaint.mapcss.MapCSSException;
 import org.openstreetmap.josm.gui.mappaint.mapcss.Selector.ChildOrParentSelector;
 import org.openstreetmap.josm.gui.mappaint.mapcss.Selector.GeneralSelector;
 import org.openstreetmap.josm.gui.mappaint.mapcss.Selector.LinkSelector;
+import org.openstreetmap.josm.gui.mappaint.mapcss.Subpart;
 import org.openstreetmap.josm.tools.ColorHelper;
 import org.openstreetmap.josm.tools.Pair;
-import org.openstreetmap.josm.Main;
 
 /**
  * MapCSS parser.
@@ -36,9 +42,9 @@ import org.openstreetmap.josm.Main;
  * Contains two independent grammars:
  * (a) the preprocessor and (b) the main mapcss parser.
  *
- * The preprocessor handles @media syntax. Basically this allows
- * to write one style for different versions of JOSM (or different editors).
- * When the @media condition is not fulfilled, it should simply skip over
+ * The preprocessor handles @supports and @media syntax (@media is deprecated).
+ * Basically this allows to write one style for different versions of JOSM (or different editors).
+ * When the @supports condition is not fulfilled, it should simply skip over
  * the whole section and not attempt to parse the possibly unknown
  * grammar. It preserves whitespace and comments, in order to keep the
  * line and column numbers in the error messages correct for the second pass.
@@ -84,6 +90,19 @@ public class MapCSSParser {
         }
         return new MapCSSParserTokenManager(scs, initState.idx);
     }
+
+    /**
+     * Constructor which initializes the parser with a certain lexical state.
+     */
+    public MapCSSParser(Reader in, LexicalState initState) {
+        this(createTokenManager(in, initState));
+        declarationCounter = 0;
+    }
+
+    protected static MapCSSParserTokenManager createTokenManager(Reader in, LexicalState initState) {
+        final SimpleCharStream scs = new SimpleCharStream(in, 1, 1);
+        return new MapCSSParserTokenManager(scs, initState.idx);
+    }
 }
 PARSER_END(MapCSSParser)
 
@@ -98,7 +117,9 @@ PARSER_END(MapCSSParser)
 TOKEN:
 {
     < PP_AND: "and" >
+|   < PP_OR: "or" >
 |   < PP_NOT: "not" >
+|   < PP_SUPPORTS: "@supports" >
 |   < PP_MEDIA: "@media" >
 |   < PP_NEWLINECHAR: "\n" | "\r" | "\f" >
 |   < PP_WHITESPACE: " " | "\t" >
@@ -132,7 +153,7 @@ TOKEN:
     < IDENT: ["a"-"z","A"-"Z","_"] ( ["a"-"z","A"-"Z","_","-","0"-"9"] )* >
 |   < UINT: ["1"-"9"] ( ["0"-"9"] )* >
 |   < STRING: "\"" ( [" ","!","#"-"[","]"-"~","\u0080"-"\uFFFF"] | "\\\"" | "\\\\" )*  "\"" >
-|   < #PREDEFINED: "\\" ["d","D","s","S","w","W"] >
+|   < #PREDEFINED: "\\" ["d","D","s","S","w","W","b","B","A","G","Z","z"] >
 |   < #REGEX_CHAR_WITHOUT_STAR: [" "-")","+"-".","0"-"[","]"-"~","\u0080"-"\uFFFF"] | "\\/" | "\\\\" | "\\[" | "\\]" | "\\+" | "\\." | "\\'" | "\\\"" |  "\\(" | "\\)" |<PREDEFINED> >
 |   < REGEX: "/" <REGEX_CHAR_WITHOUT_STAR> ( <REGEX_CHAR_WITHOUT_STAR> | "*" )*  "/" >
 |   < LBRACE: "{" >
@@ -178,6 +199,7 @@ TOKEN:
 |   < DOLLAR: "$" >
 |   < CARET: "^" >
 |   < FULLSTOP: "." >
+|   < DEG: "°" >
 |   < ELEMENT_OF: "∈" >
 |   < CROSSING: "⧉" >
 |   < COMMENT_START: "/*" > : COMMENT
@@ -242,9 +264,11 @@ void pp_black_box(boolean write):
 }
 {
     (
-        (t=<PP_AND> | t=<PP_NOT> | t=<UINT> | t=<STRING> | t=<REGEX> | t=<LPAR> | t=<RPAR> | t=<COMMA> | t=<COLON> | t=<IDENT> | t=<PP_SOMETHING_ELSE>) { if (write) sb.append(t.image); }
+        (t=<PP_AND> | t=<PP_OR> | t=<PP_NOT> | t=<UINT> | t=<STRING> | t=<REGEX> | t=<LPAR> | t=<RPAR> | t=<COMMA> | t=<COLON> | t=<IDENT> | t=<PP_SOMETHING_ELSE>) { if (write) sb.append(t.image); }
         |
             pp_w1()
+        |
+            pp_supports(!write)
         |
             pp_media(!write)
         |
@@ -252,6 +276,90 @@ void pp_black_box(boolean write):
     )*
 }
 
+/**
+ * Parses an @supports rule.
+ *
+ * @param ignore if the content of this rule should be ignored
+ * (because we are already inside a @supports block that didn't pass)
+ */
+void pp_supports(boolean ignore):
+{
+    boolean pass;
+}
+{
+    <PP_SUPPORTS> pp_w()
+    pass=pp_supports_condition()
+    <LBRACE>
+    pp_black_box(pass && !ignore)
+    <RBRACE>
+}
+
+/**
+ * Parses the condition of the @supports rule.
+ *
+ * Unlike other parsing rules, grabs trailing whitespace.
+ * @return true, if the condition is fulfilled
+ */
+boolean pp_supports_condition():
+{
+    boolean pass;
+    boolean q;
+}
+{
+    (
+        <PP_NOT> pp_w() q=pp_supports_condition_in_parens() { pass = !q; } pp_w()
+    |
+        LOOKAHEAD(pp_supports_condition_in_parens() pp_w() <PP_AND>)
+        pass=pp_supports_condition_in_parens() pp_w()
+        ( <PP_AND> pp_w() q=pp_supports_condition_in_parens() { pass = pass && q; } pp_w() )+
+    |
+        LOOKAHEAD(pp_supports_condition_in_parens() pp_w() <PP_OR>)
+        pass=pp_supports_condition_in_parens() pp_w()
+        ( <PP_OR> pp_w() q=pp_supports_condition_in_parens() { pass = pass || q; } pp_w() )+
+    |
+        pass=pp_supports_condition_in_parens() pp_w()
+    )
+    { return pass; }
+}
+
+/**
+ * Parses something in parenthesis inside the condition of the @supports rule.
+ *
+ * @return true, if the condition is fulfilled
+ */
+boolean pp_supports_condition_in_parens():
+{
+    boolean pass;
+}
+{
+    (
+        LOOKAHEAD(pp_supports_declaration_condition())
+        pass=pp_supports_declaration_condition()
+    |
+        <LPAR> pp_w() pass=pp_supports_condition() <RPAR>
+    )
+    { return pass; }
+}
+
+/**
+ * Parse an @supports declaration condition, e.&nbsp;g. a single (key:value) or (key) statement.
+ *
+ * The parsing rule {@link #literal()} from the main mapcss parser is reused here.
+ *
+ * @return true if the condition is fulfilled
+ */
+boolean pp_supports_declaration_condition():
+{
+    Token t;
+    String feature;
+    Object val = null;
+}
+{
+    <LPAR> pp_w() t=<IDENT> { feature = t.image; } pp_w() ( <COLON> pp_w() val=literal() )? <RPAR>
+    { return this.sheet.evalSupportsDeclCondition(feature, val); }
+}
+
+// deprecated
 void pp_media(boolean ignore):
 {
     boolean pass = false;
@@ -268,6 +376,7 @@ void pp_media(boolean ignore):
     <RBRACE>
 }
 
+// deprecated
 boolean pp_media_query():
 {
     Token t;
@@ -279,7 +388,7 @@ boolean pp_media_query():
 {
     ( <PP_NOT> { invert = true; } pp_w() )?
     (
-            t=<IDENT> { mediatype = t.image.toLowerCase(); } pp_w()
+            t=<IDENT> { mediatype = t.image.toLowerCase(Locale.ENGLISH); } pp_w()
             ( <PP_AND> pp_w() e=pp_media_expression() { pass = pass && e; } pp_w() )*
         |
             e=pp_media_expression() { pass = pass && e; } pp_w()
@@ -300,6 +409,7 @@ boolean pp_media_query():
  *
  * @return true if the condition is fulfilled
  */
+// deprecated
 boolean pp_media_expression():
 {
     Token t;
@@ -308,7 +418,7 @@ boolean pp_media_expression():
 }
 {
     <LPAR> pp_w() t=<IDENT> { feature = t.image; } pp_w() ( <COLON> pp_w() val=literal() )? <RPAR>
-    { return this.sheet.evalMediaExpression(feature, val); }
+    { return this.sheet.evalSupportsDeclCondition(feature, val); }
 }
 
 void pp_w1():
@@ -552,7 +662,7 @@ Selector selector() :
     Condition c;
     Pair<Integer, Integer> r = null;
     List<Condition> conditions = new ArrayList<Condition>();
-    String sub = null;
+    Subpart sub = null;
 }
 {
     ( base=<IDENT> | base=<STAR> )
@@ -707,13 +817,20 @@ Condition class_or_pseudoclass(Context context) :
         : Condition.createClassCondition(s, not, context); }
 }
 
-String subpart() :
+Subpart subpart() :
 {
     String s;
+    Expression e;
 }
 {
     <DCOLON>
-    ( s=ident() { return s; } | <STAR> { return "*"; } )
+    (
+        s=ident() { return new Subpart.StringSubpart(s); }
+    |
+        <STAR> { return new Subpart.StringSubpart("*"); }
+    |
+        <LPAR> e=expression() <RPAR> { return new Subpart.ExpressionSubpart(e); }
+    )
 }
 
 Declaration declaration() :
@@ -755,52 +872,165 @@ Declaration declaration() :
     { return new Declaration(ins, declarationCounter++); }
 }
 
-Expression expression():
+/**
+ * General expression.
+ * Separate production rule for each level of operator precedence (recursive descent).
+ */
+Expression expression() :
 {
-    List<Expression> args = new ArrayList<Expression>();
+    Expression e;
+}
+{
+    e=conditional_expression()
+    {
+        return e;
+    }
+}
+
+Expression conditional_expression() :
+{
+    Expression e, e1, e2;
+    String op = null;
+}
+{
+    e=or_expression()
+    (
+        <QUESTION> w()
+        e1=conditional_expression()
+        <COLON> w()
+        e2=conditional_expression()
+        {
+            e = ExpressionFactory.createFunctionExpression("cond", Arrays.asList(e, e1, e2));
+        }
+    )?
+    {
+        return e;
+    }
+}
+
+Expression or_expression() :
+{
+    Expression e, e2;
+    String op = null;
+}
+{
+    e=and_expression()
+    (
+        <PIPE> <PIPE> w()
+        e2=and_expression()
+        {
+            e = ExpressionFactory.createFunctionExpression("or", Arrays.asList(e, e2));
+        }
+    )*
+    {
+        return e;
+    }
+}
+
+Expression and_expression() :
+{
+    Expression e, e2;
+    String op = null;
+}
+{
+    e=relational_expression()
+    (
+        <AMPERSAND> <AMPERSAND> w()
+        e2=relational_expression()
+        {
+            e = ExpressionFactory.createFunctionExpression("and", Arrays.asList(e, e2));
+        }
+    )*
+    {
+        return e;
+    }
+}
+
+Expression relational_expression() :
+{
+    Expression e, e2;
+    String op = null;
+}
+{
+    e=additive_expression()
+    (
+        (
+            <GREATER_EQUAL> { op = "greater_equal"; }
+            |
+            <LESS_EQUAL> { op = "less_equal"; }
+            |
+            <GREATER> { op = "greater"; }
+            |
+            <LESS> { op = "less"; }
+            |
+            <EQUAL> ( <EQUAL> )? { op = "equal"; }
+            |
+            <EXCLAMATION> <EQUAL> { op = "not_equal"; }
+        ) w()
+        e2=additive_expression()
+        {
+            e = ExpressionFactory.createFunctionExpression(op, Arrays.asList(e, e2));
+        }
+    )?
+    {
+        return e;
+    }
+}
+
+Expression additive_expression() :
+{
+    Expression e, e2;
+    String op = null;
+}
+{
+    e=multiplicative_expression()
+    (
+        ( <PLUS> { op = "plus"; } | <MINUS> { op = "minus"; } ) w()
+        e2=multiplicative_expression()
+        {
+            e = ExpressionFactory.createFunctionExpression(op, Arrays.asList(e, e2));
+        }
+    )*
+    {
+        return e;
+    }
+}
+
+Expression multiplicative_expression() :
+{
+    Expression e, e2;
+    String op = null;
+}
+{
+    e=unary_expression()
+    (
+        ( <STAR> { op = "times"; } | <SLASH> { op = "divided_by"; } ) w()
+        e2=unary_expression()
+        {
+            e = ExpressionFactory.createFunctionExpression(op, Arrays.asList(e, e2));
+        }
+    )*
+    {
+        return e;
+    }
+}
+
+Expression unary_expression() :
+{
     Expression e;
     String op = null;
 }
 {
     (
-        <EXCLAMATION> { op = "not"; } w() e=primary() { args.add(e); } w()
+        <MINUS> { op = "minus"; } w()
     |
-        <MINUS> { op = "minus"; } w() e=primary() { args.add(e); } w()
-    |
-
-        (
-            e=primary() { args.add(e); } w()
-            (
-                    ( <PLUS> { op = "plus"; } w() e=primary() { args.add(e); } w() )+
-                |
-                    ( <STAR> { op = "times"; } w() e=primary() { args.add(e); } w() )+
-                |
-                    ( <MINUS> { op = "minus"; } w() e=primary() { args.add(e); } w() )+
-                |
-                    ( <SLASH> { op = "divided_by"; } w() e=primary() { args.add(e); } w() )+
-                |
-                    <GREATER_EQUAL> { op = "greater_equal"; } w() e=primary() { args.add(e); } w()
-                |
-                    <LESS_EQUAL> { op = "less_equal"; } w() e=primary() { args.add(e); } w()
-                |
-                    <GREATER> { op = "greater"; } w() e=primary() { args.add(e); } w()
-                |
-                    <EQUAL> ( <EQUAL> )? { op = "equal"; } w() e=primary() { args.add(e); } w()
-                |
-                    <LESS> { op = "less"; } w() e=primary() { args.add(e); } w()
-                |
-                    <AMPERSAND> <AMPERSAND> { op = "and"; } w() e=primary() { args.add(e); } w()
-                |
-                    <PIPE> <PIPE> { op = "or"; } w() e=primary() { args.add(e); } w()
-                |
-                    <QUESTION> { op = "cond"; } w() e=primary() { args.add(e); } w() <COLON> w() e=primary() { args.add(e); } w()
-            )?
-        )
-    )
+        <EXCLAMATION> { op = "not"; } w()
+    )?
+    e=primary() w()
     {
         if (op == null)
-            return args.get(0);
-        return ExpressionFactory.createFunctionExpression(op, args);
+            return e;
+        return ExpressionFactory.createFunctionExpression(op, Collections.singletonList(e));
     }
 }
 
@@ -814,7 +1044,12 @@ Expression primary() :
     LOOKAHEAD(3) // both function and identifier start with an identifier (+ optional whitespace)
         fn=function() { return fn; }
     |
-        lit=literal() { return new LiteralExpression(lit); }
+        lit=literal()
+        { 
+            if (lit == null)
+                return NullExpression.INSTANCE;
+            return new LiteralExpression(lit);
+        }
     |
         <LPAR> w() nested=expression() <RPAR> { return nested; }
 }
@@ -840,7 +1075,7 @@ Object literal() :
 {
     String val, pref;
     Token t;
-    float f;
+    Float f;
 }
 {
         LOOKAHEAD(2)
@@ -853,9 +1088,51 @@ Object literal() :
     |
         <PLUS> f=ufloat() { return new Instruction.RelativeFloat(f); }
     |
+        LOOKAHEAD(2)
+        f=ufloat_unit() { return f; }
+    |
         f=ufloat() { return f; }
     |
         t=<HEXCOLOR> { return ColorHelper.html2color(t.image); }
+}
+
+/**
+ * Number followed by a unit.
+ *
+ * Returns angles in radians and lengths in pixels.
+ */
+Float ufloat_unit() :
+{
+    float f;
+    String u;
+}
+{
+    f=ufloat() ( u=ident() | <DEG> { u = "°"; } )
+    {
+        Double m = unit_factor(u);
+        if (m == null)
+            return null;
+        return (float) (f * m);
+    }
+}
+
+JAVACODE
+private Double unit_factor(String unit) {
+    switch (unit) {
+        case "deg":
+        case "°": return Math.PI / 180;
+        case "rad": return 1.;
+        case "grad": return Math.PI / 200;
+        case "turn": return 2 * Math.PI;
+        case "px": return 1.;
+        case "cm": return 96/2.54;
+        case "mm": return 9.6/2.54;
+        case "in": return 96.;
+        case "q": return 2.4/2.54;
+        case "pc": return 16.;
+        case "pt": return 96./72;
+        default: return null;
+    }
 }
 
 JAVACODE

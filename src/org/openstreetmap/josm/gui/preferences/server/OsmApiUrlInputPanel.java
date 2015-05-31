@@ -49,12 +49,12 @@ public class OsmApiUrlInputPanel extends JPanel {
     private JLabel lblValid;
     private JLabel lblApiUrl;
     private JosmTextField tfOsmServerUrl;
-    private ApiUrlValidator valOsmServerUrl;
+    private transient ApiUrlValidator valOsmServerUrl;
     private SideButton btnTest;
     /** indicates whether to use the default OSM URL or not */
     private JCheckBox cbUseDefaultServerUrl;
 
-    private ApiUrlPropagator propagator;
+    private transient ApiUrlPropagator propagator;
 
     protected JComponent buildDefaultServerUrlPanel() {
         cbUseDefaultServerUrl = new JCheckBox(tr("<html>Use the default OSM server URL (<strong>{0}</strong>)</html>", OsmApi.DEFAULT_API_URL));
@@ -87,6 +87,7 @@ public class OsmApiUrlInputPanel extends JPanel {
         gc.gridx = 1;
         gc.weightx = 1.0;
         add(tfOsmServerUrl = new JosmTextField(), gc);
+        lblApiUrl.setLabelFor(tfOsmServerUrl);
         SelectAllOnFocusGainedDecorator.decorate(tfOsmServerUrl);
         valOsmServerUrl = new ApiUrlValidator(tfOsmServerUrl);
         valOsmServerUrl.validate();
@@ -118,7 +119,7 @@ public class OsmApiUrlInputPanel extends JPanel {
      */
     public void initFromPreferences() {
         String url =  Main.pref.get("osm-server.url", OsmApi.DEFAULT_API_URL);
-        if (url.trim().equals(OsmApi.DEFAULT_API_URL)) {
+        if (OsmApi.DEFAULT_API_URL.equals(url.trim())) {
             cbUseDefaultServerUrl.setSelected(true);
             propagator.propagate(OsmApi.DEFAULT_API_URL);
         } else {
@@ -136,7 +137,7 @@ public class OsmApiUrlInputPanel extends JPanel {
         String hmiUrl = getStrippedApiUrl();
         if (cbUseDefaultServerUrl.isSelected()) {
             Main.pref.put("osm-server.url", null);
-        } else if (hmiUrl.equals(OsmApi.DEFAULT_API_URL)) {
+        } else if (OsmApi.DEFAULT_API_URL.equals(hmiUrl)) {
             Main.pref.put("osm-server.url", null);
         } else {
             Main.pref.put("osm-server.url", hmiUrl);
@@ -241,7 +242,7 @@ public class OsmApiUrlInputPanel extends JPanel {
     }
 
     private static class ApiUrlValidator extends AbstractTextComponentValidator {
-        public ApiUrlValidator(JTextComponent tc) throws IllegalArgumentException {
+        public ApiUrlValidator(JTextComponent tc) {
             super(tc);
         }
 

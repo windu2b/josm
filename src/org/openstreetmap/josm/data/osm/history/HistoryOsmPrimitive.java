@@ -55,7 +55,7 @@ public abstract class HistoryOsmPrimitive implements Comparable<HistoryOsmPrimit
      *
      * @throws IllegalArgumentException if preconditions are violated
      */
-    public HistoryOsmPrimitive(long id, long version, boolean visible, User user, long changesetId, Date timestamp) throws IllegalArgumentException {
+    public HistoryOsmPrimitive(long id, long version, boolean visible, User user, long changesetId, Date timestamp) {
         this(id, version, visible, user, changesetId, timestamp, true);
     }
 
@@ -74,7 +74,7 @@ public abstract class HistoryOsmPrimitive implements Comparable<HistoryOsmPrimit
      * @throws IllegalArgumentException if preconditions are violated
      * @since 5440
      */
-    public HistoryOsmPrimitive(long id, long version, boolean visible, User user, long changesetId, Date timestamp, boolean checkHistoricParams) throws IllegalArgumentException {
+    public HistoryOsmPrimitive(long id, long version, boolean visible, User user, long changesetId, Date timestamp, boolean checkHistoricParams) {
         ensurePositiveLong(id, "id");
         ensurePositiveLong(version, "version");
         CheckParameterUtil.ensureParameterNotNull(user, "user");
@@ -155,7 +155,7 @@ public abstract class HistoryOsmPrimitive implements Comparable<HistoryOsmPrimit
     public int compareTo(HistoryOsmPrimitive o) {
         if (this.id != o.id)
             throw new ClassCastException(tr("Cannot compare primitive with ID ''{0}'' to primitive with ID ''{1}''.", o.id, this.id));
-        return Long.valueOf(this.version).compareTo(o.version);
+        return Long.compare(this.version, o.version);
     }
 
     public void put(String key, String value) {
@@ -230,7 +230,7 @@ public abstract class HistoryOsmPrimitive implements Comparable<HistoryOsmPrimit
      * @return the name of this primitive
      */
     public String getLocalName() {
-        String key = "name:" + Locale.getDefault().toString();
+        String key = "name:" + Locale.getDefault();
         if (get(key) != null)
             return get(key);
         key = "name:" + Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry();

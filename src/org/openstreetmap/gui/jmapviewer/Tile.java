@@ -24,18 +24,21 @@ import org.openstreetmap.gui.jmapviewer.interfaces.TileSource;
 public class Tile {
 
     /**
-     * Hourglass image that is displayed until a map tile has been loaded
+     * Hourglass image that is displayed until a map tile has been loaded, except for overlay sources
      */
     public static BufferedImage LOADING_IMAGE;
+
+    /**
+     * Red cross image that is displayed after a loading error, except for overlay sources
+     */
     public static BufferedImage ERROR_IMAGE;
 
     static {
         try {
             LOADING_IMAGE = ImageIO.read(JMapViewer.class.getResourceAsStream("images/hourglass.png"));
             ERROR_IMAGE = ImageIO.read(JMapViewer.class.getResourceAsStream("images/error.png"));
-        } catch (Exception e1) {
-            LOADING_IMAGE = null;
-            ERROR_IMAGE = null;
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
     }
 
@@ -45,9 +48,9 @@ public class Tile {
     protected int zoom;
     protected BufferedImage image;
     protected String key;
-    protected boolean loaded = false;
-    protected boolean loading = false;
-    protected boolean error = false;
+    protected volatile boolean loaded = false; // field accessed by multiple threads without any monitors, needs to be volatile
+    protected volatile boolean loading = false;
+    protected volatile boolean error = false;
     protected String error_message;
 
     /** TileLoader-specific tile metadata */
@@ -56,24 +59,31 @@ public class Tile {
     /**
      * Creates a tile with empty image.
      *
-     * @param source
-     * @param xtile
-     * @param ytile
-     * @param zoom
+     * @param source Tile source
+     * @param xtile X coordinate
+     * @param ytile Y coordinate
+     * @param zoom Zoom level
      */
     public Tile(TileSource source, int xtile, int ytile, int zoom) {
-        super();
+        this(source, xtile, ytile, zoom, LOADING_IMAGE);
+    }
+
+    /**
+     * Creates a tile with specified image.
+     *
+     * @param source Tile source
+     * @param xtile X coordinate
+     * @param ytile Y coordinate
+     * @param zoom Zoom level
+     * @param image Image content
+     */
+    public Tile(TileSource source, int xtile, int ytile, int zoom, BufferedImage image) {
         this.source = source;
         this.xtile = xtile;
         this.ytile = ytile;
         this.zoom = zoom;
-        this.image = LOADING_IMAGE;
-        this.key = getTileKey(source, xtile, ytile, zoom);
-    }
-
-    public Tile(TileSource source, int xtile, int ytile, int zoom, BufferedImage image) {
-        this(source, xtile, ytile, zoom);
         this.image = image;
+        this.key = getTileKey(source, xtile, ytile, zoom);
     }
 
     /**
@@ -137,6 +147,7 @@ public class Tile {
     }
 
     /**
+     * Returns the X coordinate.
      * @return tile number on the x axis of this tile
      */
     public int getXtile() {
@@ -144,6 +155,7 @@ public class Tile {
     }
 
     /**
+     * Returns the Y coordinate.
      * @return tile number on the y axis of this tile
      */
     public int getYtile() {
@@ -151,6 +163,7 @@ public class Tile {
     }
 
     /**
+     * Returns the zoom level.
      * @return zoom level of this tile
      */
     public int getZoom() {
@@ -196,17 +209,32 @@ public class Tile {
      * Paints the tile-image on the {@link Graphics} <code>g</code> at the
      * position <code>x</code>/<code>y</code>.
      *
-     * @param g
-     * @param x
-     *            x-coordinate in <code>g</code>
-     * @param y
-     *            y-coordinate in <code>g</code>
+     * @param g the Graphics object
+     * @param x x-coordinate in <code>g</code>
+     * @param y y-coordinate in <code>g</code>
      */
     public void paint(Graphics g, int x, int y) {
         if (image == null)
             return;
         g.drawImage(image, x, y, null);
     }
+
+    /**
+     * Paints the tile-image on the {@link Graphics} <code>g</code> at the
+     * position <code>x</code>/<code>y</code>.
+     *
+     * @param g the Graphics object
+     * @param x x-coordinate in <code>g</code>
+     * @param y y-coordinate in <code>g</code>
+     * @param width width that tile should have
+     * @param height height that tile should have
+     */
+    public void paint(Graphics g, int x, int y, int width, int height) {
+        if (image == null)
+            return;
+        g.drawImage(image, x, y, width, height, null);
+    }
+
 
     @Override
     public String toString() {
@@ -285,8 +313,8 @@ public class Tile {
      * If value is null, the (possibly existing) key/value pair is removed from
      * the meta data.
      *
-     * @param key
-     * @param value
+     * @param key Key
+     * @param value Value
      */
     public void putValue(String key, String value) {
         if (value == null || value.isEmpty()) {
@@ -301,23 +329,50 @@ public class Tile {
         metadata.put(key, value);
     }
 
+    /**
+     * returns the metadata of the Tile
+     *
+     * @param key metadata key that should be returned
+     * @return null if no such metadata exists, or the value of the metadata
+     */
     public String getValue(String key) {
         if (metadata == null) return null;
         return metadata.get(key);
     }
 
+    /**
+     *
+     * @return metadata of the tile
+     */
     public Map<String,String> getMetadata() {
+        if (metadata == null) {
+            metadata = new HashMap<>();
+        }
         return metadata;
     }
 
+    /**
+     * indicate that loading process for this tile has started
+     */
     public void initLoading() {
         loaded = false;
         error = false;
         loading = true;
     }
 
+    /**
+     * indicate that loading process for this tile has ended
+     */
     public void finishLoading() {
         loading = false;
         loaded = true;
+    }
+
+    /**
+     *
+     * @return TileSource from which this tile comes
+     */
+    public TileSource getTileSource() {
+        return source;
     }
 }

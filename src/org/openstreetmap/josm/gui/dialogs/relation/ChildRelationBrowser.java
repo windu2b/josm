@@ -57,10 +57,10 @@ public class ChildRelationBrowser extends JPanel {
     /** the tree with relation children */
     private RelationTree childTree;
     /**  the tree model */
-    private RelationTreeModel model;
+    private transient RelationTreeModel model;
 
     /** the osm data layer this browser is related to */
-    private OsmDataLayer layer;
+    private transient OsmDataLayer layer;
 
     /**
      * Replies the {@link OsmDataLayer} this editor is related to
@@ -113,9 +113,9 @@ public class ChildRelationBrowser extends JPanel {
      * constructor
      *
      * @param layer the {@link OsmDataLayer} this browser is related to. Must not be null.
-     * @exception IllegalArgumentException thrown, if layer is null
+     * @throws IllegalArgumentException if layer is null
      */
-    public ChildRelationBrowser(OsmDataLayer layer) throws IllegalArgumentException {
+    public ChildRelationBrowser(OsmDataLayer layer) {
         CheckParameterUtil.ensureParameterNotNull(layer, "layer");
         this.layer = layer;
         model = new RelationTreeModel();
@@ -127,9 +127,9 @@ public class ChildRelationBrowser extends JPanel {
      *
      * @param layer the {@link OsmDataLayer} this browser is related to. Must not be null.
      * @param root the root relation
-     * @exception IllegalArgumentException thrown, if layer is null
+     * @throws IllegalArgumentException if layer is null
      */
-    public ChildRelationBrowser(OsmDataLayer layer, Relation root) throws IllegalArgumentException {
+    public ChildRelationBrowser(OsmDataLayer layer, Relation root) {
         this(layer);
         populate(root);
     }
@@ -257,7 +257,7 @@ public class ChildRelationBrowser extends JPanel {
             TreePath [] selection = childTree.getSelectionPaths();
             if (selection == null || selection.length == 0)
                 return;
-            HashSet<Relation> relations = new HashSet<>();
+            Set<Relation> relations = new HashSet<>();
             for (TreePath aSelection : selection) {
                 relations.add((Relation) aSelection.getLastPathComponent());
             }

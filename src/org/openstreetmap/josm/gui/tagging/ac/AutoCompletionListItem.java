@@ -1,6 +1,8 @@
 // License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui.tagging.ac;
 
+import org.openstreetmap.josm.tools.CheckParameterUtil;
+
 /**
  * Represents an entry in the list of auto completion values.
  *
@@ -75,25 +77,26 @@ public class AutoCompletionListItem implements Comparable<AutoCompletionListItem
     /**
      * sets the value
      * @param value the value; must not be null
-     * @exception IllegalArgumentException thrown, if value if null
+     * @throws IllegalArgumentException if value if null
      */
     public void setValue(String value) {
-        if (value == null)
-            throw new IllegalArgumentException("argument 'value' must not be null");
+        CheckParameterUtil.ensureParameterNotNull(value, "value");
         this.value = value;
     }
 
-    @Override public String toString() {
+    @Override
+    public String toString() {
         StringBuilder sb = new StringBuilder();
-        sb.append("<val='");
-        sb.append(value);
-        sb.append("',");
-        sb.append(priority.toString());
-        sb.append(">");
+        sb.append("<val='")
+          .append(value)
+          .append("',")
+          .append(priority)
+          .append('>');
         return sb.toString();
     }
 
-    @Override public int hashCode() {
+    @Override
+    public int hashCode() {
         final int prime = 31;
         int result = 1;
         result = prime * result
@@ -102,11 +105,14 @@ public class AutoCompletionListItem implements Comparable<AutoCompletionListItem
         return result;
     }
 
-    @Override public boolean equals(Object obj) {
+    @Override
+    public boolean equals(Object obj) {
         if (this == obj)
             return true;
         if (obj == null)
             return false;
+        if (obj instanceof String)
+            return obj.equals(value);
         if (getClass() != obj.getClass())
             return false;
         final AutoCompletionListItem other = (AutoCompletionListItem)obj;

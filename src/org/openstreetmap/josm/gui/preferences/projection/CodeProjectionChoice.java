@@ -6,11 +6,13 @@ import static org.openstreetmap.josm.tools.I18n.tr;
 import java.awt.Dimension;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionListener;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -33,13 +35,13 @@ import org.openstreetmap.josm.tools.GBC;
  */
 public class CodeProjectionChoice extends AbstractProjectionChoice implements SubPrefsOptions {
 
-    String code;
+    private String code;
 
     /**
      * Constructs a new {@code CodeProjectionChoice}.
      */
     public CodeProjectionChoice() {
-        super(tr("By Code (EPSG)"), "core:code");
+        super(tr("By Code (EPSG)"), /* NO-ICON */ "core:code");
     }
 
     private static class CodeSelectionPanel extends JPanel implements ListSelectionListener, DocumentListener {
@@ -47,11 +49,11 @@ public class CodeProjectionChoice extends AbstractProjectionChoice implements Su
         public JosmTextField filter;
         private ProjectionCodeListModel model;
         public JList<String> selectionList;
-        List<String> data;
-        List<String> filteredData;
-        static final String DEFAULT_CODE = "EPSG:3857";
-        String lastCode = DEFAULT_CODE;
-        ActionListener listener;
+        private List<String> data;
+        private List<String> filteredData;
+        private static final String DEFAULT_CODE = "EPSG:3857";
+        private String lastCode = DEFAULT_CODE;
+        private transient ActionListener listener;
 
         public CodeSelectionPanel(String initialCode, ActionListener listener) {
             this.listener = listener;
@@ -66,8 +68,9 @@ public class CodeProjectionChoice extends AbstractProjectionChoice implements Su
         /**
          * Comparator that compares the number part of the code numerically.
          */
-        private static class CodeComparator implements Comparator<String> {
-            final Pattern codePattern = Pattern.compile("([a-zA-Z]+):(\\d+)");
+        private static class CodeComparator implements Comparator<String>, Serializable {
+            private static final long serialVersionUID = 1L;
+            private final Pattern codePattern = Pattern.compile("([a-zA-Z]+):(\\d+)");
             @Override
             public int compare(String c1, String c2) {
                 Matcher matcher1 = codePattern.matcher(c1);
@@ -78,7 +81,7 @@ public class CodeProjectionChoice extends AbstractProjectionChoice implements Su
                         if (cmp1 != 0) return cmp1;
                         int num1 = Integer.parseInt(matcher1.group(2));
                         int num2 = Integer.parseInt(matcher2.group(2));
-                        return Integer.valueOf(num1).compareTo(num2);
+                        return Integer.compare(num1, num2);
                     } else
                         return -1;
                 } else if (matcher2.matches())
@@ -161,9 +164,9 @@ public class CodeProjectionChoice extends AbstractProjectionChoice implements Su
 
         private void updateFilter() {
             filteredData.clear();
-            String filterTxt = filter.getText().trim().toLowerCase();
+            String filterTxt = filter.getText().trim().toLowerCase(Locale.ENGLISH);
             for (String code : data) {
-                if (code.toLowerCase().contains(filterTxt)) {
+                if (code.toLowerCase(Locale.ENGLISH).contains(filterTxt)) {
                     filteredData.add(code);
                 }
             }
@@ -214,7 +217,7 @@ public class CodeProjectionChoice extends AbstractProjectionChoice implements Su
     @Override
     public Collection<String> getPreferences(JPanel panel) {
         if (!(panel instanceof CodeSelectionPanel)) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("Unsupported panel: "+panel);
         }
         CodeSelectionPanel csPanel = (CodeSelectionPanel) panel;
         return Collections.singleton(csPanel.getCode());

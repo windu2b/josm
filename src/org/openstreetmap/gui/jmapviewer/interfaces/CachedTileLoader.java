@@ -6,5 +6,4 @@ package org.openstreetmap.gui.jmapviewer.interfaces;
  */
 public interface CachedTileLoader {
     public void clearCache(TileSource source);
-    public void clearCache(TileSource source, TileClearController controller);
 }

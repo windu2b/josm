@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 
 import javax.swing.DefaultListModel;
 import javax.swing.ImageIcon;
@@ -38,8 +39,8 @@ public class BookmarkList extends JList<BookmarkList.Bookmark> {
         /**
          * Constructs a new {@code Bookmark} with the given contents.
          * @param list Bookmark contents as a list of 5 elements. First item is the name, then come bounds arguments (minlat, minlon, maxlat, maxlon)
-         * @throws NumberFormatException If the bounds arguments are not numbers
-         * @throws IllegalArgumentException If list contain less than 5 elements
+         * @throws NumberFormatException if the bounds arguments are not numbers
+         * @throws IllegalArgumentException if list contain less than 5 elements
          */
         public Bookmark(Collection<String> list) throws NumberFormatException, IllegalArgumentException {
             List<String> array = new ArrayList<>(list);
@@ -72,7 +73,7 @@ public class BookmarkList extends JList<BookmarkList.Bookmark> {
 
         @Override
         public int compareTo(Bookmark b) {
-            return name.toLowerCase().compareTo(b.name.toLowerCase());
+            return name.toLowerCase(Locale.ENGLISH).compareTo(b.name.toLowerCase(Locale.ENGLISH));
         }
 
         @Override
@@ -157,12 +158,11 @@ public class BookmarkList extends JList<BookmarkList.Bookmark> {
         model.removeAllElements();
         Collection<Collection<String>> args = Main.pref.getArray("bookmarks", null);
         if(args != null) {
-            LinkedList<Bookmark> bookmarks = new LinkedList<>();
+            List<Bookmark> bookmarks = new LinkedList<>();
             for(Collection<String> entry : args) {
                 try {
                     bookmarks.add(new Bookmark(entry));
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     Main.error(tr("Error reading bookmark entry: %s", e.getMessage()));
                 }
             }
@@ -177,7 +177,7 @@ public class BookmarkList extends JList<BookmarkList.Bookmark> {
      * Saves all bookmarks to the preferences file
      */
     public final void save() {
-        LinkedList<Collection<String>> coll = new LinkedList<>();
+        List<Collection<String>> coll = new LinkedList<>();
         for (Object o : ((DefaultListModel<Bookmark>)getModel()).toArray()) {
             String[] array = new String[5];
             Bookmark b = (Bookmark) o;
@@ -214,15 +214,13 @@ public class BookmarkList extends JList<BookmarkList.Bookmark> {
 
         protected String buildToolTipText(Bookmark b) {
             Bounds area = b.getArea();
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new StringBuilder(128);
             sb.append("<html>min[latitude,longitude]=<strong>[")
-            .append(area.getMinLat()).append(",").append(area.getMinLon()).append("]</strong>")
-            .append("<br>")
-            .append("max[latitude,longitude]=<strong>[")
-            .append(area.getMaxLat()).append(",").append(area.getMaxLon()).append("]</strong>")
-            .append("</html>");
+              .append(area.getMinLat()).append(',').append(area.getMinLon()).append("]</strong>")
+              .append("<br>max[latitude,longitude]=<strong>[")
+              .append(area.getMaxLat()).append(',').append(area.getMaxLon()).append("]</strong>")
+              .append("</html>");
             return sb.toString();
-
         }
 
         @Override

@@ -54,16 +54,16 @@ public class GeoImageSessionImporter implements SessionLayerImporter {
                                     entry.setPos(new LatLon(lat, lon));
                                     break;
                                 case "speed":
-                                    entry.setSpeed(Double.parseDouble(attrElem.getTextContent()));
+                                    entry.setSpeed(Double.valueOf(attrElem.getTextContent()));
                                     break;
                                 case "elevation":
-                                    entry.setElevation(Double.parseDouble(attrElem.getTextContent()));
+                                    entry.setElevation(Double.valueOf(attrElem.getTextContent()));
                                     break;
                                 case "gps-time":
                                     entry.setGpsTime(new Date(Long.parseLong(attrElem.getTextContent())));
                                     break;
                                 case "exif-orientation":
-                                    entry.setExifOrientation(Integer.parseInt(attrElem.getTextContent()));
+                                    entry.setExifOrientation(Integer.valueOf(attrElem.getTextContent()));
                                     break;
                                 case "exif-time":
                                     entry.setExifTime(new Date(Long.parseLong(attrElem.getTextContent())));
@@ -73,7 +73,7 @@ public class GeoImageSessionImporter implements SessionLayerImporter {
                                     break;
                                 case "exif-coordinates":
                                     entry.setExifCoor(new LatLon(
-                                            Double.parseDouble(attrElem.getAttribute("lat")), 
+                                            Double.parseDouble(attrElem.getAttribute("lat")),
                                             Double.parseDouble(attrElem.getAttribute("lon"))));
                                     break;
                                 case "exif-image-direction":

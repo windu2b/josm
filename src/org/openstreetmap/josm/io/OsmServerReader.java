@@ -19,6 +19,7 @@ import java.util.zip.InflaterInputStream;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.gpx.GpxData;
+import org.openstreetmap.josm.data.notes.Note;
 import org.openstreetmap.josm.data.osm.DataSet;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
 import org.openstreetmap.josm.tools.Utils;
@@ -44,7 +45,7 @@ public abstract class OsmServerReader extends OsmConnection {
      * @param urlStr The url to connect to.
      * @param progressMonitor progress monitoring and abort handler
      * @return A reader reading the input stream (servers answer) or <code>null</code>.
-     * @throws OsmTransferException thrown if data transfer errors occur
+     * @throws OsmTransferException if data transfer errors occur
      */
     protected InputStream getInputStream(String urlStr, ProgressMonitor progressMonitor) throws OsmTransferException  {
         return getInputStream(urlStr, progressMonitor, null);
@@ -58,7 +59,7 @@ public abstract class OsmServerReader extends OsmConnection {
      * @param progressMonitor progress monitoring and abort handler
      * @param reason The reason to show on console. Can be {@code null} if no reason is given
      * @return A reader reading the input stream (servers answer) or <code>null</code>.
-     * @throws OsmTransferException thrown if data transfer errors occur
+     * @throws OsmTransferException if data transfer errors occur
      */
     protected InputStream getInputStream(String urlStr, ProgressMonitor progressMonitor, String reason) throws OsmTransferException  {
         try {
@@ -84,7 +85,7 @@ public abstract class OsmServerReader extends OsmConnection {
      * @param urlStr The exact url to connect to.
      * @param progressMonitor progress monitoring and abort handler
      * @return An reader reading the input stream (servers answer) or <code>null</code>.
-     * @throws OsmTransferException thrown if data transfer errors occur
+     * @throws OsmTransferException if data transfer errors occur
      */
     protected InputStream getInputStreamRaw(String urlStr, ProgressMonitor progressMonitor) throws OsmTransferException {
         return getInputStreamRaw(urlStr, progressMonitor, null);
@@ -97,7 +98,7 @@ public abstract class OsmServerReader extends OsmConnection {
      * @param progressMonitor progress monitoring and abort handler
      * @param reason The reason to show on console. Can be {@code null} if no reason is given
      * @return An reader reading the input stream (servers answer) or <code>null</code>.
-     * @throws OsmTransferException thrown if data transfer errors occur
+     * @throws OsmTransferException if data transfer errors occur
      */
     protected InputStream getInputStreamRaw(String urlStr, ProgressMonitor progressMonitor, String reason) throws OsmTransferException {
         return getInputStreamRaw(urlStr, progressMonitor, reason, false);
@@ -112,11 +113,14 @@ public abstract class OsmServerReader extends OsmConnection {
      * @param uncompressAccordingToContentDisposition Whether to inspect the HTTP header {@code Content-Disposition}
      *                                                for {@code filename} and uncompress a gzip/bzip2 stream.
      * @return An reader reading the input stream (servers answer) or <code>null</code>.
-     * @throws OsmTransferException thrown if data transfer errors occur
+     * @throws OsmTransferException if data transfer errors occur
      */
     @SuppressWarnings("resource")
     protected InputStream getInputStreamRaw(String urlStr, ProgressMonitor progressMonitor, String reason, boolean uncompressAccordingToContentDisposition) throws OsmTransferException {
         try {
+            OnlineResource.JOSM_WEBSITE.checkOfflineAccess(urlStr, Main.getJOSMWebsite());
+            OnlineResource.OSM_API.checkOfflineAccess(urlStr, Main.pref.get("osm-server.url", OsmApi.DEFAULT_API_URL));
+
             URL url = null;
             try {
                 url = new URL(urlStr.replace(" ", "%20"));
@@ -138,7 +142,7 @@ public abstract class OsmServerReader extends OsmConnection {
                 addAuth(activeConnection);
             }
             if (cancel)
-                throw new OsmTransferCanceledException();
+                throw new OsmTransferCanceledException("Operation canceled");
             if (Main.pref.getBoolean("osm-server.use-compression", true)) {
                 activeConnection.setRequestProperty("Accept-Encoding", "gzip, deflate");
             }
@@ -166,7 +170,7 @@ public abstract class OsmServerReader extends OsmConnection {
                     throw new OsmApiException(HttpURLConnection.HTTP_UNAUTHORIZED,null,null);
 
                 if (activeConnection.getResponseCode() == HttpURLConnection.HTTP_PROXY_AUTH)
-                    throw new OsmTransferCanceledException();
+                    throw new OsmTransferCanceledException("Proxy Authentication Required");
 
                 String encoding = activeConnection.getContentEncoding();
                 if (activeConnection.getResponseCode() != HttpURLConnection.HTTP_OK) {
@@ -179,11 +183,10 @@ public abstract class OsmServerReader extends OsmConnection {
                             String s;
                             while((s = in.readLine()) != null) {
                                 errorBody.append(s);
-                                errorBody.append("\n");
+                                errorBody.append('\n');
                             }
                         }
-                    }
-                    catch(Exception e) {
+                    } catch(Exception e) {
                         errorBody.append(tr("Reading error text failed."));
                     }
 
@@ -344,5 +347,39 @@ public abstract class OsmServerReader extends OsmConnection {
      */
     public final boolean isGpxParsedProperly() {
         return gpxParsedProperly;
+    }
+
+    /**
+     * Downloads notes from the API, given API limit parameters
+     *
+     * @param noteLimit How many notes to download.
+     * @param daysClosed Return notes closed this many days in the past. -1 means all notes, ever. 0 means only unresolved notes.
+     * @param progressMonitor Progress monitor for user feedback
+     * @return List of notes returned by the API
+     * @throws OsmTransferException if any errors happen
+     */
+    public List<Note> parseNotes(int noteLimit, int daysClosed, ProgressMonitor progressMonitor) throws OsmTransferException {
+        return null;
+    }
+
+    /**
+     * Downloads notes from a given raw URL. The URL is assumed to be complete and no API limits are added
+     *
+     * @param progressMonitor
+     * @return A list of notes parsed from the URL
+     * @throws OsmTransferException
+     */
+    public List<Note> parseRawNotes(final ProgressMonitor progressMonitor) throws OsmTransferException {
+        return null;
+    }
+
+    /**
+     * Download notes from a URL that contains a bzip2 compressed notes dump file
+     * @param progressMonitor
+     * @return A list of notes parsed from the URL
+     * @throws OsmTransferException
+     */
+    public List<Note> parseRawNotesBzip2(final ProgressMonitor progressMonitor) throws OsmTransferException {
+        return null;
     }
 }

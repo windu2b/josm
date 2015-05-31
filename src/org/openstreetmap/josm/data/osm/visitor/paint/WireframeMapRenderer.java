@@ -1,4 +1,4 @@
-/* License: GPL. For details, see LICENSE file. */
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.data.osm.visitor.paint;
 
 import java.awt.BasicStroke;
@@ -31,6 +31,7 @@ import org.openstreetmap.josm.gui.NavigatableComponent;
 /**
  * A map renderer that paints a simple scheme of every primitive it visits to a
  * previous set graphic environment.
+ * @since 23
  */
 public class WireframeMapRenderer extends AbstractMapRenderer implements Visitor {
 
@@ -52,7 +53,7 @@ public class WireframeMapRenderer extends AbstractMapRenderer implements Visitor
     protected boolean showOnewayArrow;
     /** Preference: should only the last arrow of a way be displayed */
     protected boolean showHeadArrowOnly;
-    /** Preference: should the segement numbers of ways be displayed */
+    /** Preference: should the segment numbers of ways be displayed */
     protected boolean showOrderNumber;
     /** Preference: should selected nodes be filled */
     protected boolean fillSelectedNode;
@@ -99,8 +100,8 @@ public class WireframeMapRenderer extends AbstractMapRenderer implements Visitor
      * @param nc the map viewport. Must not be null.
      * @param isInactiveMode if true, the paint visitor shall render OSM objects such that they
      * look inactive. Example: rendering of data in an inactive layer using light gray as color only.
-     * @throws IllegalArgumentException thrown if {@code g} is null
-     * @throws IllegalArgumentException thrown if {@code nc} is null
+     * @throws IllegalArgumentException if {@code g} is null
+     * @throws IllegalArgumentException if {@code nc} is null
      */
     public WireframeMapRenderer(Graphics2D g, NavigatableComponent nc, boolean isInactiveMode) {
         super(g, nc, isInactiveMode);
@@ -152,7 +153,6 @@ public class WireframeMapRenderer extends AbstractMapRenderer implements Visitor
      * @param virtual <code>true</code> if virtual nodes are used
      * @param bounds display boundaries
      */
-    @SuppressWarnings("unchecked")
     @Override
     public void render(DataSet data, boolean virtual, Bounds bounds) {
         BBox bbox = bounds.toBBox();
@@ -199,8 +199,7 @@ public class WireframeMapRenderer extends AbstractMapRenderer implements Visitor
         displaySegments();
 
         for (final OsmPrimitive osm: data.searchNodes(bbox)) {
-            if (osm.isDrawable() && !ds.isSelected(osm) && !osm.isDisabledAndHidden())
-            {
+            if (osm.isDrawable() && !ds.isSelected(osm) && !osm.isDisabledAndHidden()) {
                 osm.accept(this);
             }
         }
@@ -245,8 +244,10 @@ public class WireframeMapRenderer extends AbstractMapRenderer implements Visitor
 
             if (isInactiveMode || n.isDisabled()) {
                 color = inactiveColor;
-            } else if (ds.isSelected(n)) {
+            } else if (n.isSelected()) {
                 color = selectedColor;
+            } else if (n.isMemberOfSelected()) {
+                color = relationSelectedColor;
             } else if (n.isConnectionNode()) {
                 if (isNodeTagged(n)) {
                     color = taggedConnectionColor;
@@ -261,9 +262,9 @@ public class WireframeMapRenderer extends AbstractMapRenderer implements Visitor
                 }
             }
 
-            final int size = max((ds.isSelected(n) ? selectedNodeSize : 0),
-                    (isNodeTagged(n) ? taggedNodeSize : 0),
-                    (n.isConnectionNode() ? connectionNodeSize : 0),
+            final int size = max(ds.isSelected(n) ? selectedNodeSize : 0,
+                    isNodeTagged(n) ? taggedNodeSize : 0,
+                    n.isConnectionNode() ? connectionNodeSize : 0,
                     unselectedNodeSize);
 
             final boolean fill = (ds.isSelected(n) && fillSelectedNode) ||
@@ -299,10 +300,12 @@ public class WireframeMapRenderer extends AbstractMapRenderer implements Visitor
 
         if (isInactiveMode || w.isDisabled()) {
             wayColor = inactiveColor;
-        } else if(w.isHighlighted()) {
+        } else if (w.isHighlighted()) {
             wayColor = highlightColor;
-        } else if(ds.isSelected(w)) {
+        } else if (w.isSelected()) {
             wayColor = selectedColor;
+        } else if (w.isMemberOfSelected()) {
+            wayColor = relationSelectedColor;
         } else if (!w.isTagged()) {
             wayColor = untaggedWayColor;
         } else {
@@ -335,8 +338,10 @@ public class WireframeMapRenderer extends AbstractMapRenderer implements Visitor
         Color col;
         if (isInactiveMode || r.isDisabled()) {
             col = inactiveColor;
-        } else if (ds.isSelected(r)) {
+        } else if (r.isSelected()) {
             col = selectedColor;
+        } else if (r.isMultipolygon() && r.isMemberOfSelected()) {
+            col = relationSelectedColor;
         } else {
             col = relationColor;
         }
@@ -354,7 +359,7 @@ public class WireframeMapRenderer extends AbstractMapRenderer implements Visitor
                     continue;
                 }
 
-                g.drawOval(p.x-3, p.y-3, 6, 6);
+                g.drawOval(p.x-4, p.y-4, 9, 9);
             } else if (m.isWay()) {
                 GeneralPath path = new GeneralPath();
 
@@ -426,8 +431,8 @@ public class WireframeMapRenderer extends AbstractMapRenderer implements Visitor
                 final double sx = l * (p1.x - p2.x);
                 final double sy = l * (p1.y - p2.y);
 
-                path.lineTo (p2.x + (int) Math.round(cosPHI * sx - sinPHI * sy), p2.y + (int) Math.round(sinPHI * sx + cosPHI * sy));
-                path.moveTo (p2.x + (int) Math.round(cosPHI * sx + sinPHI * sy), p2.y + (int) Math.round(- sinPHI * sx + cosPHI * sy));
+                path.lineTo(p2.x + (int) Math.round(cosPHI * sx - sinPHI * sy), p2.y + (int) Math.round(sinPHI * sx + cosPHI * sy));
+                path.moveTo(p2.x + (int) Math.round(cosPHI * sx + sinPHI * sy), p2.y + (int) Math.round(- sinPHI * sx + cosPHI * sy));
                 path.lineTo(p2.x, p2.y);
             }
         }

@@ -14,7 +14,8 @@ import java.awt.event.ItemListener;
 import java.net.Authenticator.RequestorType;
 import java.net.PasswordAuthentication;
 import java.net.ProxySelector;
-import java.util.HashMap;
+import java.util.EnumMap;
+import java.util.Locale;
 import java.util.Map;
 
 import javax.swing.BorderFactory;
@@ -73,7 +74,7 @@ public class ProxyPreferencesPanel extends VerticallyScrollablePanel {
          */
         public static ProxyPolicy fromName(String policyName) {
             if (policyName == null) return null;
-            policyName = policyName.trim().toLowerCase();
+            policyName = policyName.trim().toLowerCase(Locale.ENGLISH);
             for(ProxyPolicy pp: values()) {
                 if (pp.getName().equals(policyName))
                     return pp;
@@ -99,7 +100,7 @@ public class ProxyPreferencesPanel extends VerticallyScrollablePanel {
     /** Property key for proxy exceptions list */
     public static final String PROXY_EXCEPTIONS = "proxy.exceptions";
 
-    private Map<ProxyPolicy, JRadioButton> rbProxyPolicy;
+    private transient Map<ProxyPolicy, JRadioButton> rbProxyPolicy;
     private JosmTextField tfProxyHttpHost;
     private JosmTextField tfProxyHttpPort;
     private JosmTextField tfProxySocksHost;
@@ -236,7 +237,7 @@ public class ProxyPreferencesPanel extends VerticallyScrollablePanel {
         GridBagConstraints gc = new GridBagConstraints();
 
         ButtonGroup bgProxyPolicy = new ButtonGroup();
-        rbProxyPolicy = new HashMap<>();
+        rbProxyPolicy = new EnumMap<>(ProxyPolicy.class);
         ProxyPolicyChangeListener policyChangeListener = new ProxyPolicyChangeListener();
         for (ProxyPolicy pp: ProxyPolicy.values()) {
             rbProxyPolicy.put(pp, new JRadioButton());

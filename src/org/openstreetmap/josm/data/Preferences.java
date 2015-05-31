@@ -13,6 +13,8 @@ import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.Reader;
+import java.io.StringReader;
+import java.io.StringWriter;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Field;
@@ -21,6 +23,8 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -29,12 +33,19 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.ResourceBundle;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.json.Json;
+import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
+import javax.json.JsonReader;
+import javax.json.JsonValue;
+import javax.json.JsonWriter;
 import javax.swing.JOptionPane;
 import javax.swing.UIManager;
 import javax.xml.XMLConstants;
@@ -77,19 +88,25 @@ import org.xml.sax.SAXException;
  * put(key, "") means, the property is removed.
  *
  * @author imi
+ * @since 74
  */
 public class Preferences {
     /**
      * Internal storage for the preference directory.
      * Do not access this variable directly!
-     * @see #getPreferencesDirFile()
+     * @see #getPreferencesDirectory()
      */
-    private File preferencesDirFile = null;
+    private File preferencesDir = null;
 
     /**
      * Internal storage for the cache directory.
      */
-    private File cacheDirFile = null;
+    private File cacheDir = null;
+
+    /**
+     * Internal storage for the user data directory.
+     */
+    private File userdataDir = null;
 
     /**
      * Determines if preferences file is saved each time a property is changed.
@@ -526,44 +543,58 @@ public class Preferences {
     }
 
     /**
-     * Returns the location of the user defined preferences directory
-     * @return The location of the user defined preferences directory
+     * Returns the user defined preferences directory, containing the preferences.xml file
+     * @return The user defined preferences directory, containing the preferences.xml file
+     * @since 7834
      */
-    public String getPreferencesDir() {
-        final String path = getPreferencesDirFile().getPath();
-        if (path.endsWith(File.separator))
-            return path;
-        return path + File.separator;
-    }
-
-    /**
-     * Returns the user defined preferences directory
-     * @return The user defined preferences directory
-     */
-    public File getPreferencesDirFile() {
-        if (preferencesDirFile != null)
-            return preferencesDirFile;
+    public File getPreferencesDirectory() {
+        if (preferencesDir != null)
+            return preferencesDir;
         String path;
-        path = System.getProperty("josm.home");
+        path = System.getProperty("josm.pref");
         if (path != null) {
-            preferencesDirFile = new File(path).getAbsoluteFile();
+            preferencesDir = new File(path).getAbsoluteFile();
         } else {
-            path = System.getenv("APPDATA");
+            path = System.getProperty("josm.home");
             if (path != null) {
-                preferencesDirFile = new File(path, "JOSM");
+                preferencesDir = new File(path).getAbsoluteFile();
             } else {
-                preferencesDirFile = new File(System.getProperty("user.home"), ".josm");
+                preferencesDir = Main.platform.getDefaultPrefDirectory();
             }
         }
-        return preferencesDirFile;
+        return preferencesDir;
     }
 
     /**
-     * Returns the user preferences file
-     * @return The user preferences file
+     * Returns the user data directory, containing autosave, plugins, etc.
+     * Depending on the OS it may be the same directory as preferences directory.
+     * @return The user data directory, containing autosave, plugins, etc.
+     * @since 7834
+     */
+    public File getUserDataDirectory() {
+        if (userdataDir != null)
+            return userdataDir;
+        String path;
+        path = System.getProperty("josm.userdata");
+        if (path != null) {
+            userdataDir = new File(path).getAbsoluteFile();
+        } else {
+            path = System.getProperty("josm.home");
+            if (path != null) {
+                userdataDir = new File(path).getAbsoluteFile();
+            } else {
+                userdataDir = Main.platform.getDefaultUserDataDirectory();
+            }
+        }
+        return userdataDir;
+    }
+
+    /**
+     * Returns the user preferences file (preferences.xml)
+     * @return The user preferences file (preferences.xml)
      */
     public File getPreferenceFile() {
-        return new File(getPreferencesDirFile(), "preferences.xml");
+        return new File(getPreferencesDirectory(), "preferences.xml");
     }
 
     /**
@@ -571,7 +602,7 @@ public class Preferences {
      * @return The user plugin directory
      */
     public File getPluginsDirectory() {
-        return new File(getPreferencesDirFile(), "plugins");
+        return new File(getUserDataDirectory(), "plugins");
     }
 
     /**
@@ -583,61 +614,69 @@ public class Preferences {
      * @return the cache directory
      */
     public File getCacheDirectory() {
-        if (cacheDirFile != null)
-            return cacheDirFile;
+        if (cacheDir != null)
+            return cacheDir;
         String path = System.getProperty("josm.cache");
         if (path != null) {
-            cacheDirFile = new File(path).getAbsoluteFile();
+            cacheDir = new File(path).getAbsoluteFile();
         } else {
-            path = get("cache.folder", null);
+            path = System.getProperty("josm.home");
             if (path != null) {
-                cacheDirFile = new File(path);
+                cacheDir = new File(path, "cache");
             } else {
-                cacheDirFile = new File(getPreferencesDirFile(), "cache");
+                path = get("cache.folder", null);
+                if (path != null) {
+                    cacheDir = new File(path).getAbsoluteFile();
+                } else {
+                    cacheDir = Main.platform.getDefaultCacheDirectory();
+                }
             }
         }
-        if (!cacheDirFile.exists() && !cacheDirFile.mkdirs()) {
-            Main.warn(tr("Failed to create missing cache directory: {0}", cacheDirFile.getAbsoluteFile()));
+        if (!cacheDir.exists() && !cacheDir.mkdirs()) {
+            Main.warn(tr("Failed to create missing cache directory: {0}", cacheDir.getAbsoluteFile()));
             JOptionPane.showMessageDialog(
                     Main.parent,
-                    tr("<html>Failed to create missing cache directory: {0}</html>", cacheDirFile.getAbsoluteFile()),
+                    tr("<html>Failed to create missing cache directory: {0}</html>", cacheDir.getAbsoluteFile()),
                     tr("Error"),
                     JOptionPane.ERROR_MESSAGE
             );
         }
-        return cacheDirFile;
+        return cacheDir;
+    }
+
+    private void addPossibleResourceDir(Set<String> locations, String s) {
+        if (s != null) {
+            if (!s.endsWith(File.separator)) {
+                s += File.separator;
+            }
+            locations.add(s);
+        }
     }
 
     /**
-     * @return A list of all existing directories where resources could be stored.
+     * Returns a set of all existing directories where resources could be stored.
+     * @return A set of all existing directories where resources could be stored.
      */
     public Collection<String> getAllPossiblePreferenceDirs() {
-        LinkedList<String> locations = new LinkedList<>();
-        locations.add(getPreferencesDir());
-        String s;
-        if ((s = System.getenv("JOSM_RESOURCES")) != null) {
-            if (!s.endsWith(File.separator)) {
-                s = s + File.separator;
+        Set<String> locations = new HashSet<>();
+        addPossibleResourceDir(locations, getPreferencesDirectory().getPath());
+        addPossibleResourceDir(locations, getUserDataDirectory().getPath());
+        addPossibleResourceDir(locations, System.getenv("JOSM_RESOURCES"));
+        addPossibleResourceDir(locations, System.getProperty("josm.resources"));
+        if (Main.isPlatformWindows()) {
+            String appdata = System.getenv("APPDATA");
+            if (System.getenv("ALLUSERSPROFILE") != null && appdata != null
+                    && appdata.lastIndexOf(File.separator) != -1) {
+                appdata = appdata.substring(appdata.lastIndexOf(File.separator));
+                locations.add(new File(new File(System.getenv("ALLUSERSPROFILE"),
+                        appdata), "JOSM").getPath());
             }
-            locations.add(s);
+        } else {
+            locations.add("/usr/local/share/josm/");
+            locations.add("/usr/local/lib/josm/");
+            locations.add("/usr/share/josm/");
+            locations.add("/usr/lib/josm/");
         }
-        if ((s = System.getProperty("josm.resources")) != null) {
-            if (!s.endsWith(File.separator)) {
-                s = s + File.separator;
-            }
-            locations.add(s);
-        }
-        String appdata = System.getenv("APPDATA");
-        if (System.getenv("ALLUSERSPROFILE") != null && appdata != null
-                && appdata.lastIndexOf(File.separator) != -1) {
-            appdata = appdata.substring(appdata.lastIndexOf(File.separator));
-            locations.add(new File(new File(System.getenv("ALLUSERSPROFILE"),
-                    appdata), "JOSM").getPath());
-        }
-        locations.add("/usr/local/share/josm/");
-        locations.add("/usr/local/lib/josm/");
-        locations.add("/usr/share/josm/");
-        locations.add("/usr/lib/josm/");
         return locations;
     }
 
@@ -729,7 +768,7 @@ public class Preferences {
      * @return true, if something has changed (i.e. value is different than before)
      */
     public boolean put(final String key, String value) {
-        if(value != null && value.length() == 0) {
+        if(value != null && value.isEmpty()) {
             value = null;
         }
         return putSetting(key, value == null ? null : new StringSetting(value));
@@ -775,18 +814,30 @@ public class Preferences {
 
         File tmpFile = new File(prefFile + "_tmp");
         Utils.copyFile(tmpFile, prefFile);
-        tmpFile.delete();
+        if (!tmpFile.delete()) {
+            Main.warn(tr("Unable to delete temporary file {0}", tmpFile.getAbsolutePath()));
+        }
 
         setCorrectPermissions(prefFile);
         setCorrectPermissions(backupFile);
     }
 
     private void setCorrectPermissions(File file) {
-        file.setReadable(false, false);
-        file.setWritable(false, false);
-        file.setExecutable(false, false);
-        file.setReadable(true, true);
-        file.setWritable(true, true);
+        if (!file.setReadable(false, false) && Main.isDebugEnabled()) {
+            Main.debug(tr("Unable to set file non-readable {0}", file.getAbsolutePath()));
+        }
+        if (!file.setWritable(false, false) && Main.isDebugEnabled()) {
+            Main.debug(tr("Unable to set file non-writable {0}", file.getAbsolutePath()));
+        }
+        if (!file.setExecutable(false, false) && Main.isDebugEnabled()) {
+            Main.debug(tr("Unable to set file non-executable {0}", file.getAbsolutePath()));
+        }
+        if (!file.setReadable(true, true) && Main.isDebugEnabled()) {
+            Main.debug(tr("Unable to set file readable {0}", file.getAbsolutePath()));
+        }
+        if (!file.setWritable(true, true) && Main.isDebugEnabled()) {
+            Main.debug(tr("Unable to set file writable {0}", file.getAbsolutePath()));
+        }
     }
 
     /**
@@ -814,7 +865,7 @@ public class Preferences {
      */
     public void init(boolean reset) {
         // get the preferences.
-        File prefDir = getPreferencesDirFile();
+        File prefDir = getPreferencesDirectory();
         if (prefDir.exists()) {
             if(!prefDir.isDirectory()) {
                 Main.warn(tr("Failed to initialize preferences. Preference directory ''{0}'' is not a directory.", prefDir.getAbsoluteFile()));
@@ -1235,6 +1286,33 @@ public class Preferences {
         return vals;
     }
 
+    @SuppressWarnings("rawtypes")
+    private static String mapToJson(Map map) {
+        StringWriter stringWriter = new StringWriter();
+        try (JsonWriter writer = Json.createWriter(stringWriter)) {
+            JsonObjectBuilder object = Json.createObjectBuilder();
+            for(Object o: map.entrySet()) {
+                Entry e = (Entry) o;
+                object.add(e.getKey().toString(), e.getValue().toString());
+            }
+            writer.writeObject(object.build());
+        }
+        return stringWriter.toString();
+    }
+
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private static Map mapFromJson(String s) {
+        Map ret = null;
+        try (JsonReader reader = Json.createReader(new StringReader(s))) {
+            JsonObject object = reader.readObject();
+            ret = new HashMap(object.size());
+            for (Entry<String, JsonValue> e: object.entrySet()) {
+                ret.put(e.getKey(), e.getValue().toString());
+            }
+        }
+        return ret;
+    }
+
     public static <T> Map<String,String> serializeStruct(T struct, Class<T> klass) {
         T structPrototype;
         try {
@@ -1254,7 +1332,12 @@ public class Preferences {
                 Object defaultFieldValue = f.get(structPrototype);
                 if (fieldValue != null) {
                     if (f.getAnnotation(writeExplicitly.class) != null || !Objects.equals(fieldValue, defaultFieldValue)) {
-                        hash.put(f.getName().replace("_", "-"), fieldValue.toString());
+                        String key = f.getName().replace("_", "-");
+                        if (fieldValue instanceof Map) {
+                            hash.put(key, mapToJson((Map) fieldValue));
+                        } else {
+                            hash.put(key, fieldValue.toString());
+                        }
                     }
                 }
             } catch (IllegalArgumentException | IllegalAccessException ex) {
@@ -1286,22 +1369,25 @@ public class Preferences {
             }
             f.setAccessible(true);
             if (f.getType() == Boolean.class || f.getType() == boolean.class) {
-                value = Boolean.parseBoolean(key_value.getValue());
+                value = Boolean.valueOf(key_value.getValue());
             } else if (f.getType() == Integer.class || f.getType() == int.class) {
                 try {
-                    value = Integer.parseInt(key_value.getValue());
+                    value = Integer.valueOf(key_value.getValue());
                 } catch (NumberFormatException nfe) {
                     continue;
                 }
             } else if (f.getType() == Double.class || f.getType() == double.class) {
                 try {
-                    value = Double.parseDouble(key_value.getValue());
+                    value = Double.valueOf(key_value.getValue());
                 } catch (NumberFormatException nfe) {
                     continue;
                 }
             } else  if (f.getType() == String.class) {
                 value = key_value.getValue();
-            } else
+            } else if (f.getType().isAssignableFrom(Map.class)) {
+                value = mapFromJson(key_value.getValue());
+            }
+            else
                 throw new RuntimeException("unsupported preference primitive type");
 
             try {
@@ -1328,12 +1414,14 @@ public class Preferences {
      *
      */
     public void updateSystemProperties() {
-        if(getBoolean("prefer.ipv6", false)) {
+        if("true".equals(get("prefer.ipv6", "auto"))) {
             // never set this to false, only true!
-            updateSystemProperty("java.net.preferIPv6Addresses", "true");
+            if(!"true".equals(Utils.updateSystemProperty("java.net.preferIPv6Addresses", "true"))) {
+                Main.info(tr("Try enabling IPv6 network, prefering IPv6 over IPv4 (only works on early startup)."));
+            }
         }
-        updateSystemProperty("http.agent", Version.getInstance().getAgentString());
-        updateSystemProperty("user.language", get("language"));
+        Utils.updateSystemProperty("http.agent", Version.getInstance().getAgentString());
+        Utils.updateSystemProperty("user.language", get("language"));
         // Workaround to fix a Java bug.
         // Force AWT toolkit to update its internal preferences (fix #3645).
         // This ugly hack comes from Sun bug database: https://bugs.openjdk.java.net/browse/JDK-6292739
@@ -1347,35 +1435,15 @@ public class Preferences {
         // Workaround to fix a Java "feature"
         // See http://stackoverflow.com/q/7615645/2257172 and #9875
         if (getBoolean("jdk.tls.disableSNIExtension", true)) {
-            updateSystemProperty("jsse.enableSNIExtension", "false");
+            Utils.updateSystemProperty("jsse.enableSNIExtension", "false");
         }
         // Workaround to fix another Java bug
         // Force Java 7 to use old sorting algorithm of Arrays.sort (fix #8712).
         // See Oracle bug database: https://bugs.openjdk.java.net/browse/JDK-7075600
         // and https://bugs.openjdk.java.net/browse/JDK-6923200
         if (getBoolean("jdk.Arrays.useLegacyMergeSort", !Version.getInstance().isLocalBuild())) {
-            updateSystemProperty("java.util.Arrays.useLegacyMergeSort", "true");
+            Utils.updateSystemProperty("java.util.Arrays.useLegacyMergeSort", "true");
         }
-    }
-
-    /**
-     * Updates a given system property.
-     * @param key The property key
-     * @param value The property value
-     * @return the previous value of the system property, or {@code null} if it did not have one.
-     * @since 6851
-     */
-    public static String updateSystemProperty(String key, String value) {
-        if (value != null) {
-            String old = System.setProperty(key, value);
-            if (!key.toLowerCase().contains("password")) {
-                Main.debug("System property '"+key+"' set to '"+value+"'. Old value was '"+old+"'");
-            } else {
-                Main.debug("System property '"+key+"' changed.");
-            }
-            return old;
-        }
-        return null;
     }
 
     /**
@@ -1383,7 +1451,7 @@ public class Preferences {
      * @return the collection of plugin site URLs
      */
     public Collection<String> getPluginSites() {
-        return getCollection("pluginmanager.sites", Collections.singleton(Main.getJOSMWebsite()+"/plugin%<?plugins=>"));
+        return getCollection("pluginmanager.sites", Collections.singleton(Main.getJOSMWebsite()+"/pluginicons%<?plugins=>"));
     }
 
     /**
@@ -1632,9 +1700,9 @@ public class Preferences {
 
     public String toXML(boolean nopass) {
         StringBuilder b = new StringBuilder(
-                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                "<preferences xmlns=\""+Main.getXMLBase()+"/preferences-1.0\" version=\""+
-                Version.getInstance().getVersion() + "\">\n");
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<preferences xmlns=\"")
+                .append(Main.getXMLBase()).append("/preferences-1.0\" version=\"")
+                .append(Version.getInstance().getVersion()).append("\">\n");
         SettingToXml toXml = new SettingToXml(b, nopass);
         for (Entry<String, Setting<?>> e : settingsMap.entrySet()) {
             toXml.setKey(e.getKey());
@@ -1650,27 +1718,41 @@ public class Preferences {
      * see something with an expiry date in the past, remove it from the list.
      */
     public void removeObsolete() {
-        /* update the data with old consumer key*/
-        if(getInteger("josm.version", Version.getInstance().getVersion()) < 6076) {
-            if(!get("oauth.access-token.key").isEmpty() && get("oauth.settings.consumer-key").isEmpty()) {
-                put("oauth.settings.consumer-key", "AdCRxTpvnbmfV8aPqrTLyA");
-                put("oauth.settings.consumer-secret", "XmYOiGY9hApytcBC3xCec3e28QBqOWz5g6DSb5UpE");
+        // drop this block end of 2015
+        // update old style JOSM server links to use zip now, see #10581
+        // actually also cache and mirror entries should be cleared
+        if(getInteger("josm.version", Version.getInstance().getVersion()) < 8099) {
+            for(String key: new String[]{"mappaint.style.entries", "taggingpreset.entries"}) {
+                Collection<Map<String, String>> data = getListOfStructs(key, (Collection<Map<String, String>>) null);
+                if (data != null) {
+                    List<Map<String, String>> newlist = new ArrayList<Map<String, String>>();
+                    boolean modified = false;
+                    for(Map<String, String> map : data) {
+                         Map<String, String> newmap = new LinkedHashMap<String, String>();
+                         for (Entry<String, String> entry : map.entrySet()) {
+                             String val = entry.getValue();
+                             String mkey = entry.getKey();
+                             if ("url".equals(mkey) && val.contains("josm.openstreetmap.de/josmfile") && !val.contains("zip=1")) {
+                                 val += "&zip=1";
+                                 modified = true;
+
+                             }
+                             newmap.put(mkey, val);
+                         }
+                         newlist.add(newmap);
+                    }
+                    if (modified) {
+                        putListOfStructs(key, newlist);
+                    }
+                }
             }
         }
 
         String[] obsolete = {
-                "downloadAlong.downloadAlongTrack.distance",   // 07/2013 - can be removed mid-2014. Replaced by downloadAlongWay.distance
-                "downloadAlong.downloadAlongTrack.area",       // 07/2013 - can be removed mid-2014. Replaced by downloadAlongWay.area
-                "gpxLayer.downloadAlongTrack.distance",        // 07/2013 - can be removed mid-2014. Replaced by downloadAlongTrack.distance
-                "gpxLayer.downloadAlongTrack.area",            // 07/2013 - can be removed mid-2014. Replaced by downloadAlongTrack.area
-                "gpxLayer.downloadAlongTrack.near",            // 07/2013 - can be removed mid-2014. Replaced by downloadAlongTrack.near
-                "validator.tests",                             // 01/2014 - can be removed end-2014. Replaced by validator.skip
-                "validator.testsBeforeUpload",                 // 01/2014 - can be removed end-2014. Replaced by validator.skipBeforeUpload
-                "validator.TagChecker.sources",                // 01/2014 - can be removed end-2014. Replaced by validator.TagChecker.source
-                "validator.TagChecker.usedatafile",            // 01/2014 - can be removed end-2014. Replaced by validator.TagChecker.source
-                "validator.TagChecker.useignorefile",          // 01/2014 - can be removed end-2014. Replaced by validator.TagChecker.source
-                "validator.TagChecker.usespellfile",           // 01/2014 - can be removed end-2014. Replaced by validator.TagChecker.source
-                "validator.org.openstreetmap.josm.data.validation.tests.MapCSSTagChecker.sources" // 01/2014 - can be removed end-2014. Replaced by validator.org.openstreetmap.josm.data.validation.tests.MapCSSTagChecker.entries
+                "remote.control.host", // replaced by individual values for IPv4 and IPv6. To remove end of 2015
+                "osm.notes.enableDownload", // was used prior to r8071 when notes was an hidden feature. To remove end of 2015
+                "mappaint.style.migration.switchedToMapCSS", // was used prior to 8315 for MapCSS switch. To remove end of 2015
+                "mappaint.style.migration.changedXmlName" // was used prior to 8315 for MapCSS switch. To remove end of 2015
         };
         for (String key : obsolete) {
             if (settingsMap.containsKey(key)) {
@@ -1678,11 +1760,6 @@ public class Preferences {
                 Main.info(tr("Preference setting {0} has been removed since it is no longer used.", key));
             }
         }
-    }
-
-    public static boolean isEqual(Setting<?> a, Setting<?> b) {
-        if (a == null) return b == null;
-        return a.equals(b);
     }
 
     /**

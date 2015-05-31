@@ -7,9 +7,9 @@ import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.osm.Relation;
@@ -31,7 +31,7 @@ public abstract class RelationEditor extends ExtendedDialog {
     public static final String RELATION_SNAPSHOT_PROP = RelationEditor.class.getName() + ".relationSnapshot";
 
     /** the list of registered relation editor classes */
-    private static List<Class<RelationEditor>> editors = new ArrayList<>();
+    private static Set<Class<RelationEditor>> editors = new LinkedHashSet<>();
 
     /**
      * Registers a relation editor class. Depending on the type of relation to be edited
@@ -50,15 +50,15 @@ public abstract class RelationEditor extends ExtendedDialog {
     /**
      * The relation that this editor is working on.
      */
-    private Relation relation;
+    private transient Relation relation;
 
     /**
      * The version of the relation when editing is started.  This is
      * null if a new relation is created. */
-    private Relation relationSnapshot;
+    private transient Relation relationSnapshot;
 
     /** the data layer the relation belongs to */
-    private OsmDataLayer layer;
+    private transient OsmDataLayer layer;
 
     /**
      * This is a factory method that creates an appropriate RelationEditor
@@ -111,10 +111,9 @@ public abstract class RelationEditor extends ExtendedDialog {
      * @param relation the relation. Can be null if a new relation is to be edited.
      * @param selectedMembers  a collection of members in <code>relation</code> which the editor
      * should display selected when the editor is first displayed on screen
-     * @throws IllegalArgumentException thrown if layer is null
+     * @throws IllegalArgumentException if layer is null
      */
-    protected RelationEditor(OsmDataLayer layer, Relation relation, Collection<RelationMember> selectedMembers)  throws IllegalArgumentException{
-        // Initalizes ExtendedDialog
+    protected RelationEditor(OsmDataLayer layer, Relation relation, Collection<RelationMember> selectedMembers) {
         super(Main.parent,
                 "",
                 new String[] { tr("Apply Changes"), tr("Cancel")},

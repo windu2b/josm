@@ -21,17 +21,25 @@ import org.openstreetmap.josm.tools.ImageProvider;
 
 // FIXME this class should extend HtmlPanel instead (duplicated code in here)
 public class UploadParameterSummaryPanel extends JPanel implements HyperlinkListener, PropertyChangeListener{
-    private UploadStrategySpecification spec = new UploadStrategySpecification();
+    private transient UploadStrategySpecification spec = new UploadStrategySpecification();
     private int numObjects;
     private JMultilineLabel jepMessage;
     private JLabel lblWarning;
 
-    private Changeset selectedChangeset;
+    private transient Changeset selectedChangeset;
     private boolean closeChangesetAfterNextUpload;
-    private ConfigurationParameterRequestHandler configHandler;
+    private transient ConfigurationParameterRequestHandler configHandler;
+
+    /**
+     * Constructs a new {@code UploadParameterSummaryPanel}.
+     */
+    public UploadParameterSummaryPanel() {
+        build();
+        updateSummary();
+    }
 
     protected String buildChangesetSummary() {
-        StringBuilder msg = new StringBuilder();
+        StringBuilder msg = new StringBuilder(96);
         if (selectedChangeset == null || selectedChangeset.isNew()) {
             msg.append(tr("Objects are uploaded to a <strong>new changeset</strong>."));
         } else {
@@ -42,21 +50,20 @@ public class UploadParameterSummaryPanel extends JPanel implements HyperlinkList
                     uploadComment
             ));
         }
-        msg.append(" ");
+        msg.append(' ');
         if (closeChangesetAfterNextUpload) {
             msg.append(tr("The changeset is going to be <strong>closed</strong> after this upload"));
         } else {
             msg.append(tr("The changeset is <strong>left open</strong> after this upload"));
         }
-        msg.append(" (<a href=\"urn:changeset-configuration\">" + tr("configure changeset") + "</a>)");
+        msg.append(" (<a href=\"urn:changeset-configuration\">").append(tr("configure changeset")).append("</a>)");
         return msg.toString();
     }
 
     protected String buildStrategySummary() {
         if (spec == null)
             return "";
-        // check whether we can use one changeset only or whether we have to use
-        // multiple changesets
+        // check whether we can use one changeset only or whether we have to use multiple changesets
         //
         boolean useOneChangeset = true;
         int maxChunkSize = OsmApi.getOsmApi().getCapabilities().getMaxChangesetSize();
@@ -105,19 +112,11 @@ public class UploadParameterSummaryPanel extends JPanel implements HyperlinkList
         add(jepMessage, BorderLayout.CENTER);
         lblWarning = new JLabel("");
         lblWarning.setVisible(false);
-        lblWarning.setIcon(ImageProvider.get("warning-small.png"));
+        lblWarning.setIcon(ImageProvider.get("warning-small"));
         lblWarning.setBorder(BorderFactory.createEmptyBorder(5,5,5,5));
         JPanel pnl = new JPanel(new BorderLayout());
         pnl.add(lblWarning, BorderLayout.NORTH);
         add(pnl, BorderLayout.WEST);
-    }
-
-    /**
-     * Constructs a new {@code UploadParameterSummaryPanel}.
-     */
-    public UploadParameterSummaryPanel() {
-        build();
-        updateSummary();
     }
 
     public void setConfigurationParameterRequestListener(ConfigurationParameterRequestHandler handler) {
@@ -140,12 +139,12 @@ public class UploadParameterSummaryPanel extends JPanel implements HyperlinkList
     }
 
     protected void updateSummary() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("<html>");
-        sb.append(buildStrategySummary());
-        sb.append("<br><br>");
-        sb.append(buildChangesetSummary());
-        sb.append("</html>");
+        StringBuilder sb = new StringBuilder(32);
+        sb.append("<html>")
+          .append(buildStrategySummary())
+          .append("<br><br>")
+          .append(buildChangesetSummary())
+          .append("</html>");
         jepMessage.setText(sb.toString());
     }
 

@@ -9,7 +9,7 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
-import java.util.HashMap;
+import java.util.EnumMap;
 import java.util.Map;
 
 import javax.swing.BorderFactory;
@@ -40,16 +40,16 @@ public class BasicChangesetQueryPanel extends JPanel {
         CHANGESETS_IN_MAP_VIEW;
     }
 
-    private Map<BasicQuery, JRadioButton> rbQueries;
-    private Map<BasicQuery, JMultilineLabel> lblQueries;
+    private transient Map<BasicQuery, JRadioButton> rbQueries;
+    private transient Map<BasicQuery, JMultilineLabel> lblQueries;
     private JCheckBox cbMyChangesetsOnly;
 
     protected JPanel buildQueriesPanel() {
         JPanel pnl = new JPanel(new GridBagLayout());
 
         ButtonGroup bgQueries = new ButtonGroup();
-        rbQueries = new HashMap<>();
-        lblQueries = new HashMap<>();
+        rbQueries = new EnumMap<>(BasicQuery.class);
+        lblQueries = new EnumMap<>(BasicQuery.class);
         SelectQueryHandler selectedQueryHandler = new SelectQueryHandler();
         for (BasicQuery q: BasicQuery.values()) {
             JRadioButton rb = new JRadioButton();

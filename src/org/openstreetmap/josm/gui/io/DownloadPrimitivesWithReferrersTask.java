@@ -1,3 +1,4 @@
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui.io;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -47,7 +48,7 @@ public class DownloadPrimitivesWithReferrersTask extends PleaseWaitRunnable {
     private final boolean downloadReferrers;
 
     /** Temporary layer where downloaded primitives are put */
-    private OsmDataLayer tmpLayer;
+    private final OsmDataLayer tmpLayer;
     /** Reference to the task that download requested primitives */
     private DownloadPrimitivesTask mainTask;
     /** Flag indicated that user ask for cancel this task */
@@ -63,22 +64,23 @@ public class DownloadPrimitivesWithReferrersTask extends PleaseWaitRunnable {
      * @param downloadReferrers if the referrers of the object should be downloaded as well,
      *     i.e., parent relations, and for nodes, additionally, parent ways
      * @param full if the members of a relation should be downloaded as well
+     * @param newLayerName the name to use for the new layer, can be {@code null}.
      * @param monitor ProgressMonitor to use, or null to create a new one
      */
     public DownloadPrimitivesWithReferrersTask(boolean newLayer, List<PrimitiveId> ids, boolean downloadReferrers,
-            boolean full, ProgressMonitor monitor) {
+            boolean full, String newLayerName, ProgressMonitor monitor) {
         super(tr("Download objects"), monitor, false);
         this.ids = ids;
         this.downloadReferrers = downloadReferrers;
         this.full = full;
         this.newLayer = newLayer;
         // All downloaded primitives are put in a tmpLayer
-        tmpLayer = new OsmDataLayer(new DataSet(), OsmDataLayer.createNewName(), null);
+        tmpLayer = new OsmDataLayer(new DataSet(), newLayerName != null ? newLayerName : OsmDataLayer.createNewName(), null);
     }
 
     /**
      * Cancel recursively the task. Do not call directly
-     * @see DownloadPrimitivesWithReferrersTask#operationCancel
+     * @see DownloadPrimitivesWithReferrersTask#operationCanceled()
      */
     @Override
     protected void cancel() {
@@ -188,7 +190,7 @@ public class DownloadPrimitivesWithReferrersTask extends PleaseWaitRunnable {
             if(canceled)
                 return null;
         }
-        ArrayList<PrimitiveId> downloaded = new ArrayList<>(ids);
+        List<PrimitiveId> downloaded = new ArrayList<>(ids);
         downloaded.removeAll(mainTask.getMissingPrimitives());
         return downloaded;
     }
@@ -206,13 +208,14 @@ public class DownloadPrimitivesWithReferrersTask extends PleaseWaitRunnable {
             String title, String text, String listLabel, int msgType) {
         JPanel p = new JPanel(new GridBagLayout());
         p.add(new HtmlPanel(text), GBC.eop());
+        JosmTextArea txt = new JosmTextArea();
         if (listLabel != null) {
             JLabel missing = new JLabel(listLabel);
             missing.setFont(missing.getFont().deriveFont(Font.PLAIN));
+            missing.setLabelFor(txt);
             p.add(missing, GBC.eol());
         }
-        JosmTextArea txt = new JosmTextArea();
-        txt.setFont(new Font("Monospaced", txt.getFont().getStyle(), txt.getFont().getSize()));
+        txt.setFont(GuiHelper.getMonospacedFont(txt));
         txt.setEditable(false);
         txt.setBackground(p.getBackground());
         txt.setColumns(40);
@@ -224,8 +227,8 @@ public class DownloadPrimitivesWithReferrersTask extends PleaseWaitRunnable {
         return new ExtendedDialog(
                 Main.parent,
                 title,
-                new String[] { tr("Ok") })
-        .setButtonIcons(new String[] { "ok" })
+                new String[] {tr("Ok")})
+        .setButtonIcons(new String[] {"ok"})
         .setIcon(msgType)
         .setContent(p, false);
     }

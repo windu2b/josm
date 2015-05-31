@@ -79,13 +79,13 @@ public class RelationNodeMap {
     RelationNodeMap(List<RelationMember> members) {
         for (int i = 0; i < members.size(); ++i) {
             RelationMember m = members.get(i);
-            if (m.getMember().isIncomplete() || !m.isWay()) {
+            if (m.getMember().isIncomplete() || !m.isWay() || m.getWay().getNodesCount() < 2) {
                 notSortable.add(i);
                 continue;
             }
 
             Way w = m.getWay();
-            if ((RelationSortUtils.roundaboutType(w) != NONE)) {
+            if (RelationSortUtils.roundaboutType(w) != NONE) {
                 for (Node nd : w.getNodes()) {
                     addPair(nd, i);
                 }
@@ -166,9 +166,9 @@ public class RelationNodeMap {
         ts2.add(n);
     }
 
-    Integer firstOneway = null;
-    Node lastOnewayNode = null;
-    Node firstCircular = null;
+    private Integer firstOneway = null;
+    private Node lastOnewayNode = null;
+    private Node firstCircular = null;
 
     /**
      * Return a relation member that is linked to the
@@ -232,7 +232,7 @@ public class RelationNodeMap {
 
     private Integer popBackwardOnewayPart(int way){
         if (lastOnewayNode != null) {
-            TreeSet<Node> nodes = new TreeSet<>();
+            Set<Node> nodes = new TreeSet<>();
             if (onewayReverseMap.ways.containsKey(way)) {
                 nodes.addAll(onewayReverseMap.ways.get(way));
             }

@@ -1,4 +1,4 @@
-//License: GPL. For details, see LICENSE file.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui.preferences.display;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -28,7 +28,7 @@ public final class DisplayPreference extends DefaultTabPreferenceSetting {
     }
 
     private DisplayPreference() {
-        super("display", tr("Display Settings"), tr("Various settings that influence the visual representation of the whole program."), false, new JTabbedPane());
+        super(/* ICON(preferences/) */ "display", tr("Display Settings"), tr("Various settings that influence the visual representation of the whole program."), false, new JTabbedPane());
     }
 
     @Override

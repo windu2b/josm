@@ -17,6 +17,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.tools.Utils;
 
 /**
@@ -25,19 +26,23 @@ import org.openstreetmap.josm.tools.Utils;
  *
  * A TagCollection can be created:
  * <ul>
- *  <li>from the tags managed by a specific {@link org.openstreetmap.josm.data.osm.OsmPrimitive} with {@link #from(org.openstreetmap.josm.data.osm.Tagged)}</li>
- *  <li>from the union of all tags managed by a collection of {@link org.openstreetmap.josm.data.osm.OsmPrimitive}s with {@link #unionOfAllPrimitives(java.util.Collection)}</li>
- *  <li>from the union of all tags managed by a {@link org.openstreetmap.josm.data.osm.DataSet} with {@link #unionOfAllPrimitives(org.openstreetmap.josm.data.osm.DataSet)}</li>
- *  <li>from the intersection of all tags managed by a collection of primitives with {@link #commonToAllPrimitives(java.util.Collection)}</li>
+ *  <li>from the tags managed by a specific {@link org.openstreetmap.josm.data.osm.OsmPrimitive}
+ *  with {@link #from(org.openstreetmap.josm.data.osm.Tagged)}</li>
+ *  <li>from the union of all tags managed by a collection of {@link org.openstreetmap.josm.data.osm.OsmPrimitive}s
+ *  with {@link #unionOfAllPrimitives(java.util.Collection)}</li>
+ *  <li>from the union of all tags managed by a {@link org.openstreetmap.josm.data.osm.DataSet}
+ *  with {@link #unionOfAllPrimitives(org.openstreetmap.josm.data.osm.DataSet)}</li>
+ *  <li>from the intersection of all tags managed by a collection of primitives
+ *  with {@link #commonToAllPrimitives(java.util.Collection)}</li>
  * </ul>
  *
  * It  provides methods to query the collection, like {@link #size()}, {@link #hasTagsFor(String)}, etc.
  *
  * Basic set operations allow to create the union, the intersection and  the difference
- * of tag collections, see {@link #union(org.openstreetmap.josm.data.osm.TagCollection)}, {@link #intersect(org.openstreetmap.josm.data.osm.TagCollection)},
- * and {@link #minus(org.openstreetmap.josm.data.osm.TagCollection)}.
+ * of tag collections, see {@link #union(org.openstreetmap.josm.data.osm.TagCollection)},
+ * {@link #intersect(org.openstreetmap.josm.data.osm.TagCollection)}, and {@link #minus(org.openstreetmap.josm.data.osm.TagCollection)}.
  *
- *
+ * @since 2008
  */
 public class TagCollection implements Iterable<Tag> {
 
@@ -143,9 +148,10 @@ public class TagCollection implements Iterable<Tag> {
     private final Set<Tag> tags = new HashSet<>();
 
     /**
-     * Creates an empty tag collection
+     * Creates an empty tag collection.
      */
     public TagCollection() {
+        // contents can be set later with add()
     }
 
     /**
@@ -497,7 +503,7 @@ public class TagCollection implements Iterable<Tag> {
      * @return the set of keys of this tag collection
      */
     public Set<String> getKeys() {
-        HashSet<String> ret = new HashSet<>();
+        Set<String> ret = new HashSet<>();
         for (Tag tag: tags) {
             ret.add(tag.getKey());
         }
@@ -510,7 +516,7 @@ public class TagCollection implements Iterable<Tag> {
      * @return the set of keys which have at least 2 matching tags.
      */
     public Set<String> getKeysWithMultipleValues() {
-        HashMap<String, Integer> counters = new HashMap<>();
+        Map<String, Integer> counters = new HashMap<>();
         for (Tag tag: tags) {
             Integer v = counters.get(tag.getKey());
             counters.put(tag.getKey(),(v==null) ? 1 : v+1);
@@ -555,7 +561,7 @@ public class TagCollection implements Iterable<Tag> {
      * @return the set of values
      */
     public Set<String> getValues() {
-        HashSet<String> ret = new HashSet<>();
+        Set<String> ret = new HashSet<>();
         for (Tag tag: tags) {
             ret.add(tag.getValue());
         }
@@ -571,7 +577,7 @@ public class TagCollection implements Iterable<Tag> {
      * are no values for the given key
      */
     public Set<String> getValues(String key) {
-        HashSet<String> ret = new HashSet<>();
+        Set<String> ret = new HashSet<>();
         if (key == null) return ret;
         for (Tag tag: tags) {
             if (tag.matchesKey(key)) {
@@ -595,10 +601,10 @@ public class TagCollection implements Iterable<Tag> {
      * primitive is null
      *
      * @param primitive  the primitive
-     * @throws IllegalStateException thrown if this tag collection can't be applied
+     * @throws IllegalStateException if this tag collection can't be applied
      * because there are keys with multiple values
      */
-    public void applyTo(Tagged primitive) throws IllegalStateException {
+    public void applyTo(Tagged primitive) {
         if (primitive == null) return;
         if (! isApplicableToPrimitive())
             throw new IllegalStateException(tr("Tag collection cannot be applied to a primitive because there are keys with multiple values."));
@@ -615,11 +621,11 @@ public class TagCollection implements Iterable<Tag> {
      * Applies this tag collection to a collection of {@link org.openstreetmap.josm.data.osm.OsmPrimitive}s. Does nothing if
      * primitives is null
      *
-     * @param primitives  the collection of primitives
-     * @throws IllegalStateException thrown if this tag collection can't be applied
+     * @param primitives the collection of primitives
+     * @throws IllegalStateException if this tag collection can't be applied
      * because there are keys with multiple values
      */
-    public void applyTo(Collection<? extends Tagged> primitives) throws IllegalStateException{
+    public void applyTo(Collection<? extends Tagged> primitives) {
         if (primitives == null) return;
         if (! isApplicableToPrimitive())
             throw new IllegalStateException(tr("Tag collection cannot be applied to a primitive because there are keys with multiple values."));
@@ -633,10 +639,10 @@ public class TagCollection implements Iterable<Tag> {
      * primitive is null
      *
      * @param primitive  the primitive
-     * @throws IllegalStateException thrown if this tag collection can't be applied
+     * @throws IllegalStateException if this tag collection can't be applied
      * because there are keys with multiple values
      */
-    public void replaceTagsOf(Tagged primitive) throws IllegalStateException {
+    public void replaceTagsOf(Tagged primitive) {
         if (primitive == null) return;
         if (! isApplicableToPrimitive())
             throw new IllegalStateException(tr("Tag collection cannot be applied to a primitive because there are keys with multiple values."));
@@ -651,10 +657,10 @@ public class TagCollection implements Iterable<Tag> {
      * Does nothing if primitives is null
      *
      * @param primitives the collection of primitives
-     * @throws IllegalStateException thrown if this tag collection can't be applied
+     * @throws IllegalStateException if this tag collection can't be applied
      * because there are keys with multiple values
      */
-    public void replaceTagsOf(Collection<? extends Tagged> primitives) throws IllegalStateException {
+    public void replaceTagsOf(Collection<? extends Tagged> primitives) {
         if (primitives == null) return;
         if (! isApplicableToPrimitive())
             throw new IllegalStateException(tr("Tag collection cannot be applied to a primitive because there are keys with multiple values."));
@@ -721,6 +727,7 @@ public class TagCollection implements Iterable<Tag> {
 
     /**
      * Replies the concatenation of all tag values (concatenated by a semicolon)
+     * @param key the key to look up
      *
      * @return the concatenation of all tag values
      */
@@ -748,6 +755,28 @@ public class TagCollection implements Iterable<Tag> {
         }
         return Utils.join(";", values);
     }
+
+    /**
+     * Replies the sum of all numeric tag values.
+     * @param key the key to look up
+     *
+     * @return the sum of all numeric tag values, as string
+     * @since 7743
+     */
+    public String getSummedValues(String key) {
+        int result = 0;
+        for (String value : getValues(key)) {
+            try {
+                result += Integer.parseInt(value);
+            } catch (NumberFormatException e) {
+                if (Main.isTraceEnabled()) {
+                    Main.trace(e.getMessage());
+                }
+            }
+        }
+        return Integer.toString(result);
+    }
+
 
     @Override
     public String toString() {

@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.data.validation.tests;
 
 import static org.openstreetmap.josm.tools.I18n.marktr;
@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -27,6 +28,8 @@ import org.openstreetmap.josm.data.validation.Test;
 import org.openstreetmap.josm.data.validation.TestError;
 import org.openstreetmap.josm.tools.Geometry;
 import org.openstreetmap.josm.tools.Pair;
+import org.openstreetmap.josm.tools.Predicate;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * Performs validation tests on addresses (addr:housenumber) and associatedStreet relations.
@@ -55,7 +58,11 @@ public class Addresses extends Test {
             this(code, collection, message, null, null);
         }
         public AddressError(int code, Collection<OsmPrimitive> collection, String message, String description, String englishDescription) {
-            super(Addresses.this, Severity.WARNING, message, description, englishDescription, code, collection);
+            this(code, Severity.WARNING, collection, message, description, englishDescription);
+        }
+        public AddressError(int code, Severity severity, Collection<OsmPrimitive> collection, String message, String description,
+                String englishDescription) {
+            super(Addresses.this, severity, message, description, englishDescription, code, collection);
         }
     }
 
@@ -75,9 +82,23 @@ public class Addresses extends Test {
             }
         }
         if (list.size() > 1) {
+            Severity level;
+            // warning level only if several relations have different names, see #10945
+            final String name = list.get(0).get("name");
+            if (name == null || Utils.filter(list, new Predicate<Relation>() {
+                @Override
+                public boolean evaluate(Relation r) {
+                    return name.equals(r.get("name"));
+                }
+            }).size() < list.size()) {
+                level = Severity.WARNING;
+            } else {
+                level = Severity.OTHER;
+            }
             List<OsmPrimitive> errorList = new ArrayList<OsmPrimitive>(list);
             errorList.add(0, p);
-            errors.add(new AddressError(MULTIPLE_STREET_RELATIONS, errorList, tr("Multiple associatedStreet relations")));
+            errors.add(new AddressError(MULTIPLE_STREET_RELATIONS, level, errorList,
+                    tr("Multiple associatedStreet relations"), null, null));
         }
         return list;
     }
@@ -130,12 +151,18 @@ public class Addresses extends Test {
                     houses.add(p);
                     String number = p.get(ADDR_HOUSE_NUMBER);
                     if (number != null) {
-                        number = number.trim().toUpperCase();
+                        number = number.trim().toUpperCase(Locale.ENGLISH);
                         List<OsmPrimitive> list = map.get(number);
                         if (list == null) {
                             map.put(number, list = new ArrayList<>());
                         }
                         list.add(p);
+                    }
+                    if (relationName != null && p.hasKey(ADDR_STREET) && !relationName.equals(p.get(ADDR_STREET))) {
+                        if (wrongStreetNames.isEmpty()) {
+                            wrongStreetNames.add(r);
+                        }
+                        wrongStreetNames.add(p);
                     }
                 } else if ("street".equals(role)) {
                     if (p instanceof Way) {

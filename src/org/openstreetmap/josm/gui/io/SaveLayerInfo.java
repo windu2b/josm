@@ -3,7 +3,7 @@ package org.openstreetmap.josm.gui.io;
 
 import java.io.File;
 
-import org.openstreetmap.josm.gui.layer.ModifiableLayer;
+import org.openstreetmap.josm.gui.layer.AbstractModifiableLayer;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
 
 /**
@@ -14,7 +14,7 @@ import org.openstreetmap.josm.tools.CheckParameterUtil;
 class SaveLayerInfo implements Comparable<SaveLayerInfo> {
 
     /** the modifiable layer */
-    private ModifiableLayer layer;
+    private AbstractModifiableLayer layer;
     private boolean doCheckSaveConditions;
     private boolean doSaveToFile;
     private boolean doUploadToServer;
@@ -25,9 +25,9 @@ class SaveLayerInfo implements Comparable<SaveLayerInfo> {
     /**
      * Constructs a new {@code SaveLayerInfo}.
      * @param layer the layer. Must not be null.
-     * @throws IllegalArgumentException thrown if layer is null
+     * @throws IllegalArgumentException if layer is null
      */
-    public SaveLayerInfo(ModifiableLayer layer) {
+    public SaveLayerInfo(AbstractModifiableLayer layer) {
         CheckParameterUtil.ensureParameterNotNull(layer, "layer");
         this.layer = layer;
         this.doCheckSaveConditions = true;
@@ -41,7 +41,7 @@ class SaveLayerInfo implements Comparable<SaveLayerInfo> {
      *
      * @return the layer this info objects holds information for
      */
-    public ModifiableLayer getLayer() {
+    public AbstractModifiableLayer getLayer() {
         return layer;
     }
 

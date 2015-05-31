@@ -1,4 +1,4 @@
-//License: GPL. For details, see LICENSE file.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.actions;
 
 import static org.openstreetmap.josm.gui.help.HelpUtil.ht;
@@ -12,6 +12,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 import javax.swing.JOptionPane;
 
@@ -30,12 +31,12 @@ import org.openstreetmap.josm.tools.Shortcut;
 /**
  * Aligns all selected nodes within a circle. (Useful for roundabouts)
  *
- * @since 146
- *
  * @author Matthew Newton
  * @author Petr Dlouhý
  * @author Teemu Koskinen
  * @author Alain Delplanque
+ *
+ * @since 146
  */
 public final class AlignInCircleAction extends JosmAction {
 
@@ -57,10 +58,10 @@ public final class AlignInCircleAction extends JosmAction {
     }
 
     public static class PolarCoor {
-        double radius;
-        double angle;
-        EastNorth origin = new EastNorth(0, 0);
-        double azimuth = 0;
+        private double radius;
+        private double angle;
+        private EastNorth origin = new EastNorth(0, 0);
+        private double azimuth = 0;
 
         PolarCoor(double radius, double angle) {
             this(radius, angle, new EastNorth(0, 0), 0);
@@ -100,7 +101,7 @@ public final class AlignInCircleAction extends JosmAction {
         }
     }
 
-    
+
     /**
      * Perform AlignInCircle action.
      *
@@ -132,11 +133,11 @@ public final class AlignInCircleAction extends JosmAction {
         Collection<OsmPrimitive> sel = getCurrentDataSet().getSelected();
         List<Node> nodes = new LinkedList<>();
         // fixNodes: All nodes for which the angle relative to center should not be modified
-        HashSet<Node> fixNodes = new HashSet<>();
+        Set<Node> fixNodes = new HashSet<>();
         List<Way> ways = new LinkedList<>();
         EastNorth center = null;
         double radius = 0;
-        
+
         for (OsmPrimitive osm : sel) {
             if (osm instanceof Node) {
                 nodes.add((Node) osm);
@@ -155,14 +156,14 @@ public final class AlignInCircleAction extends JosmAction {
             // Temporary closed way used to reorder nodes
             Way closedWay = new Way(w);
             closedWay.addNode(w.firstNode());
-            ArrayList<Way> usedWays = new ArrayList<>(1);
+            List<Way> usedWays = new ArrayList<>(1);
             usedWays.add(closedWay);
             nodes = collectNodesAnticlockwise(usedWays);
         } else if (!ways.isEmpty() && checkWaysArePolygon(ways)) {
             // Case 2
-            ArrayList<Node> inside = new ArrayList<>();
-            ArrayList<Node> outside = new ArrayList<>();
-            
+            List<Node> inside = new ArrayList<>();
+            List<Node> outside = new ArrayList<>();
+
             for(Node n: nodes) {
                 boolean isInside = false;
                 for(Way w: ways) {
@@ -176,7 +177,7 @@ public final class AlignInCircleAction extends JosmAction {
                 else
                     outside.add(n);
             }
-            
+
             if(outside.size() == 1 && inside.isEmpty()) {
                 center = outside.get(0).getEastNorth();
             } else if(outside.size() == 1 && inside.size() == 1) {
@@ -189,7 +190,7 @@ public final class AlignInCircleAction extends JosmAction {
                 center = new EastNorth((en0.east() + en1.east()) / 2, (en0.north() + en1.north()) / 2);
                 radius = distance(en0, en1) / 2;
             }
-            
+
             fixNodes.addAll(inside);
             fixNodes.addAll(collectNodesWithExternReferers(ways));
             nodes = collectNodesAnticlockwise(ways);
@@ -226,7 +227,7 @@ public final class AlignInCircleAction extends JosmAction {
                 return;
             }
         }
-    
+
         // Now calculate the average distance to each node from the
         // center. This method is ok as long as distances are short
         // relative to the distance from the N or S poles.
@@ -242,7 +243,7 @@ public final class AlignInCircleAction extends JosmAction {
         Collection<Command> cmds = new LinkedList<>();
 
         // Move each node to that distance from the center.
-        // Nodes that are not "fix" will be adjust making regular arcs. 
+        // Nodes that are not "fix" will be adjust making regular arcs.
         int nodeCount = nodes.size();
         // Search first fixed node
         int startPosition = 0;
@@ -275,7 +276,7 @@ public final class AlignInCircleAction extends JosmAction {
             }
             i = j; // Update start point for next iteration
         }
-        
+
         Main.main.undoRedo.add(new SequenceCommand(tr("Align Nodes in Circle"), cmds));
         Main.map.repaint();
     }
@@ -286,21 +287,21 @@ public final class AlignInCircleAction extends JosmAction {
      * @return List of nodes with more than one referrer
      */
     private List<Node> collectNodesWithExternReferers(List<Way> ways) {
-        ArrayList<Node> withReferrers = new ArrayList<>();
+        List<Node> withReferrers = new ArrayList<>();
         for(Way w: ways)
             for(Node n: w.getNodes())
                 if(n.getReferrers().size() > 1)
                     withReferrers.add(n);
         return withReferrers;
     }
-    
+
     /**
      * Assuming all ways can be joined into polygon, create an ordered list of node.
      * @param ways List of ways to be joined
      * @return Nodes anticlockwise ordered
      */
     private List<Node> collectNodesAnticlockwise(List<Way> ways) {
-        ArrayList<Node> nodes = new ArrayList<>();
+        List<Node> nodes = new ArrayList<>();
         Node firstNode = ways.get(0).firstNode();
         Node lastNode = null;
         Way lastWay = null;
@@ -359,7 +360,7 @@ public final class AlignInCircleAction extends JosmAction {
                     .show();
         return true;
     }
-    
+
     @Override
     protected void updateEnabledState() {
         setEnabled(getCurrentDataSet() != null && !getCurrentDataSet().getSelected().isEmpty());

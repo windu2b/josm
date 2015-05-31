@@ -58,7 +58,7 @@ public class DeleteFromRelationConfirmationDialog extends JDialog implements Tab
      *
      * @return The unique instance of this dialog
      */
-    public static DeleteFromRelationConfirmationDialog getInstance() {
+    public static synchronized DeleteFromRelationConfirmationDialog getInstance() {
         if (instance == null) {
             instance = new DeleteFromRelationConfirmationDialog();
         }
@@ -186,7 +186,7 @@ public class DeleteFromRelationConfirmationDialog extends JDialog implements Tab
      *
      */
     public static class RelationMemberTableModel extends DefaultTableModel {
-        private List<RelationToChildReference> data;
+        private transient List<RelationToChildReference> data;
 
         /**
          * Constructs a new {@code RelationMemberTableModel}.
@@ -212,7 +212,7 @@ public class DeleteFromRelationConfirmationDialog extends JDialog implements Tab
                             if (cmp != 0) return cmp;
                             cmp = o1.getParent().getDisplayName(nf).compareTo(o2.getParent().getDisplayName(nf));
                             if (cmp != 0) return cmp;
-                            return Integer.valueOf(o1.getPosition()).compareTo(o2.getPosition());
+                            return Integer.compare(o1.getPosition(), o2.getPosition());
                         }
                     }
             );
@@ -228,7 +228,7 @@ public class DeleteFromRelationConfirmationDialog extends JDialog implements Tab
         }
 
         public Set<OsmPrimitive> getObjectsToDelete() {
-            HashSet<OsmPrimitive> ret = new HashSet<>();
+            Set<OsmPrimitive> ret = new HashSet<>();
             for (RelationToChildReference ref: data) {
                 ret.add(ref.getChild());
             }
@@ -240,7 +240,7 @@ public class DeleteFromRelationConfirmationDialog extends JDialog implements Tab
         }
 
         public Set<OsmPrimitive> getParentRelations() {
-            HashSet<OsmPrimitive> ret = new HashSet<>();
+            Set<OsmPrimitive> ret = new HashSet<>();
             for (RelationToChildReference ref: data) {
                 ret.add(ref.getParent());
             }

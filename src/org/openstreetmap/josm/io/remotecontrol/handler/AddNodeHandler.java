@@ -4,6 +4,7 @@ package org.openstreetmap.josm.io.remotecontrol.handler;
 import static org.openstreetmap.josm.tools.I18n.tr;
 
 import java.awt.Point;
+import java.util.Collections;
 import java.util.Map;
 
 import org.openstreetmap.josm.Main;
@@ -29,6 +30,8 @@ public class AddNodeHandler extends RequestHandler {
     private double lat;
     private double lon;
 
+    private Node node;
+
     @Override
     protected void handleRequest() {
         GuiHelper.runInEDTAndWait(new Runnable() {
@@ -39,15 +42,13 @@ public class AddNodeHandler extends RequestHandler {
     }
 
     @Override
-    public String[] getMandatoryParams()
-    {
-        return new String[] { "lat", "lon" };
+    public String[] getMandatoryParams() {
+        return new String[] {"lat", "lon"};
     }
-    
+
     @Override
-    public String[] getOptionalParams()
-    {
-        return new String[] { "addtags" };
+    public String[] getOptionalParams() {
+        return new String[] {"addtags"};
     }
 
     @Override
@@ -59,10 +60,10 @@ public class AddNodeHandler extends RequestHandler {
     public String[] getUsageExamples() {
         return new String[] {
             "/add_node?lat=11&lon=22",
-            "/add_node?lon=13.3&lat=53.2&addtags=natural=tree|name=%20%20%20==Great%20Oak==" 
+            "/add_node?lon=13.3&lat=53.2&addtags=natural=tree|name=%20%20%20==Great%20Oak=="
         };
     }
-    
+
     @Override
     public String getPermissionMessage() {
         return tr("Remote Control has been asked to create a new node.") +
@@ -86,30 +87,30 @@ public class AddNodeHandler extends RequestHandler {
         // Create a new node
         LatLon ll = new LatLon(lat, lon);
 
-        Node nd = null;
+        node = null;
 
         if (Main.isDisplayingMapView()) {
             Point p = Main.map.mapView.getPoint(ll);
-            nd = Main.map.mapView.getNearestNode(p, OsmPrimitive.isUsablePredicate);
-            if (nd!=null && nd.getCoor().greatCircleDistance(ll) > Main.pref.getDouble("remotecontrol.tolerance", 0.1)) {
-                nd = null; // node is too far
+            node = Main.map.mapView.getNearestNode(p, OsmPrimitive.isUsablePredicate);
+            if (node!=null && node.getCoor().greatCircleDistance(ll) > Main.pref.getDouble("remotecontrol.tolerance", 0.1)) {
+                node = null; // node is too far
             }
         }
 
-        if (nd==null) {
-            nd = new Node(ll);
+        if (node==null) {
+            node = new Node(ll);
             // Now execute the commands to add this node.
-            Main.main.undoRedo.add(new AddCommand(nd));
+            Main.main.undoRedo.add(new AddCommand(node));
         }
 
-        Main.main.getCurrentDataSet().setSelected(nd);
+        Main.main.getCurrentDataSet().setSelected(node);
         if (PermissionPrefWithDefault.CHANGE_VIEWPORT.isAllowed()) {
             AutoScaleAction.autoScale("selection");
         } else {
             Main.map.mapView.repaint();
         }
         // parse parameter addtags=tag1=value1|tag2=vlaue2
-        AddTagsDialog.addTags(args, sender);
+        AddTagsDialog.addTags(args, sender, Collections.singleton(node));
     }
 
     @Override
@@ -118,7 +119,7 @@ public class AddNodeHandler extends RequestHandler {
             lat = Double.parseDouble(args.get("lat"));
             lon = Double.parseDouble(args.get("lon"));
         } catch (NumberFormatException e) {
-            throw new RequestHandlerBadRequestException("NumberFormatException ("+e.getMessage()+")");
+            throw new RequestHandlerBadRequestException("NumberFormatException ("+e.getMessage()+")", e);
         }
         if (!Main.main.hasEditLayer()) {
              throw new RequestHandlerBadRequestException(tr("There is no layer opened to add node"));

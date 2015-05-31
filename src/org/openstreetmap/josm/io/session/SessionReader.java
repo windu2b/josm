@@ -178,7 +178,7 @@ public class SessionReader {
                 try {
                     return new BufferedInputStream(new FileInputStream(file));
                 } catch (FileNotFoundException e) {
-                    throw new IOException(tr("File ''{0}'' does not exist.", file.getPath()));
+                    throw new IOException(tr("File ''{0}'' does not exist.", file.getPath()), e);
                 }
             } else if (inZipPath != null) {
                 ZipEntry entry = zipFile.getEntry(inZipPath);
@@ -361,7 +361,7 @@ public class SessionReader {
                     }
                     Integer idx = null;
                     try {
-                        idx = Integer.parseInt(e.getAttribute("index"));
+                        idx = Integer.valueOf(e.getAttribute("index"));
                     } catch (NumberFormatException ex) {
                         Main.warn(ex);
                     }
@@ -379,7 +379,7 @@ public class SessionReader {
                         for (String sd : depStr.split(",")) {
                             Integer d = null;
                             try {
-                                d = Integer.parseInt(sd);
+                                d = Integer.valueOf(sd);
                             } catch (NumberFormatException ex) {
                                 Main.warn(ex);
                             }
@@ -483,12 +483,12 @@ public class SessionReader {
         }
 
         layers = new ArrayList<>();
-        for (int idx : layersMap.keySet()) {
-            Layer layer = layersMap.get(idx);
+        for (Entry<Integer, Layer> entry : layersMap.entrySet()) {
+            Layer layer = entry.getValue();
             if (layer == null) {
                 continue;
             }
-            Element el = elems.get(idx);
+            Element el = elems.get(entry.getKey());
             if (el.hasAttribute("visible")) {
                 layer.setVisible(Boolean.parseBoolean(el.getAttribute("visible")));
             }
@@ -581,7 +581,7 @@ public class SessionReader {
         Enumeration<? extends ZipEntry> entries = zipFile.entries();
         while (entries.hasMoreElements()) {
             ZipEntry entry = entries.nextElement();
-            if (entry.getName().toLowerCase().endsWith(".jos")) {
+            if (Utils.hasExtension(entry.getName(), "jos")) {
                 josEntry = entry;
                 break;
             }

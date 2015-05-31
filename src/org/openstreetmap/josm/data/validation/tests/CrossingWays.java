@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.data.validation.tests;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -61,7 +61,7 @@ public abstract class CrossingWays extends Test {
         public boolean isPrimitiveUsable(OsmPrimitive w) {
             return super.isPrimitiveUsable(w)
                     && !isProposedOrAbandoned(w)
-                    && (w.hasKey(HIGHWAY)
+                    && ((w.hasKey(HIGHWAY) && !w.hasTag(HIGHWAY, "rest_area", "services"))
                     || w.hasKey(WATERWAY)
                     || (w.hasKey(RAILWAY) && !isSubwayOrTram(w))
                     || isCoastline(w)
@@ -162,6 +162,9 @@ public abstract class CrossingWays extends Test {
 
         @Override
         boolean ignoreWaySegmentCombination(Way w1, Way w2) {
+            if (!Objects.equals(getLayer(w1), getLayer(w2))) {
+                return true;
+            }
             return false;
         }
 

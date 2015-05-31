@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -25,8 +25,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import javax.swing.AbstractAction;
 import javax.swing.AbstractButton;
 import javax.swing.Action;
+import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
@@ -62,9 +64,9 @@ import org.openstreetmap.josm.gui.dialogs.CommandStackDialog;
 import org.openstreetmap.josm.gui.dialogs.ConflictDialog;
 import org.openstreetmap.josm.gui.dialogs.DialogsPanel;
 import org.openstreetmap.josm.gui.dialogs.FilterDialog;
-import org.openstreetmap.josm.gui.dialogs.HistoryDialog;
 import org.openstreetmap.josm.gui.dialogs.LayerListDialog;
 import org.openstreetmap.josm.gui.dialogs.MapPaintDialog;
+import org.openstreetmap.josm.gui.dialogs.NotesDialog;
 import org.openstreetmap.josm.gui.dialogs.RelationListDialog;
 import org.openstreetmap.josm.gui.dialogs.SelectionListDialog;
 import org.openstreetmap.josm.gui.dialogs.ToggleDialog;
@@ -75,6 +77,7 @@ import org.openstreetmap.josm.gui.layer.Layer;
 import org.openstreetmap.josm.gui.util.AdvancedKeyPressDetector;
 import org.openstreetmap.josm.tools.Destroyable;
 import org.openstreetmap.josm.tools.GBC;
+import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.Shortcut;
 
 
@@ -99,7 +102,7 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
     /**
      * This object allows to detect key press and release events
      */
-    public final AdvancedKeyPressDetector keyDetector = new AdvancedKeyPressDetector();
+    public final transient AdvancedKeyPressDetector keyDetector = new AdvancedKeyPressDetector();
 
     /**
      * The toolbar with the action icons. To add new toggle dialog buttons,
@@ -131,12 +134,13 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
     public ValidatorDialog validatorDialog;
     public SelectionListDialog selectionListDialog;
     public PropertiesDialog propertiesDialog;
+    public NotesDialog noteDialog;
 
     // Map modes
     public final SelectAction mapModeSelect;
     public LassoModeAction mapModeSelectLasso;
 
-    private final Map<Layer, MapMode> lastMapMode = new HashMap<>();
+    private final transient Map<Layer, MapMode> lastMapMode = new HashMap<>();
     private final MapMode mapModeDraw;
     private final MapMode mapModeZoom;
 
@@ -235,12 +239,12 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
         addToggleDialog(relationListDialog = new RelationListDialog());
         addToggleDialog(new CommandStackDialog());
         addToggleDialog(new UserListDialog());
-        addToggleDialog(new HistoryDialog(), true);
         addToggleDialog(conflictDialog = new ConflictDialog());
         addToggleDialog(validatorDialog = new ValidatorDialog());
         addToggleDialog(filterDialog = new FilterDialog());
         addToggleDialog(new ChangesetDialog(), true);
         addToggleDialog(new MapPaintDialog());
+        addToggleDialog(noteDialog = new NotesDialog());
         toolBarToggle.setFloatable(false);
 
         // status line below the map
@@ -402,7 +406,7 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
      * Fill the given panel by adding all necessary components to the different
      * locations.
      *
-     * @param panel The container to fill. Must have an BorderLayout.
+     * @param panel The container to fill. Must have a BorderLayout.
      */
     public void fillPanel(Container panel) {
         panel.add(this, BorderLayout.CENTER);
@@ -410,8 +414,9 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
         /**
          * sideToolBar: add map modes icons
          */
-        if(Main.pref.getBoolean("sidetoolbar.mapmodes.visible", true)) {
-        toolBarActions.setAlignmentX(0.5f);
+        if (Main.pref.getBoolean("sidetoolbar.mapmodes.visible", true)) {
+            toolBarActions.setAlignmentX(0.5f);
+            toolBarActions.setBorder(null);
             toolBarActions.setInheritsPopupMenu(true);
             sideToolBar.add(toolBarActions);
             listAllMapModesButton.setAlignmentX(0.5f);
@@ -424,9 +429,10 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
         /**
          * sideToolBar: add toggle dialogs icons
          */
-        if(Main.pref.getBoolean("sidetoolbar.toggledialogs.visible", true)) {
+        if (Main.pref.getBoolean("sidetoolbar.toggledialogs.visible", true)) {
             ((JToolBar)sideToolBar).addSeparator(new Dimension(0,18));
             toolBarToggle.setAlignmentX(0.5f);
+            toolBarToggle.setBorder(null);
             toolBarToggle.setInheritsPopupMenu(true);
             sideToolBar.add(toolBarToggle);
             listAllToggleDialogsButton.setAlignmentX(0.5f);
@@ -440,8 +446,8 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
          * sideToolBar: add dynamic popup menu
          */
         sideToolBar.setComponentPopupMenu(new JPopupMenu() {
-            static final int staticMenuEntryCount = 2;
-            JCheckBoxMenuItem doNotHide = new JCheckBoxMenuItem(new AbstractAction(tr("Do not hide toolbar")) {
+            private static final int staticMenuEntryCount = 2;
+            private JCheckBoxMenuItem doNotHide = new JCheckBoxMenuItem(new AbstractAction(tr("Do not hide toolbar")) {
                 @Override
                 public void actionPerformed(ActionEvent e) {
                     boolean sel = ((JCheckBoxMenuItem) e.getSource()).getState();
@@ -489,6 +495,7 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
             }
         });
         ((JToolBar)sideToolBar).setFloatable(false);
+        sideToolBar.setBorder(BorderFactory.createEmptyBorder(0,1,0,1));
 
         /**
          * sideToolBar: decide scroll- and visibility
@@ -530,16 +537,18 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
     class ListAllButtonsAction extends AbstractAction {
 
         private JButton button;
-        private Collection<? extends HideableButton> buttons;
+        private transient Collection<? extends HideableButton> buttons;
 
 
         public ListAllButtonsAction(Collection<? extends HideableButton> buttons) {
             this.buttons = buttons;
-            putValue(NAME, ">>");
         }
 
         public void setButton(JButton button) {
             this.button =  button;
+            final ImageIcon icon = ImageProvider.get("audio-fwd");
+            putValue(SMALL_ICON, icon);
+            button.setPreferredSize(new Dimension(icon.getIconWidth(), icon.getIconHeight() + 64));
         }
 
         @Override
@@ -660,7 +669,7 @@ public class MapFrame extends JPanel implements Destroyable, LayerChangeListener
      */
     private static final CopyOnWriteArrayList<MapModeChangeListener> mapModeChangeListeners = new CopyOnWriteArrayList<>();
 
-    private PreferenceChangedListener sidetoolbarPreferencesChangedListener;
+    private transient PreferenceChangedListener sidetoolbarPreferencesChangedListener;
     /**
      * Adds a mapMode change listener
      *

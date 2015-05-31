@@ -51,8 +51,10 @@ import org.openstreetmap.josm.gui.dialogs.changeset.ChangesetsInActiveDataLayerL
 import org.openstreetmap.josm.gui.help.HelpUtil;
 import org.openstreetmap.josm.gui.io.CloseChangesetTask;
 import org.openstreetmap.josm.gui.layer.OsmDataLayer;
+import org.openstreetmap.josm.gui.util.GuiHelper;
 import org.openstreetmap.josm.gui.widgets.ListPopupMenu;
 import org.openstreetmap.josm.gui.widgets.PopupMenuLauncher;
+import org.openstreetmap.josm.io.OnlineResource;
 import org.openstreetmap.josm.tools.BugReportExceptionHandler;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.OpenBrowser;
@@ -183,7 +185,7 @@ public class ChangesetDialog extends ToggleDialog{
 
         cbInSelectionOnly.addItemListener(new FilterChangeHandler());
 
-        HelpUtil.setHelpContext(pnl, HelpUtil.ht("/Dialog/ChangesetListDialog"));
+        HelpUtil.setHelpContext(pnl, HelpUtil.ht("/Dialog/ChangesetList"));
 
         // -- select objects action
         selectObjectsAction = new SelectObjectsAction();
@@ -203,7 +205,6 @@ public class ChangesetDialog extends ToggleDialog{
 
         // -- launch changeset manager action
         launchChangesetManagerAction = new LaunchChangesetManagerAction();
-        cbInSelectionOnly.addItemListener(launchChangesetManagerAction);
 
         popupMenu = new ChangesetDialogPopup(lstInActiveDataLayer, lstInSelection);
 
@@ -362,7 +363,7 @@ public class ChangesetDialog extends ToggleDialog{
         }
 
         protected void updateEnabledState() {
-            setEnabled(getCurrentChangesetList().getSelectedIndices().length > 0);
+            setEnabled(getCurrentChangesetList().getSelectedIndices().length > 0 && !Main.isOffline(OnlineResource.OSM_API));
         }
 
         @Override
@@ -420,7 +421,7 @@ public class ChangesetDialog extends ToggleDialog{
         public ShowChangesetInfoAction() {
             putValue(NAME, tr("Show info"));
             putValue(SHORT_DESCRIPTION, tr("Open a web page for each selected changeset"));
-            putValue(SMALL_ICON, ImageProvider.get("about"));
+            putValue(SMALL_ICON, ImageProvider.get("help/internet"));
             updateEnabledState();
         }
 
@@ -431,7 +432,7 @@ public class ChangesetDialog extends ToggleDialog{
                 return;
             if (sel.size() > 10 && ! AbstractInfoAction.confirmLaunchMultiple(sel.size()))
                 return;
-            String baseUrl = AbstractInfoAction.getBaseBrowseUrl();
+            String baseUrl = Main.getBaseBrowseUrl();
             for (Changeset cs: sel) {
                 String url = baseUrl + "/changeset/" + cs.getId();
                 OpenBrowser.displayUrl(
@@ -459,14 +460,27 @@ public class ChangesetDialog extends ToggleDialog{
      * Show information about the currently selected changesets
      *
      */
-    class LaunchChangesetManagerAction extends AbstractAction implements ListSelectionListener, ItemListener {
+    class LaunchChangesetManagerAction extends AbstractAction {
         public LaunchChangesetManagerAction() {
             putValue(NAME, tr("Details"));
             putValue(SHORT_DESCRIPTION, tr("Opens the Changeset Manager window for the selected changesets"));
             putValue(SMALL_ICON, ImageProvider.get("dialogs/changeset", "changesetmanager"));
         }
 
-        protected void launchChangesetManager(Collection<Integer> toSelect) {
+        @Override
+        public void actionPerformed(ActionEvent arg0) {
+            ChangesetListModel model = getCurrentChangesetListModel();
+            Set<Integer> sel = model.getSelectedChangesetIds();
+            LaunchChangesetManager.displayChangesets(sel);
+        }
+    }
+
+    /**
+     * A utility class to fetch changesets and display the changeset dialog.
+     */
+    public static class LaunchChangesetManager {
+
+        protected static void launchChangesetManager(Collection<Integer> toSelect) {
             ChangesetCacheManager cm = ChangesetCacheManager.getInstance();
             if (cm.isVisible()) {
                 cm.setExtendedState(Frame.NORMAL);
@@ -480,15 +494,18 @@ public class ChangesetDialog extends ToggleDialog{
             cm.setSelectedChangesetsById(toSelect);
         }
 
-        @Override
-        public void actionPerformed(ActionEvent arg0) {
-            ChangesetListModel model = getCurrentChangesetListModel();
-            Set<Integer> sel = model.getSelectedChangesetIds();
+        /**
+         * Fetches changesets and display the changeset dialog.
+         * @param sel the changeset ids to fetch and display.
+         */
+        public static void displayChangesets(final Set<Integer> sel) {
             final Set<Integer> toDownload = new HashSet<>();
-            ChangesetCache cc = ChangesetCache.getInstance();
-            for (int id: sel) {
-                if (!cc.contains(id)) {
-                    toDownload.add(id);
+            if (!Main.isOffline(OnlineResource.OSM_API)) {
+                ChangesetCache cc = ChangesetCache.getInstance();
+                for (int id: sel) {
+                    if (!cc.contains(id)) {
+                        toDownload.add(id);
+                    }
                 }
             }
 
@@ -505,8 +522,7 @@ public class ChangesetDialog extends ToggleDialog{
             Runnable r = new Runnable() {
                 @Override
                 public void run() {
-                    // first, wait for the download task to finish, if a download
-                    // task was launched
+                    // first, wait for the download task to finish, if a download task was launched
                     if (future != null) {
                         try {
                             future.get();
@@ -520,26 +536,22 @@ public class ChangesetDialog extends ToggleDialog{
                     }
                     if (task != null) {
                         if (task.isCanceled())
-                            // don't launch the changeset manager if the download task
-                            // was canceled
+                            // don't launch the changeset manager if the download task was canceled
                             return;
                         if (task.isFailed()) {
                             toDownload.clear();
                         }
                     }
                     // launch the task
-                    launchChangesetManager(toDownload);
+                    GuiHelper.runInEDT(new Runnable() {
+                        @Override
+                        public void run() {
+                            launchChangesetManager(sel);
+                        }
+                    });
                 }
             };
             Main.worker.submit(r);
-        }
-
-        @Override
-        public void itemStateChanged(ItemEvent arg0) {
-        }
-
-        @Override
-        public void valueChanged(ListSelectionEvent e) {
         }
     }
 

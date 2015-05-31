@@ -1,5 +1,4 @@
-// License: GPL. See LICENSE file for details.
-//
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.actions;
 
 import static org.openstreetmap.josm.gui.help.HelpUtil.ht;
@@ -113,8 +112,7 @@ public final class OrthogonalizeAction extends JosmAction {
                     Main.main.undoRedo.add(new SequenceCommand(tr("Orthogonalize / Undo"), commands));
                     Main.map.repaint();
                 } else throw new InvalidUserInputException();
-            }
-            catch (InvalidUserInputException ex) {
+            } catch (InvalidUserInputException ex) {
                 new Notification(
                         tr("Orthogonalize Shape / Undo<br>"+
                         "Please select nodes that were moved by the previous Orthogonalize Shape action!"))
@@ -153,8 +151,7 @@ public final class OrthogonalizeAction extends JosmAction {
             for (OsmPrimitive p : sel) {
                 if (p instanceof Node) {
                     nodeList.add((Node) p);
-                }
-                else if (p instanceof Way) {
+                } else if (p instanceof Way) {
                     wayDataList.add(new WayData((Way) p));
                 } else
                     throw new InvalidUserInputException(tr("Selection must consist only of ways and nodes."));
@@ -168,8 +165,7 @@ public final class OrthogonalizeAction extends JosmAction {
 
                     if (nodeList.size() == 2) {  // fixed direction
                         commands.addAll(orthogonalize(wayDataList, nodeList));
-                    }
-                    else if (nodeList.isEmpty()) {
+                    } else if (nodeList.isEmpty()) {
                         List<List<WayData>> groups = buildGroups(wayDataList);
                         for (List<WayData> g: groups) {
                             commands.addAll(orthogonalize(g, nodeList));
@@ -266,8 +262,7 @@ public final class OrthogonalizeAction extends JosmAction {
                     totSum = EN.sum(totSum, w.segSum);
                 }
                 headingAll = EN.polar(new EastNorth(0., 0.), totSum);
-            }
-            else {
+            } else {
                 headingAll = EN.polar(headingNodes.get(0).getEastNorth(), headingNodes.get(1).getEastNorth());
                 for (WayData w : wayDataList) {
                     w.calcDirections(Direction.RIGHT);
@@ -282,7 +277,7 @@ public final class OrthogonalizeAction extends JosmAction {
         }
 
         // put the nodes of all ways in a set
-        final HashSet<Node> allNodes = new HashSet<>();
+        final Set<Node> allNodes = new HashSet<>();
         for (WayData w : wayDataList) {
             for (Node n : w.way.getNodes()) {
                 allNodes.add(n);
@@ -290,8 +285,8 @@ public final class OrthogonalizeAction extends JosmAction {
         }
 
         // the new x and y value for each node
-        final HashMap<Node, Double> nX = new HashMap<>();
-        final HashMap<Node, Double> nY = new HashMap<>();
+        final Map<Node, Double> nX = new HashMap<>();
+        final Map<Node, Double> nY = new HashMap<>();
 
         // calculate the centroid of all nodes
         // it is used as rotation center
@@ -303,7 +298,7 @@ public final class OrthogonalizeAction extends JosmAction {
 
         // rotate
         for (Node n: allNodes) {
-            EastNorth tmp = EN.rotate_cc(pivot, n.getEastNorth(), - headingAll);
+            EastNorth tmp = EN.rotateCC(pivot, n.getEastNorth(), - headingAll);
             nX.put(n, tmp.east());
             nY.put(n, tmp.north());
         }
@@ -313,7 +308,7 @@ public final class OrthogonalizeAction extends JosmAction {
         final Direction[] VERTICAL = {Direction.UP, Direction.DOWN};
         final Direction[][] ORIENTATIONS = {HORIZONTAL, VERTICAL};
         for (Direction[] orientation : ORIENTATIONS){
-            final HashSet<Node> s = new HashSet<>(allNodes);
+            final Set<Node> s = new HashSet<>(allNodes);
             int s_size = s.size();
             for (int dummy = 0; dummy < s_size; ++dummy) {
                 if (s.isEmpty()) {
@@ -321,8 +316,8 @@ public final class OrthogonalizeAction extends JosmAction {
                 }
                 final Node dummy_n = s.iterator().next();     // pick arbitrary element of s
 
-                final HashSet<Node> cs = new HashSet<>(); // will contain each node that can be reached from dummy_n
-                cs.add(dummy_n);                              // walking only on horizontal / vertical segments
+                final Set<Node> cs = new HashSet<>(); // will contain each node that can be reached from dummy_n
+                cs.add(dummy_n);                      // walking only on horizontal / vertical segments
 
                 boolean somethingHappened = true;
                 while (somethingHappened) {
@@ -348,7 +343,7 @@ public final class OrthogonalizeAction extends JosmAction {
                     s.remove(n);
                 }
 
-                final HashMap<Node, Double> nC = (orientation == HORIZONTAL) ? nY : nX;
+                final Map<Node, Double> nC = (orientation == HORIZONTAL) ? nY : nX;
 
                 double average = 0;
                 for (Node n : cs) {
@@ -383,7 +378,7 @@ public final class OrthogonalizeAction extends JosmAction {
         final Collection<Command> commands = new LinkedList<>();
         for (Node n: allNodes) {
             EastNorth tmp = new EastNorth(nX.get(n), nY.get(n));
-            tmp = EN.rotate_cc(pivot, tmp, headingAll);
+            tmp = EN.rotateCC(pivot, tmp, headingAll);
             final double dx = tmp.east()  - n.getEastNorth().east();
             final double dy = tmp.north() - n.getEastNorth().north();
             if (headingNodes.contains(n)) { // The heading nodes should not have changed
@@ -391,8 +386,7 @@ public final class OrthogonalizeAction extends JosmAction {
                 if (Math.abs(dx) > Math.abs(EPSILON * tmp.east()) ||
                         Math.abs(dy) > Math.abs(EPSILON * tmp.east()))
                     throw new AssertionError();
-            }
-            else {
+            } else {
                 OrthogonalizeAction.rememberMovements.put(n, new EastNorth(dx, dy));
                 commands.add(new MoveCommand(n, dx, dy));
             }
@@ -417,11 +411,13 @@ public final class OrthogonalizeAction extends JosmAction {
             nNode = way.getNodes().size();
             nSeg = nNode - 1;
         }
+
         /**
          * Estimate the direction of the segments, given the first segment points in the
          * direction <code>pInitialDirection</code>.
          * Then sum up all horizontal / vertical segments to have a good guess for the
          * heading of the entire way.
+         * @param pInitialDirection initial direction
          * @throws InvalidUserInputException
          */
         public void calcDirections(Direction pInitialDirection) throws InvalidUserInputException {
@@ -521,8 +517,10 @@ public final class OrthogonalizeAction extends JosmAction {
         private EN() {
             // Hide implicit public constructor for utility class
         }
-        // rotate counter-clock-wise
-        public static EastNorth rotate_cc(EastNorth pivot, EastNorth en, double angle) {
+        /**
+         * Rotate counter-clock-wise.
+         */
+        public static EastNorth rotateCC(EastNorth pivot, EastNorth en, double angle) {
             double cosPhi = Math.cos(angle);
             double sinPhi = Math.sin(angle);
             double x = en.east() - pivot.east();

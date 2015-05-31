@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui.layer.geoimage;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -26,6 +26,8 @@ import java.io.File;
 import javax.swing.JComponent;
 
 import org.openstreetmap.josm.Main;
+import org.openstreetmap.josm.tools.ExifReader;
+
 
 public class ImageDisplay extends JComponent {
 
@@ -33,7 +35,7 @@ public class ImageDisplay extends JComponent {
     private File file = null;
 
     /** The image currently displayed */
-    private Image image = null;
+    private transient Image image = null;
 
     /** The image currently displayed */
     private boolean errorLoading = false;
@@ -102,37 +104,17 @@ public class ImageDisplay extends JComponent {
                     final int w = (int) visibleRect.getWidth();
                     final int h = (int) visibleRect.getHeight();
 
-                    outer: {
-                        final int hh, ww, q;
-                        final double ax, ay;
-                        switch (orientation) {
-                        case 8:
-                            q = -1;
-                            ax = w / 2;
-                            ay = w / 2;
+                    if (ExifReader.orientationNeedsCorrection(orientation)) {
+                        final int hh, ww;
+                        if (ExifReader.orientationSwitchesDimensions(orientation)) {
                             ww = h;
                             hh = w;
-                            break;
-                        case 3:
-                            q = 2;
-                            ax = w / 2;
-                            ay = h / 2;
+                        } else {
                             ww = w;
                             hh = h;
-                            break;
-                        case 6:
-                            q = 1;
-                            ax = h / 2;
-                            ay = h / 2;
-                            ww = h;
-                            hh = w;
-                            break;
-                        default:
-                            break outer;
                         }
-
                         final BufferedImage rot = new BufferedImage(ww, hh, BufferedImage.TYPE_INT_RGB);
-                        final AffineTransform xform = AffineTransform.getQuadrantRotateInstance(q, ax, ay);
+                        final AffineTransform xform = ExifReader.getRestoreOrientationTransform(orientation, w, h);
                         final Graphics2D g = rot.createGraphics();
                         g.drawImage(image, xform, null);
                         g.dispose();
@@ -153,9 +135,9 @@ public class ImageDisplay extends JComponent {
 
     private class ImgDisplayMouseListener implements MouseListener, MouseWheelListener, MouseMotionListener {
 
-        boolean mouseIsDragging = false;
-        long lastTimeForMousePoint = 0L;
-        Point mousePointInImg = null;
+        private boolean mouseIsDragging = false;
+        private long lastTimeForMousePoint = 0L;
+        private Point mousePointInImg = null;
 
         /** Zoom in and out, trying to preserve the point of the image that was under the mouse cursor
          * at the same place */
@@ -342,10 +324,10 @@ public class ImageDisplay extends JComponent {
                 Point p = comp2imgCoord(visibleRect, e.getX(), e.getY());
                 checkPointInVisibleRect(p, visibleRect);
                 Rectangle rect = new Rectangle(
-                        (p.x < mousePointInImg.x ? p.x : mousePointInImg.x),
-                        (p.y < mousePointInImg.y ? p.y : mousePointInImg.y),
-                        (p.x < mousePointInImg.x ? mousePointInImg.x - p.x : p.x - mousePointInImg.x),
-                        (p.y < mousePointInImg.y ? mousePointInImg.y - p.y : p.y - mousePointInImg.y));
+                        p.x < mousePointInImg.x ? p.x : mousePointInImg.x,
+                        p.y < mousePointInImg.y ? p.y : mousePointInImg.y,
+                        p.x < mousePointInImg.x ? mousePointInImg.x - p.x : p.x - mousePointInImg.x,
+                        p.y < mousePointInImg.y ? mousePointInImg.y - p.y : p.y - mousePointInImg.y);
                 checkVisibleRectSize(image, rect);
                 checkVisibleRectPos(image, rect);
                 ImageDisplay.this.selectedRect = rect;
@@ -468,6 +450,7 @@ public class ImageDisplay extends JComponent {
 
     public void setOsdText(String text) {
         this.osdText = text;
+        repaint();
     }
 
     @Override

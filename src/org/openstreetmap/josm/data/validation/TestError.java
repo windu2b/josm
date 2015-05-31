@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.data.validation;
 
 import java.util.ArrayList;
@@ -32,14 +32,14 @@ import org.openstreetmap.josm.tools.AlphanumComparator;
  */
 public class TestError implements Comparable<TestError>, DataSetListener {
     /** is this error on the ignore list */
-    private Boolean ignored = false;
+    private boolean ignored = false;
     /** Severity */
     private Severity severity;
     /** The error message */
     private String message;
     /** Deeper error description */
     private String description;
-    private String description_en;
+    private String descriptionEn;
     /** The affected primitives */
     private Collection<? extends OsmPrimitive> primitives;
     /** The primitives or way segments to be highlighted */
@@ -65,7 +65,7 @@ public class TestError implements Comparable<TestError>, DataSetListener {
         this.severity = severity;
         this.message = message;
         this.description = description;
-        this.description_en = description_en;
+        this.descriptionEn = description_en;
         this.primitives = primitives;
         this.highlighted = highlighted;
         this.code = code;
@@ -186,15 +186,15 @@ public class TestError implements Comparable<TestError>, DataSetListener {
             strings.add(type + "_" + o.getId());
         }
         for (String o : strings) {
-            ignorestring.append(":").append(o);
+            ignorestring.append(':').append(o);
         }
         return ignorestring.toString();
     }
 
     public String getIgnoreSubGroup() {
         String ignorestring = getIgnoreGroup();
-        if (description_en != null) {
-            ignorestring += "_" + description_en;
+        if (descriptionEn != null) {
+            ignorestring += "_" + descriptionEn;
         }
         return ignorestring;
     }
@@ -207,7 +207,7 @@ public class TestError implements Comparable<TestError>, DataSetListener {
         ignored = state;
     }
 
-    public Boolean getIgnored() {
+    public boolean isIgnored() {
         return ignored;
     }
 
@@ -326,6 +326,6 @@ public class TestError implements Comparable<TestError>, DataSetListener {
 
     @Override
     public String toString() {
-        return "TestError [tester=" + tester + ", code=" + code + "]";
+        return "TestError [tester=" + tester + ", code=" + code + ", message=" + message + "]";
     }
 }

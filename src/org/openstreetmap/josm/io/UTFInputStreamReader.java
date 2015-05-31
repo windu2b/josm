@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.io;
 
 import java.io.IOException;
@@ -11,7 +11,7 @@ import java.io.UnsupportedEncodingException;
  * Detects the different UTF encodings from byte order mark
  */
 public final class UTFInputStreamReader extends InputStreamReader {
-    
+
     /**
      * Creates a new {@link InputStreamReader} from the {@link InputStream} with UTF-8 as default encoding.
      * @return A reader with the correct encoding. Starts to read after the BOM.
@@ -53,7 +53,7 @@ public final class UTFInputStreamReader extends InputStreamReader {
         }
 
         if (unread > 0) {
-            pushbackStream.unread(bom, (n - unread), unread);
+            pushbackStream.unread(bom, n - unread, unread);
         } else if (unread < -1) {
             pushbackStream.unread(bom, 0, 0);
         }

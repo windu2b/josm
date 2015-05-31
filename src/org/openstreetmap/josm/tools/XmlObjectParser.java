@@ -19,8 +19,6 @@ import java.util.Stack;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
 import javax.xml.transform.stream.StreamSource;
 import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
@@ -55,7 +53,7 @@ public class XmlObjectParser implements Iterable<Object> {
         }
 
         @Override
-        public void startElement (String uri, String localName, String qName, Attributes atts) throws SAXException {
+        public void startElement(String uri, String localName, String qName, Attributes atts) throws SAXException {
             if ("".equals(uri)) {
                 super.startElement(namespace, localName, qName, atts);
             } else {
@@ -67,8 +65,8 @@ public class XmlObjectParser implements Iterable<Object> {
     }
 
     private class Parser extends DefaultHandler {
-        Stack<Object> current = new Stack<>();
-        StringBuilder characters = new StringBuilder(64);
+        private Stack<Object> current = new Stack<>();
+        private StringBuilder characters = new StringBuilder(64);
 
         private Locator locator;
 
@@ -126,9 +124,9 @@ public class XmlObjectParser implements Iterable<Object> {
             if (klass == Boolean.TYPE)
                 return parseBoolean(value);
             else if (klass == Integer.TYPE || klass == Long.TYPE)
-                return Long.parseLong(value);
+                return Long.valueOf(value);
             else if (klass == Float.TYPE || klass == Double.TYPE)
-                return Double.parseDouble(value);
+                return Double.valueOf(value);
             return value;
         }
 
@@ -184,9 +182,9 @@ public class XmlObjectParser implements Iterable<Object> {
     }
 
     private static class Entry {
-        Class<?> klass;
-        boolean onStart;
-        boolean both;
+        private Class<?> klass;
+        private boolean onStart;
+        private boolean both;
         private final Map<String, Field> fields = new HashMap<>();
         private final Map<String, Method> methods = new HashMap<>();
 
@@ -249,10 +247,7 @@ public class XmlObjectParser implements Iterable<Object> {
 
     private Iterable<Object> start(final Reader in, final ContentHandler contentHandler) throws SAXException, IOException {
         try {
-            SAXParserFactory parserFactory = SAXParserFactory.newInstance();
-            parserFactory.setNamespaceAware(true);
-            SAXParser saxParser = parserFactory.newSAXParser();
-            XMLReader reader = saxParser.getXMLReader();
+            XMLReader reader = Utils.newSafeSAXParser().getXMLReader();
             reader.setContentHandler(contentHandler);
             try {
                 // Do not load external DTDs (fix #8191)
@@ -270,6 +265,12 @@ public class XmlObjectParser implements Iterable<Object> {
         }
     }
 
+    /**
+     * Starts parsing from the given input reader, without validation.
+     * @param in The input reader
+     * @return iterable collection of objects
+     * @throws SAXException if any XML or I/O error occurs
+     */
     public Iterable<Object> start(final Reader in) throws SAXException {
         try {
             return start(in, parser);
@@ -278,6 +279,14 @@ public class XmlObjectParser implements Iterable<Object> {
         }
     }
 
+    /**
+     * Starts parsing from the given input reader, with XSD validation.
+     * @param in The input reader
+     * @param namespace default namespace
+     * @param schemaSource XSD schema
+     * @return iterable collection of objects
+     * @throws SAXException if any XML or I/O error occurs
+     */
     public Iterable<Object> startWithValidation(final Reader in, String namespace, String schemaSource) throws SAXException {
         SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
         try (InputStream mis = new CachedFile(schemaSource).getInputStream()) {

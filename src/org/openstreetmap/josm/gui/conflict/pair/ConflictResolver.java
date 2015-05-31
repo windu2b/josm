@@ -71,10 +71,10 @@ public class ConflictResolver extends JPanel implements PropertyChangeListener  
     private NodeListMerger nodeListMerger;
     private RelationMemberMerger relationMemberMerger;
     private PropertiesMerger propertiesMerger;
-    private final List<IConflictResolver> conflictResolvers = new ArrayList<>();
-    private OsmPrimitive my;
-    private OsmPrimitive their;
-    private Conflict<? extends OsmPrimitive> conflict;
+    private final transient List<IConflictResolver> conflictResolvers = new ArrayList<>();
+    private transient OsmPrimitive my;
+    private transient OsmPrimitive their;
+    private transient Conflict<? extends OsmPrimitive> conflict;
 
     private ImageIcon mergeComplete;
     private ImageIcon mergeIncomplete;
@@ -86,8 +86,8 @@ public class ConflictResolver extends JPanel implements PropertyChangeListener  
      * loads the required icons
      */
     protected final void loadIcons() {
-        mergeComplete = ImageProvider.get("dialogs", "valid.png" );
-        mergeIncomplete = ImageProvider.get("dialogs/conflict", "mergeincomplete.png" );
+        mergeComplete = ImageProvider.get("dialogs", "valid" );
+        mergeIncomplete = ImageProvider.get("dialogs/conflict", "mergeincomplete" );
     }
 
     /**

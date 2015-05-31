@@ -54,14 +54,14 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.net.URLConnection;
-import java.net.URLStreamHandler;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.GZIPInputStream;
 import javax.imageio.ImageIO;
+import javax.xml.bind.DatatypeConverter;
 import org.xml.sax.EntityResolver;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -191,10 +191,9 @@ public class SVGUniverse implements Serializable
 
             if (content.startsWith("base64"))
             {
-                content = content.substring(6);
                 try
                 {
-                    byte[] buf = new sun.misc.BASE64Decoder().decodeBuffer(content);
+                    byte[] buf = DatatypeConverter.parseBase64Binary(content.substring(6));
                     ByteArrayInputStream bais = new ByteArrayInputStream(buf);
                     BufferedImage img = ImageIO.read(bais);
 
@@ -214,7 +213,8 @@ public class SVGUniverse implements Serializable
                     loadedImages.put(url, ref);
 
                     return url;
-                } catch (IOException ex)
+                }
+                catch (IOException | IllegalArgumentException ex)
                 {
                     Logger.getLogger(SVGConst.SVG_LOGGER).log(Level.WARNING,
                         "Could not decode inline image", ex);
@@ -388,7 +388,7 @@ public class SVGUniverse implements Serializable
             if ("jar".equals(xmlBase.getScheme()) && xmlBase.getPath() != null && !xmlBase.getPath().contains("!/"))
             {
                 //Workaround for resources stored in jars loaded by Webstart.
-                //https://bugs.openjdk.java.net/browse/JDK-6753651
+                //http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6753651
                 url = SVGUniverse.class.getResource("xmlBase.getPath()");
             }
             else
@@ -626,45 +626,24 @@ public class SVGUniverse implements Serializable
         return null;
     }
 
-//    public static void main(String argv[])
-//    {
-//        try
-//        {
-//            URL url = new URL("svgSalamander", "localhost", -1, "abc.svg",
-//                    new URLStreamHandler()
-//            {
-//                protected URLConnection openConnection(URL u)
-//                {
-//                    return null;
-//                }
-//            }
-//            );
-////            URL url2 = new URL("svgSalamander", "localhost", -1, "abc.svg");
-//            
-//            //Investigate URI resolution
-//            URI uriA, uriB, uriC, uriD, uriE;
-//            
-//            uriA = new URI("svgSalamander", "/names/mySpecialName", null);
-////            uriA = new URI("http://www.kitfox.com/salamander");
-////            uriA = new URI("svgSalamander://mySpecialName/grape");
-//            System.err.println(uriA.toString());
-//            System.err.println(uriA.getScheme());
-//            
-//            uriB = uriA.resolve("#begin");
-//            System.err.println(uriB.toString());
-//            
-//            uriC = uriA.resolve("tree#boing");
-//            System.err.println(uriC.toString());
-//            
-//            uriC = uriA.resolve("../tree#boing");
-//            System.err.println(uriC.toString());
-//        }
-//        catch (Exception e)
-//        {
-//            Logger.getLogger(SVGConst.SVG_LOGGER).log(Level.WARNING, 
-//                "Could not parse", e);
-//        }
-//    }
+    /**
+     * Get list of uris of all loaded documents and subdocuments.
+     * @return 
+     */
+    public ArrayList getLoadedDocumentURIs()
+    {
+        return new ArrayList(loadedDocs.keySet());
+    }
+    
+    /**
+     * Remove loaded document from cache.
+     * @param uri 
+     */
+    public void removeDocument(URI uri)
+    {
+        loadedDocs.remove(uri);
+    }
+    
     public boolean isVerbose()
     {
         return verbose;

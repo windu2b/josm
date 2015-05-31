@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui;
 
 import static org.openstreetmap.josm.gui.help.HelpUtil.ht;
@@ -50,9 +50,9 @@ import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 
 import org.openstreetmap.josm.Main;
-import org.openstreetmap.josm.data.SystemOfMeasurement;
 import org.openstreetmap.josm.data.Preferences.PreferenceChangeEvent;
 import org.openstreetmap.josm.data.Preferences.PreferenceChangedListener;
+import org.openstreetmap.josm.data.SystemOfMeasurement;
 import org.openstreetmap.josm.data.coor.CoordinateFormat;
 import org.openstreetmap.josm.data.coor.LatLon;
 import org.openstreetmap.josm.data.osm.DataSet;
@@ -119,8 +119,8 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
     /**
      * The MapView this status belongs to.
      */
-    final MapView mv;
-    final Collector collector;
+    private final MapView mv;
+    private final transient Collector collector;
 
     public class BackgroundProgressMonitor implements ProgressMonitorDialog {
 
@@ -174,17 +174,23 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
 
     }
 
-    final ImageLabel latText = new ImageLabel("lat", tr("The geographic latitude at the mouse pointer."), 11, PROP_BACKGROUND_COLOR.get());
-    final ImageLabel lonText = new ImageLabel("lon", tr("The geographic longitude at the mouse pointer."), 11, PROP_BACKGROUND_COLOR.get());
-    final ImageLabel headingText = new ImageLabel("heading", tr("The (compass) heading of the line segment being drawn."), 6, PROP_BACKGROUND_COLOR.get());
-    final ImageLabel angleText = new ImageLabel("angle", tr("The angle between the previous and the current way segment."), 6, PROP_BACKGROUND_COLOR.get());
-    final ImageLabel distText = new ImageLabel("dist", tr("The length of the new way segment being drawn."), 10, PROP_BACKGROUND_COLOR.get());
-    final ImageLabel nameText = new ImageLabel("name", tr("The name of the object at the mouse pointer."), 20, PROP_BACKGROUND_COLOR.get());
-    final JosmTextField helpText = new JosmTextField();
-    final JProgressBar progressBar = new JProgressBar();
-    public final BackgroundProgressMonitor progressMonitor = new BackgroundProgressMonitor();
+    private final ImageLabel latText = new ImageLabel("lat",
+            tr("The geographic latitude at the mouse pointer."), 11, PROP_BACKGROUND_COLOR.get());
+    private final ImageLabel lonText = new ImageLabel("lon",
+            tr("The geographic longitude at the mouse pointer."), 11, PROP_BACKGROUND_COLOR.get());
+    private final ImageLabel headingText = new ImageLabel("heading",
+            tr("The (compass) heading of the line segment being drawn."), 6, PROP_BACKGROUND_COLOR.get());
+    private final ImageLabel angleText = new ImageLabel("angle",
+            tr("The angle between the previous and the current way segment."), 6, PROP_BACKGROUND_COLOR.get());
+    private final ImageLabel distText = new ImageLabel("dist",
+            tr("The length of the new way segment being drawn."), 10, PROP_BACKGROUND_COLOR.get());
+    private final ImageLabel nameText = new ImageLabel("name",
+            tr("The name of the object at the mouse pointer."), 20, PROP_BACKGROUND_COLOR.get());
+    private final JosmTextField helpText = new JosmTextField();
+    private final JProgressBar progressBar = new JProgressBar();
+    public final transient BackgroundProgressMonitor progressMonitor = new BackgroundProgressMonitor();
 
-    private final SoMChangeListener somListener;
+    private final transient SoMChangeListener somListener;
 
     // Distance value displayed in distText, stored if refresh needed after a change of system of measurement
     private double distValue;
@@ -196,13 +202,13 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
      * This is the thread that runs in the background and collects the information displayed.
      * It gets destroyed by destroy() when the MapFrame itself is destroyed.
      */
-    private Thread thread;
+    private transient Thread thread;
 
-    private final List<StatusTextHistory> statusText = new ArrayList<>();
+    private final transient List<StatusTextHistory> statusText = new ArrayList<>();
 
     private static class StatusTextHistory {
-        final Object id;
-        final String text;
+        private final Object id;
+        private final String text;
 
         public StatusTextHistory(Object id, String text) {
             this.id = id;
@@ -298,8 +304,7 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
                                 // The popup != null check is required because a left-click
                                 // produces several events as well, which would make this
                                 // variable true. Of course we only want the popup to show
-                                // if the middle mouse button has been pressed in the first
-                                // place
+                                // if the middle mouse button has been pressed in the first place
                                 boolean mouseNotMoved = oldMousePos != null
                                         && oldMousePos.equals(ms.mousePos);
                                 boolean isAtOldPosition = mouseNotMoved && popup != null;
@@ -325,8 +330,7 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
                                     }
 
                                     // Popup Information
-                                    // display them if the middle mouse button is pressed and
-                                    // keep them until the mouse is moved
+                                    // display them if the middle mouse button is pressed and keep them until the mouse is moved
                                     if (middleMouseDown || isAtOldPosition) {
                                         Collection<OsmPrimitive> osms = mv.getAllNearest(ms.mousePos, OsmPrimitive.isUsablePredicate);
 
@@ -340,20 +344,15 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
                                         lbl.setHorizontalAlignment(JLabel.LEFT);
                                         c.add(lbl, GBC.eol().insets(2, 0, 2, 0));
 
-                                        // Only cycle if the mouse has not been moved and the
-                                        // middle mouse button has been pressed at least twice
-                                        // (the reason for this is the popup != null check for
-                                        // isAtOldPosition, see above. This is a nice side
-                                        // effect though, because it does not change selection
-                                        // of the first middle click)
-                                        if(isAtOldPosition && middleMouseDown) {
-                                            // Hand down mouse modifiers so the SHIFT mod can be
-                                            // handled correctly (see funcion)
+                                        // Only cycle if the mouse has not been moved and the middle mouse button has been pressed at least
+                                        // twice (the reason for this is the popup != null check for isAtOldPosition, see above.
+                                        // This is a nice side effect though, because it does not change selection of the first middle click)
+                                        if (isAtOldPosition && middleMouseDown) {
+                                            // Hand down mouse modifiers so the SHIFT mod can be handled correctly (see function)
                                             popupCycleSelection(osms, ms.modifiers);
                                         }
 
-                                        // These labels may need to be updated from the outside
-                                        // so collect them
+                                        // These labels may need to be updated from the outside so collect them
                                         List<JLabel> lbls = new ArrayList<>(osms.size());
                                         for (final OsmPrimitive osm : osms) {
                                             JLabel l = popupBuildPrimitiveLabels(osm);
@@ -475,13 +474,13 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
             }
 
             // This will cycle through the available items.
-            if(firstSelected == null) {
-                ds.addSelected(firstItem);
-            } else {
+            if (firstSelected != null) {
                 ds.clearSelection(firstSelected);
                 if(nextSelected != null) {
                     ds.addSelected(nextSelected);
                 }
+            } else if (firstItem != null) {
+                ds.addSelected(firstItem);
             }
         }
 
@@ -510,11 +509,11 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
         private void popupShowPopup(Popup newPopup, List<JLabel> lbls) {
             final Popup staticPopup = newPopup;
             if(this.popup != null) {
-                // If an old popup exists, remove it when the new popup has been
-                // drawn to keep flickering to a minimum
+                // If an old popup exists, remove it when the new popup has been drawn to keep flickering to a minimum
                 final Popup staticOldPopup = this.popup;
                 EventQueue.invokeLater(new Runnable(){
-                    @Override public void run() {
+                    @Override
+                    public void run() {
                         staticPopup.show();
                         staticOldPopup.hide();
                     }
@@ -522,7 +521,10 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
             } else {
                 // There is no old popup
                 EventQueue.invokeLater(new Runnable(){
-                     @Override public void run() { staticPopup.show(); }});
+                     @Override
+                     public void run() {
+                         staticPopup.show();
+                     }});
             }
             this.popupLabels = lbls;
             this.popup = newPopup;
@@ -566,7 +568,7 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
          * @return labels for info popup
          */
         private JLabel popupBuildPrimitiveLabels(final OsmPrimitive osm) {
-            final StringBuilder text = new StringBuilder();
+            final StringBuilder text = new StringBuilder(32);
             String name = osm.getDisplayName(DefaultNameFormatter.getInstance());
             if (osm.isNewOrUndeleted() || osm.isModified()) {
                 name = "<i><b>"+ name + "*</b></i>";
@@ -577,25 +579,26 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
             // fix #7557 - do not show ID twice
 
             if (!osm.isNew() && !idShown) {
-                text.append(" [id="+osm.getId()+"]");
+                text.append(" [id=").append(osm.getId()).append(']');
             }
 
             if(osm.getUser() != null) {
-                text.append(" [" + tr("User:") + " " + osm.getUser().getName() + "]");
+                text.append(" [").append(tr("User:")).append(' ').append(osm.getUser().getName()).append(']');
             }
 
             for (String key : osm.keySet()) {
-                text.append("<br>" + key + "=" + osm.get(key));
+                text.append("<br>").append(key).append('=').append(osm.get(key));
             }
 
             final JLabel l = new JLabel(
-                    "<html>" +text.toString() + "</html>",
+                    "<html>" + text.toString() + "</html>",
                     ImageProvider.get(osm.getDisplayType()),
                     JLabel.HORIZONTAL
                     ) {
                 // This is necessary so the label updates its colors when the
                 // selection is changed from the outside
-                @Override public void validate() {
+                @Override
+                public void validate() {
                     super.validate();
                     popupSetLabelColors(this, osm);
                 }
@@ -607,14 +610,17 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
             l.setHorizontalAlignment(JLabel.LEFT);
             l.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             l.addMouseListener(new MouseAdapter(){
-                @Override public void mouseEntered(MouseEvent e) {
+                @Override
+                public void mouseEntered(MouseEvent e) {
                     l.setBackground(SystemColor.info);
                     l.setForeground(SystemColor.infoText);
                 }
-                @Override public void mouseExited(MouseEvent e) {
+                @Override
+                public void mouseExited(MouseEvent e) {
                     popupSetLabelColors(l, osm);
                 }
-                @Override public void mouseClicked(MouseEvent e) {
+                @Override
+                public void mouseClicked(MouseEvent e) {
                     DataSet ds = Main.main.getCurrentDataSet();
                     // Let the user toggle the selection
                     ds.toggleSelected(osm);
@@ -643,15 +649,15 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
      * @author imi
      */
     static class MouseState {
-        Point mousePos;
-        int modifiers;
+        private Point mousePos;
+        private int modifiers;
     }
     /**
      * The last sent mouse movement event.
      */
-    MouseState mouseState = new MouseState();
+    private transient MouseState mouseState = new MouseState();
 
-    private AWTEventListener awtListener = new AWTEventListener() {
+    private transient AWTEventListener awtListener = new AWTEventListener() {
          @Override
          public void eventDispatched(AWTEvent event) {
             if (event instanceof InputEvent &&
@@ -661,19 +667,19 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
                     if (event instanceof MouseEvent) {
                         mouseState.mousePos = ((MouseEvent)event).getPoint();
                     }
-                    collector.notify();
+                    collector.notifyAll();
                 }
             }
         }
     };
 
-    private MouseMotionListener mouseMotionListener = new MouseMotionListener() {
+    private transient MouseMotionListener mouseMotionListener = new MouseMotionListener() {
         @Override
         public void mouseMoved(MouseEvent e) {
             synchronized (collector) {
                 mouseState.modifiers = e.getModifiersEx();
                 mouseState.mousePos = e.getPoint();
-                collector.notify();
+                collector.notifyAll();
             }
         }
 
@@ -683,11 +689,11 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
         }
     };
 
-    private KeyAdapter keyAdapter = new KeyAdapter() {
+    private transient KeyAdapter keyAdapter = new KeyAdapter() {
         @Override public void keyPressed(KeyEvent e) {
             synchronized (collector) {
                 mouseState.modifiers = e.getModifiersEx();
-                collector.notify();
+                collector.notifyAll();
             }
         }
 
@@ -721,9 +727,9 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
     private class MapStatusPopupMenu extends JPopupMenu {
 
         private final JMenuItem jumpButton = add(Main.main.menu.jumpToAct);
-        
+
         private final Collection<JCheckBoxMenuItem> somItems = new ArrayList<>();
-        
+
         private final JSeparator separator = new JSeparator();
 
         private final JMenuItem doNotHide = new JCheckBoxMenuItem(new AbstractAction(tr("Do not hide status bar")) {
@@ -781,7 +787,7 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
     public MapStatus(final MapFrame mapFrame) {
         this.mv = mapFrame.mapView;
         this.collector = new Collector(mapFrame);
-        
+
         // Context menu of status bar
         setComponentPopupMenu(new MapStatusPopupMenu());
 
@@ -816,7 +822,7 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
         });
 
         setLayout(new GridBagLayout());
-        setBorder(BorderFactory.createEmptyBorder(5,5,5,5));
+        setBorder(BorderFactory.createEmptyBorder(1,2,1,2));
 
         latText.setInheritsPopupMenu(true);
         lonText.setInheritsPopupMenu(true);
@@ -833,7 +839,7 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
         if (Main.pref.getBoolean("statusbar.change-system-of-measurement-on-click", true)) {
             distText.addMouseListener(new MouseAdapter() {
                 private final List<String> soms = new ArrayList<>(new TreeSet<>(SystemOfMeasurement.ALL_SYSTEMS.keySet()));
-    
+
                 @Override
                 public void mouseClicked(MouseEvent e) {
                     if (!e.isPopupTrigger() && e.getButton() == MouseEvent.BUTTON1) {
@@ -881,7 +887,7 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
         thread.setDaemon(true);
         thread.start();
     }
-    
+
     /**
      * Updates the system of measurement and displays a notification.
      * @param newsom The new system of measurement to set
@@ -902,7 +908,7 @@ public class MapStatus extends JPanel implements Helpful, Destroyable, Preferenc
 
     @Override
     public String helpTopic() {
-        return ht("/Statusline");
+        return ht("/StatusBar");
     }
 
     @Override

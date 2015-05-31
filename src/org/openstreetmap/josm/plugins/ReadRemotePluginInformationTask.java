@@ -13,7 +13,6 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.HttpURLConnection;
@@ -27,6 +26,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -41,7 +41,6 @@ import org.openstreetmap.josm.gui.util.GuiHelper;
 import org.openstreetmap.josm.gui.widgets.JosmTextArea;
 import org.openstreetmap.josm.io.OsmTransferException;
 import org.openstreetmap.josm.tools.GBC;
-import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.Utils;
 import org.xml.sax.SAXException;
 
@@ -57,9 +56,7 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable {
     private List<PluginInformation> availablePlugins;
     private boolean displayErrMsg;
 
-    protected enum CacheType {PLUGIN_LIST, ICON_LIST}
-
-    protected final void init(Collection<String> sites, boolean displayErrMsg){
+    protected final void init(Collection<String> sites, boolean displayErrMsg) {
         this.sites = sites;
         if (sites == null) {
             this.sites = Collections.emptySet();
@@ -67,8 +64,9 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable {
         this.availablePlugins = new LinkedList<>();
         this.displayErrMsg = displayErrMsg;
     }
+
     /**
-     * Creates the task
+     * Constructs a new {@code ReadRemotePluginInformationTask}.
      *
      * @param sites the collection of download sites. Defaults to the empty collection if null.
      */
@@ -78,7 +76,7 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable {
     }
 
     /**
-     * Creates the task
+     * Constructs a new {@code ReadRemotePluginInformationTask}.
      *
      * @param monitor the progress monitor. Defaults to {@link NullProgressMonitor#INSTANCE} if null
      * @param sites the collection of download sites. Defaults to the empty collection if null.
@@ -103,23 +101,22 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable {
     protected void finish() {}
 
     /**
-     * Creates the file name for the cached plugin list and the icon cache
-     * file.
+     * Creates the file name for the cached plugin list and the icon cache file.
      *
+     * @param pluginDir directory of plugin for data storage
      * @param site the name of the site
-     * @param type icon cache or plugin list cache
      * @return the file name for the cache file
      */
-    protected File createSiteCacheFile(File pluginDir, String site, CacheType type) {
+    protected File createSiteCacheFile(File pluginDir, String site) {
         String name;
         try {
             site = site.replaceAll("%<(.*)>", "");
             URL url = new URL(site);
             StringBuilder sb = new StringBuilder();
-            sb.append("site-");
-            sb.append(url.getHost()).append("-");
+            sb.append("site-")
+              .append(url.getHost()).append('-');
             if (url.getPort() != -1) {
-                sb.append(url.getPort()).append("-");
+                sb.append(url.getPort()).append('-');
             }
             String path = url.getPath();
             for (int i =0;i<path.length(); i++) {
@@ -127,17 +124,10 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable {
                 if (Character.isLetterOrDigit(c)) {
                     sb.append(c);
                 } else {
-                    sb.append("_");
+                    sb.append('_');
                 }
             }
-            switch (type) {
-            case PLUGIN_LIST:
-                sb.append(".txt");
-                break;
-            case ICON_LIST:
-                sb.append("-icons.zip");
-                break;
-            }
+            sb.append(".txt");
             name = sb.toString();
         } catch(MalformedURLException e) {
             name = "site-unknown.txt";
@@ -176,7 +166,7 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable {
                 StringBuilder sb = new StringBuilder();
                 String line;
                 while ((line = in.readLine()) != null) {
-                    sb.append(line).append("\n");
+                    sb.append(line).append('\n');
                 }
                 return sb.toString();
             }
@@ -207,7 +197,7 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable {
                 try (BufferedReader err = new BufferedReader(new InputStreamReader(errStream, StandardCharsets.UTF_8))) {
                     String line;
                     while ((line = err.readLine()) != null) {
-                        sb.append(line).append("\n");
+                        sb.append(line).append('\n');
                     }
                 } catch (Exception ex) {
                     Main.error(e);
@@ -237,7 +227,7 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable {
                 panel.add(new JLabel(firstMessage), GBC.eol().insets(0, 0, 0, 10));
                 StringBuilder b = new StringBuilder();
                 for (String part : msg.split("(?<=\\G.{200})")) {
-                    b.append(part).append("\n");
+                    b.append(part).append('\n');
                 }
                 panel.add(new JLabel("<html><body width=\"500\"><b>"+b.toString().trim()+"</b></body></html>"), GBC.eol().insets(0, 0, 0, 10));
                 if (!details.isEmpty()) {
@@ -256,61 +246,6 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable {
     }
 
     /**
-     * Downloads the icon archive from a remote location
-     *
-     * @param site the site URL
-     * @param monitor a progress monitor
-     */
-    protected void downloadPluginIcons(String site, File destFile, ProgressMonitor monitor) {
-        try {
-            site = site.replaceAll("%<(.*)>", "");
-
-            monitor.beginTask("");
-            monitor.indeterminateSubTask(tr("Downloading plugin list from ''{0}''", site));
-
-            URL url = new URL(site);
-            synchronized(this) {
-                connection = Utils.openHttpConnection(url);
-                connection.setRequestProperty("Cache-Control", "no-cache");
-            }
-            try (
-                InputStream in = connection.getInputStream();
-                OutputStream out = new FileOutputStream(destFile)
-            ) {
-                byte[] buffer = new byte[8192];
-                for (int read = in.read(buffer); read != -1; read = in.read(buffer)) {
-                    out.write(buffer, 0, read);
-                }
-            }
-        } catch (MalformedURLException e) {
-            if (canceled) return;
-            Main.error(e);
-            return;
-        } catch (IOException e) {
-            if (canceled) return;
-            handleIOException(monitor, e, tr("Plugin icons download error"), tr("JOSM failed to download plugin icons:"), displayErrMsg);
-            return;
-        } finally {
-            synchronized(this) {
-                if (connection != null) {
-                    connection.disconnect();
-                }
-                connection = null;
-            }
-            monitor.finishTask();
-        }
-        for (PluginInformation pi : availablePlugins) {
-            if (pi.icon == null && pi.iconPath != null) {
-                pi.icon = new ImageProvider(pi.name+".jar/"+pi.iconPath)
-                                .setArchive(destFile)
-                                .setMaxWidth(24)
-                                .setMaxHeight(24)
-                                .setOptional(true).get();
-            }
-        }
-    }
-
-    /**
      * Writes the list of plugins to a cache file
      *
      * @param site the site from where the list was downloaded
@@ -321,7 +256,7 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable {
         if (!pluginDir.exists() && !pluginDir.mkdirs()) {
             Main.warn(tr("Failed to create plugin directory ''{0}''. Cannot cache plugin list from plugin site ''{1}''.", pluginDir.toString(), site));
         }
-        File cacheFile = createSiteCacheFile(pluginDir, site, CacheType.PLUGIN_LIST);
+        File cacheFile = createSiteCacheFile(pluginDir, site);
         getProgressMonitor().subTask(tr("Writing plugin list to local cache ''{0}''", cacheFile.toString()));
         try (PrintWriter writer = new PrintWriter(new OutputStreamWriter(new FileOutputStream(cacheFile), StandardCharsets.UTF_8))) {
             writer.write(list);
@@ -341,7 +276,7 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable {
      */
     protected List<PluginInformation> filterDeprecatedPlugins(List<PluginInformation> plugins) {
         List<PluginInformation> ret = new ArrayList<>(plugins.size());
-        HashSet<String> deprecatedPluginNames = new HashSet<>();
+        Set<String> deprecatedPluginNames = new HashSet<>();
         for (PluginHandler.DeprecatedPlugin p : PluginHandler.DEPRECATED_PLUGINS) {
             deprecatedPluginNames.add(p.name);
         }
@@ -400,10 +335,8 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable {
             getProgressMonitor().subTask(tr("Processing plugin list from site ''{0}''", printsite));
             String list = downloadPluginList(site, getProgressMonitor().createSubTaskMonitor(0, false));
             if (canceled) return;
-            siteCacheFiles.remove(createSiteCacheFile(pluginDir, site, CacheType.PLUGIN_LIST));
-            siteCacheFiles.remove(createSiteCacheFile(pluginDir, site, CacheType.ICON_LIST));
-            if(list != null)
-            {
+            siteCacheFiles.remove(createSiteCacheFile(pluginDir, site));
+            if (list != null) {
                 getProgressMonitor().worked(1);
                 cachePluginList(site, list);
                 if (canceled) return;
@@ -413,10 +346,9 @@ public class ReadRemotePluginInformationTask extends PleaseWaitRunnable {
                 getProgressMonitor().worked(1);
                 if (canceled) return;
             }
-            downloadPluginIcons(site+"-icons.zip", createSiteCacheFile(pluginDir, site, CacheType.ICON_LIST), getProgressMonitor().createSubTaskMonitor(0, false));
         }
-        for (File file: siteCacheFiles) /* remove old stuff or whole update process is broken */
-        {
+        // remove old stuff or whole update process is broken
+        for (File file: siteCacheFiles) {
             file.delete();
         }
     }

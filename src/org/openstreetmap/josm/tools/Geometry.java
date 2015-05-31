@@ -23,7 +23,7 @@ import org.openstreetmap.josm.command.Command;
 import org.openstreetmap.josm.data.coor.EastNorth;
 import org.openstreetmap.josm.data.coor.LatLon;
 import org.openstreetmap.josm.data.osm.BBox;
-import org.openstreetmap.josm.data.osm.MultipolygonCreate;
+import org.openstreetmap.josm.data.osm.MultipolygonBuilder;
 import org.openstreetmap.josm.data.osm.Node;
 import org.openstreetmap.josm.data.osm.NodePositionComparator;
 import org.openstreetmap.josm.data.osm.OsmPrimitiveType;
@@ -182,8 +182,7 @@ public final class Geometry {
                                     cmds.add(new AddCommand(intNode));
                                 }
                             }
-                        }
-                        else if (test && !intersectionNodes.isEmpty())
+                        } else if (test && !intersectionNodes.isEmpty())
                             return intersectionNodes;
                     }
                 }
@@ -313,6 +312,11 @@ public final class Geometry {
 
     /**
      * Finds the intersection of two lines of infinite length.
+     *
+     * @param p1 first point on first line
+     * @param p2 second point on first line
+     * @param p3 first point on second line
+     * @param p4 second point on second line
      * @return EastNorth null if no intersection was found, the coordinates of the intersection otherwise
      * @throws IllegalArgumentException if a parameter is null or without valid coordinates
      */
@@ -323,23 +327,34 @@ public final class Geometry {
         CheckParameterUtil.ensureValidCoordinates(p3, "p3");
         CheckParameterUtil.ensureValidCoordinates(p4, "p4");
 
-        if (!p1.isValid()) throw new IllegalArgumentException();
+        if (!p1.isValid()) throw new IllegalArgumentException(p1+" is invalid");
+
+        // Basically, the formula from wikipedia is used:
+        //  https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection
+        // However, large numbers lead to rounding errors (see #10286).
+        // To avoid this, p1 is first substracted from each of the points:
+        //  p1' = 0
+        //  p2' = p2 - p1
+        //  p3' = p3 - p1
+        //  p4' = p4 - p1
+        // In the end, p1 is added to the intersection point of segment p1'/p2'
+        // and segment p3'/p4'.
 
         // Convert line from (point, point) form to ax+by=c
         double a1 = p2.getY() - p1.getY();
         double b1 = p1.getX() - p2.getX();
-        double c1 = p2.getX() * p1.getY() - p1.getX() * p2.getY();
+        // double c1 = 0;
 
         double a2 = p4.getY() - p3.getY();
         double b2 = p3.getX() - p4.getX();
-        double c2 = p4.getX() * p3.getY() - p3.getX() * p4.getY();
+        double c2 = (p4.getX() - p1.getX()) * (p3.getY() - p1.getY()) - (p3.getX() - p1.getX()) * (p4.getY() - p1.getY());
 
         // Solve the equations
         double det = a1 * b2 - a2 * b1;
         if (det == 0)
             return null; // Lines are parallel
 
-        return new EastNorth((b1 * c2 - b2 * c1) / det, (a2 * c1 - a1 * c2) / det);
+        return new EastNorth(b1 * c2 / det + p1.getX(),  - a1 * c2 / det + p1.getY());
     }
 
     public static boolean segmentsParallel(EastNorth p1, EastNorth p2, EastNorth p3, EastNorth p4) {
@@ -371,7 +386,8 @@ public final class Geometry {
         double ldx = p2.getX() - p1.getX();
         double ldy = p2.getY() - p1.getY();
 
-        if (ldx == 0 && ldy == 0) //segment zero length
+        //segment zero length
+        if (ldx == 0 && ldy == 0)
             return p1;
 
         double pdx = point.getX() - p1.getX();
@@ -407,8 +423,8 @@ public final class Geometry {
      * @param lineP2 Second point determining line
      * @param point Point for which a closest point is searched on line (P1,P2)
      * @return The closest point found on line. It may be outside the segment [P1,P2].
-     * @since 4134
      * @see #closestPointToSegment
+     * @since 4134
      */
     public static EastNorth closestPointToLine(EastNorth lineP1, EastNorth lineP2, EastNorth point) {
         return closestPointTo(lineP1, lineP2, point, false);
@@ -433,10 +449,10 @@ public final class Geometry {
         CheckParameterUtil.ensureValidCoordinates(firstNode, "firstNode");
         CheckParameterUtil.ensureValidCoordinates(secondNode, "secondNode");
 
-        double dy1 = (firstNode.getY() - commonNode.getY());
-        double dy2 = (secondNode.getY() - commonNode.getY());
-        double dx1 = (firstNode.getX() - commonNode.getX());
-        double dx2 = (secondNode.getX() - commonNode.getX());
+        double dy1 = firstNode.getY() - commonNode.getY();
+        double dy2 = secondNode.getY() - commonNode.getY();
+        double dx1 = firstNode.getX() - commonNode.getX();
+        double dx2 = secondNode.getX() - commonNode.getX();
 
         return dy1 * dx2 - dx1 * dy2 > 0;
     }
@@ -468,7 +484,7 @@ public final class Geometry {
 
         return new Area(path);
     }
-    
+
     /**
      * Returns the Area of a polygon, from its list of nodes.
      * @param polygon List of nodes forming polygon (LatLon coordinates)
@@ -558,10 +574,18 @@ public final class Geometry {
         //iterate each side of the polygon, start with the last segment
         Node oldPoint = polygonNodes.get(polygonNodes.size() - 1);
 
+        if (!oldPoint.isLatLonKnown()) {
+            return false;
+        }
+
         for (Node newPoint : polygonNodes) {
             //skip duplicate points
             if (newPoint.equals(oldPoint)) {
                 continue;
+            }
+
+            if (!newPoint.isLatLonKnown()) {
+                return false;
             }
 
             //order points so p1.lat <= p2.lat
@@ -576,8 +600,7 @@ public final class Geometry {
             //test if the line is crossed and if so invert the inside flag.
             if ((newPoint.getEastNorth().getY() < point.getEastNorth().getY()) == (point.getEastNorth().getY() <= oldPoint.getEastNorth().getY())
                     && (point.getEastNorth().getX() - p1.getEastNorth().getX()) * (p2.getEastNorth().getY() - p1.getEastNorth().getY())
-                    < (p2.getEastNorth().getX() - p1.getEastNorth().getX()) * (point.getEastNorth().getY() - p1.getEastNorth().getY()))
-            {
+                    < (p2.getEastNorth().getX() - p1.getEastNorth().getX()) * (point.getEastNorth().getY() - p1.getEastNorth().getY())) {
                 inside = !inside;
             }
 
@@ -606,8 +629,6 @@ public final class Geometry {
         Node lastN = null;
         for (Node n : way.getNodes()) {
             if (lastN != null) {
-                n.getEastNorth().getX();
-
                 area += (calcX(n) * calcY(lastN)) - (calcY(n) * calcX(lastN));
             }
             lastN = n;
@@ -615,7 +636,7 @@ public final class Geometry {
         return Math.abs(area/2);
     }
 
-    protected static double calcX(Node p1){
+    protected static double calcX(Node p1) {
         double lat1, lon1, lat2, lon2;
         double dlon, dlat;
 
@@ -627,7 +648,7 @@ public final class Geometry {
         dlon = lon2 - lon1;
         dlat = lat2 - lat1;
 
-        double a = (Math.pow(Math.sin(dlat/2), 2) + Math.cos(lat1) * Math.cos(lat2) * Math.pow(Math.sin(dlon/2), 2));
+        double a = Math.pow(Math.sin(dlat/2), 2) + Math.cos(lat1) * Math.cos(lat2) * Math.pow(Math.sin(dlon/2), 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         return 6367000 * c;
     }
@@ -644,7 +665,7 @@ public final class Geometry {
         dlon = lon2 - lon1;
         dlat = lat2 - lat1;
 
-        double a = (Math.pow(Math.sin(dlat/2), 2) + Math.cos(lat1) * Math.cos(lat2) * Math.pow(Math.sin(dlon/2), 2));
+        double a = Math.pow(Math.sin(dlat/2), 2) + Math.cos(lat1) * Math.cos(lat2) * Math.pow(Math.sin(dlon/2), 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         return 6367000 * c;
     }
@@ -663,16 +684,26 @@ public final class Geometry {
      * @throws IllegalArgumentException if way is not closed (see {@link Way#isClosed}).
      */
     public static boolean isClockwise(Way w) {
-        if (!w.isClosed()) {
+        return isClockwise(w.getNodes());
+    }
+
+    /**
+     * Determines whether path from nodes list is oriented clockwise.
+     * @param nodes Nodes list to be checked.
+     * @return true if and only if way is oriented clockwise.
+     * @throws IllegalArgumentException if way is not closed (see {@link Way#isClosed}).
+     * @see #isClockwise(Way)
+     */
+    public static boolean isClockwise(List<Node> nodes) {
+        double area2 = 0.;
+        int nodesCount = nodes.size();
+        if (nodesCount < 3 || nodes.get(0) != nodes.get(nodesCount - 1)) {
             throw new IllegalArgumentException("Way must be closed to check orientation.");
         }
 
-        double area2 = 0.;
-        int nodesCount = w.getNodesCount();
-
         for (int node = 1; node <= /*sic! consider last-first as well*/ nodesCount; node++) {
-            LatLon coorPrev = w.getNode(node - 1).getCoor();
-            LatLon coorCurr = w.getNode(node % nodesCount).getCoor();
+            LatLon coorPrev = nodes.get(node - 1).getCoor();
+            LatLon coorCurr = nodes.get(node % nodesCount).getCoor();
             area2 += coorPrev.lon() * coorCurr.lat();
             area2 -= coorCurr.lon() * coorPrev.lat();
         }
@@ -738,10 +769,10 @@ public final class Geometry {
             EastNorth n1 = nodes.get((i+1) % nodes.size()).getEastNorth();
 
             if (n0 != null && n1 != null && n0.isValid() && n1.isValid()) {
-                BigDecimal x0 = new BigDecimal(n0.east());
-                BigDecimal y0 = new BigDecimal(n0.north());
-                BigDecimal x1 = new BigDecimal(n1.east());
-                BigDecimal y1 = new BigDecimal(n1.north());
+                BigDecimal x0 = BigDecimal.valueOf(n0.east());
+                BigDecimal y0 = BigDecimal.valueOf(n0.north());
+                BigDecimal x1 = BigDecimal.valueOf(n1.east());
+                BigDecimal y1 = BigDecimal.valueOf(n1.north());
 
                 BigDecimal k = x0.multiply(y1, MathContext.DECIMAL128).subtract(y0.multiply(x1, MathContext.DECIMAL128));
 
@@ -825,44 +856,6 @@ public final class Geometry {
         return new EastNorth(xC, yC);
     }
 
-    /**
-     * Returns the coordinate of intersection of segment sp1-sp2 and an altitude
-     * to it starting at point ap. If the line defined with sp1-sp2 intersects
-     * its altitude out of sp1-sp2, null is returned.
-     *
-     * @param sp1
-     * @param sp2
-     * @param ap
-     * @return Intersection coordinate or null
-     */
-    public static EastNorth getSegmentAltituteIntersection(EastNorth sp1, EastNorth sp2, EastNorth ap) {
-
-        CheckParameterUtil.ensureValidCoordinates(sp1, "sp1");
-        CheckParameterUtil.ensureValidCoordinates(sp2, "sp2");
-        CheckParameterUtil.ensureValidCoordinates(ap, "ap");
-
-        Double segmentLenght = sp1.distance(sp2);
-        Double altitudeAngle = getSegmentAngle(sp1, sp2) + Math.PI / 2;
-
-        // Taking a random point on the altitude line (angle is known).
-        EastNorth ap2 = new EastNorth(ap.east() + 1000
-                * Math.cos(altitudeAngle), ap.north() + 1000
-                * Math.sin(altitudeAngle));
-
-        // Finding the intersection of two lines
-        EastNorth resultCandidate = Geometry.getLineLineIntersection(sp1, sp2,
-                ap, ap2);
-
-        // Filtering result
-        if (resultCandidate != null
-                && resultCandidate.distance(sp1) * .999 < segmentLenght
-                && resultCandidate.distance(sp2) * .999 < segmentLenght) {
-            return resultCandidate;
-        } else {
-            return null;
-        }
-    }
-
     public static class MultiPolygonMembers {
         public final Set<Way> outers = new HashSet<>();
         public final Set<Way> inners = new HashSet<>();
@@ -898,23 +891,23 @@ public final class Geometry {
         // Extract outer/inner members from multipolygon
         final MultiPolygonMembers mpm = new MultiPolygonMembers(multiPolygon);
         // Construct complete rings for the inner/outer members
-        final List<MultipolygonCreate.JoinedPolygon> outerRings;
-        final List<MultipolygonCreate.JoinedPolygon> innerRings;
+        final List<MultipolygonBuilder.JoinedPolygon> outerRings;
+        final List<MultipolygonBuilder.JoinedPolygon> innerRings;
         try {
-            outerRings = MultipolygonCreate.joinWays(mpm.outers);
-            innerRings = MultipolygonCreate.joinWays(mpm.inners);
-        } catch (MultipolygonCreate.JoinedPolygonCreationException ex) {
+            outerRings = MultipolygonBuilder.joinWays(mpm.outers);
+            innerRings = MultipolygonBuilder.joinWays(mpm.inners);
+        } catch (MultipolygonBuilder.JoinedPolygonCreationException ex) {
             Main.debug("Invalid multipolygon " + multiPolygon);
             return false;
         }
         // Test if object is inside an outer member
-        for (MultipolygonCreate.JoinedPolygon out : outerRings) {
+        for (MultipolygonBuilder.JoinedPolygon out : outerRings) {
             if (nodes.size() == 1
                     ? nodeInsidePolygon(nodes.get(0), out.getNodes())
                     : EnumSet.of(PolygonIntersection.FIRST_INSIDE_SECOND, PolygonIntersection.CROSSING).contains(polygonIntersection(nodes, out.getNodes()))) {
                 boolean insideInner = false;
                 // If inside an outer, check it is not inside an inner
-                for (MultipolygonCreate.JoinedPolygon in : innerRings) {
+                for (MultipolygonBuilder.JoinedPolygon in : innerRings) {
                     if (polygonIntersection(in.getNodes(), out.getNodes()) == PolygonIntersection.FIRST_INSIDE_SECOND
                             && (nodes.size() == 1
                             ? nodeInsidePolygon(nodes.get(0), in.getNodes())

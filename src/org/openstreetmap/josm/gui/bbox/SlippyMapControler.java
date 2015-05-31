@@ -18,6 +18,7 @@ import javax.swing.InputMap;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.KeyStroke;
+
 import org.openstreetmap.josm.Main;
 
 /**
@@ -44,7 +45,7 @@ public class SlippyMapControler extends MouseAdapter implements MouseMotionListe
 
     /** The speed increase per timer interval when a cursor button is clicked */
     private static final double ACCELERATION = 0.10;
-    
+
     private static final int MAC_MOUSE_BUTTON3_MASK = MouseEvent.CTRL_DOWN_MASK | MouseEvent.BUTTON1_DOWN_MASK;
 
     // start and end point of selection rectangle
@@ -167,7 +168,7 @@ public class SlippyMapControler extends MouseAdapter implements MouseMotionListe
 
     private class MoveXAction extends AbstractAction {
 
-        int direction;
+        private int direction;
 
         public MoveXAction(int direction) {
             this.direction = direction;
@@ -181,7 +182,7 @@ public class SlippyMapControler extends MouseAdapter implements MouseMotionListe
 
     private class MoveYAction extends AbstractAction {
 
-        int direction;
+        private int direction;
 
         public MoveYAction(int direction) {
             this.direction = direction;

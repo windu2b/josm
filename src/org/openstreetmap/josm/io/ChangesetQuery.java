@@ -3,8 +3,6 @@ package org.openstreetmap.josm.io;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.text.DateFormat;
 import java.text.MessageFormat;
 import java.text.ParseException;
@@ -17,7 +15,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.Bounds;
 import org.openstreetmap.josm.data.coor.LatLon;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
@@ -31,8 +28,7 @@ public class ChangesetQuery {
      *
      * @param query the query part
      * @return the query object
-     * @throws ChangesetQueryUrlException thrown if query doesn't consist of valid query parameters
-     *
+     * @throws ChangesetQueryUrlException if query doesn't consist of valid query parameters
      */
     public static ChangesetQuery buildFromUrlQuery(String query) throws ChangesetQueryUrlException{
         return new ChangesetQueryUrlParser().parse(query);
@@ -55,21 +51,14 @@ public class ChangesetQuery {
     private Collection<Long> changesetIds = null;
 
     /**
-     * Constructs a new {@code ChangesetQuery}.
-     */
-    public ChangesetQuery() {
-
-    }
-
-    /**
      * Restricts the query to changesets owned by the user with id <code>uid</code>.
      *
      * @param uid the uid of the user. &gt; 0 expected.
      * @return the query object with the applied restriction
-     * @throws IllegalArgumentException thrown if uid &lt;= 0
+     * @throws IllegalArgumentException if uid &lt;= 0
      * @see #forUser(String)
      */
-    public ChangesetQuery forUser(int uid) throws IllegalArgumentException{
+    public ChangesetQuery forUser(int uid) {
         if (uid <= 0)
             throw new IllegalArgumentException(MessageFormat.format("Parameter ''{0}'' > 0 expected. Got ''{1}''.", "uid", uid));
         this.uid = uid;
@@ -85,7 +74,7 @@ public class ChangesetQuery {
      *
      * @param username the username. Must not be null.
      * @return the query object with the applied restriction
-     * @throws IllegalArgumentException thrown if username is null.
+     * @throws IllegalArgumentException if username is null.
      * @see #forUser(int)
      */
     public ChangesetQuery forUser(String username) {
@@ -132,10 +121,10 @@ public class ChangesetQuery {
      * @param maxLat  max latitude of the bounding box.  Valid latitude value expected.
      *
      * @return the restricted changeset query
-     * @throws IllegalArgumentException thrown if either of the parameters isn't a valid longitude or
+     * @throws IllegalArgumentException if either of the parameters isn't a valid longitude or
      * latitude value
      */
-    public ChangesetQuery inBbox(double minLon, double minLat, double maxLon, double maxLat) throws IllegalArgumentException{
+    public ChangesetQuery inBbox(double minLon, double minLat, double maxLon, double maxLat) {
         if (!LatLon.isValidLon(minLon))
             throw new IllegalArgumentException(tr("Illegal longitude value for parameter ''{0}'', got {1}", "minLon", minLon));
         if (!LatLon.isValidLon(maxLon))
@@ -155,8 +144,8 @@ public class ChangesetQuery {
      * @param max the max lat/lon coordiantes of the bounding box. Must not be null.
      *
      * @return the restricted changeset query
-     * @throws IllegalArgumentException thrown if min is null
-     * @throws IllegalArgumentException thrown if max is null
+     * @throws IllegalArgumentException if min is null
+     * @throws IllegalArgumentException if max is null
      */
     public ChangesetQuery inBbox(LatLon min, LatLon max) {
         CheckParameterUtil.ensureParameterNotNull(min, "min");
@@ -170,9 +159,9 @@ public class ChangesetQuery {
      *
      * @param bbox the bounding box. Must not be null.
      * @return the changeset query
-     * @throws IllegalArgumentException thrown if bbox is null.
+     * @throws IllegalArgumentException if bbox is null.
      */
-    public ChangesetQuery inBbox(Bounds bbox) throws IllegalArgumentException {
+    public ChangesetQuery inBbox(Bounds bbox) {
         CheckParameterUtil.ensureParameterNotNull(bbox, "bbox");
         this.bounds = bbox;
         return this;
@@ -184,9 +173,9 @@ public class ChangesetQuery {
      *
      * @param d the date . Must not be null.
      * @return the restricted changeset query
-     * @throws IllegalArgumentException thrown if d is null
+     * @throws IllegalArgumentException if d is null
      */
-    public ChangesetQuery closedAfter(Date d) throws IllegalArgumentException{
+    public ChangesetQuery closedAfter(Date d) {
         CheckParameterUtil.ensureParameterNotNull(d, "d");
         this.closedAfter = d;
         return this;
@@ -200,10 +189,10 @@ public class ChangesetQuery {
      * @param closedAfter only reply changesets closed after this date. Must not be null.
      * @param createdBefore only reply changesets created before this date. Must not be null.
      * @return the restricted changeset query
-     * @throws IllegalArgumentException thrown if closedAfter is null
-     * @throws IllegalArgumentException thrown if createdBefore is null
+     * @throws IllegalArgumentException if closedAfter is null
+     * @throws IllegalArgumentException if createdBefore is null
      */
-    public ChangesetQuery closedAfterAndCreatedBefore(Date closedAfter, Date createdBefore ) throws IllegalArgumentException {
+    public ChangesetQuery closedAfterAndCreatedBefore(Date closedAfter, Date createdBefore ) {
         CheckParameterUtil.ensureParameterNotNull(closedAfter, "closedAfter");
         CheckParameterUtil.ensureParameterNotNull(createdBefore, "createdBefore");
         this.closedAfter = closedAfter;
@@ -240,7 +229,7 @@ public class ChangesetQuery {
      *
      * @param changesetIds the changeset ids
      * @return the query object with the applied restriction
-     * @throws IllegalArgumentException thrown if changesetIds is null.
+     * @throws IllegalArgumentException if changesetIds is null.
      */
     public ChangesetQuery forChangesetIds(Collection<Long> changesetIds) {
         CheckParameterUtil.ensureParameterNotNull(changesetIds, "changesetIds");
@@ -256,49 +245,45 @@ public class ChangesetQuery {
     public String getQueryString() {
         StringBuilder sb = new StringBuilder();
         if (uid != null) {
-            sb.append("user").append("=").append(uid);
+            sb.append("user=").append(uid);
         } else if (userName != null) {
-            try {
-                sb.append("display_name").append("=").append(URLEncoder.encode(userName, "UTF-8"));
-            } catch (UnsupportedEncodingException e) {
-                Main.error(e);
-            }
+            sb.append("display_name=").append(Utils.encodeUrl(userName));
         }
         if (bounds != null) {
             if (sb.length() > 0) {
-                sb.append("&");
+                sb.append('&');
             }
             sb.append("bbox=").append(bounds.encodeAsString(","));
         }
         if (closedAfter != null && createdBefore != null) {
             if (sb.length() > 0) {
-                sb.append("&");
+                sb.append('&');
             }
             DateFormat df = DateUtils.newIsoDateTimeFormat();
-            sb.append("time").append("=").append(df.format(closedAfter));
-            sb.append(",").append(df.format(createdBefore));
+            sb.append("time=").append(df.format(closedAfter));
+            sb.append(',').append(df.format(createdBefore));
         } else if (closedAfter != null) {
             if (sb.length() > 0) {
-                sb.append("&");
+                sb.append('&');
             }
             DateFormat df = DateUtils.newIsoDateTimeFormat();
-            sb.append("time").append("=").append(df.format(closedAfter));
+            sb.append("time=").append(df.format(closedAfter));
         }
 
         if (open != null) {
             if (sb.length() > 0) {
-                sb.append("&");
+                sb.append('&');
             }
             sb.append("open=").append(Boolean.toString(open));
         } else if (closed != null) {
             if (sb.length() > 0) {
-                sb.append("&");
+                sb.append('&');
             }
             sb.append("closed=").append(Boolean.toString(closed));
         } else if (changesetIds != null) {
             // since 2013-12-05, see https://github.com/openstreetmap/openstreetmap-website/commit/1d1f194d598e54a5d6fb4f38fb569d4138af0dc8
             if (sb.length() > 0) {
-                sb.append("&");
+                sb.append('&');
             }
             sb.append("changesets=").append(Utils.join(",", changesetIds));
         }
@@ -322,6 +307,17 @@ public class ChangesetQuery {
         }
 
         /**
+         * Constructs a new {@code ChangesetQueryUrlException} with the specified cause and detail message.
+         *
+         * @param message the detail message. The detail message is saved for later retrieval by the {@link #getMessage()} method.
+         * @param  cause the cause (which is saved for later retrieval by the {@link #getCause()} method).
+         *         (A <tt>null</tt> value is permitted, and indicates that the cause is nonexistent or unknown.)
+         */
+        public ChangesetQueryUrlException(String message, Throwable cause) {
+            super(message, cause);
+        }
+
+        /**
          * Constructs a new {@code ChangesetQueryUrlException} with the specified cause and a detail message of
          * <tt>(cause==null ? null : cause.toString())</tt> (which typically contains the class and detail message of <tt>cause</tt>).
          *
@@ -336,46 +332,54 @@ public class ChangesetQuery {
     public static class ChangesetQueryUrlParser {
         protected int parseUid(String value) throws ChangesetQueryUrlException {
             if (value == null || value.trim().isEmpty())
-                throw new ChangesetQueryUrlException(tr("Unexpected value for ''{0}'' in changeset query url, got {1}", "uid", value));
+                throw new ChangesetQueryUrlException(
+                        tr("Unexpected value for ''{0}'' in changeset query url, got {1}", "uid", value));
             int id;
             try {
                 id = Integer.parseInt(value);
                 if (id <= 0)
-                    throw new ChangesetQueryUrlException(tr("Unexpected value for ''{0}'' in changeset query url, got {1}", "uid", value));
+                    throw new ChangesetQueryUrlException(
+                            tr("Unexpected value for ''{0}'' in changeset query url, got {1}", "uid", value));
             } catch(NumberFormatException e) {
-                throw new ChangesetQueryUrlException(tr("Unexpected value for ''{0}'' in changeset query url, got {1}", "uid", value));
+                throw new ChangesetQueryUrlException(
+                        tr("Unexpected value for ''{0}'' in changeset query url, got {1}", "uid", value), e);
             }
             return id;
         }
 
         protected boolean parseBoolean(String value, String parameter) throws ChangesetQueryUrlException {
             if (value == null || value.trim().isEmpty())
-                throw new ChangesetQueryUrlException(tr("Unexpected value for ''{0}'' in changeset query url, got {1}", parameter, value));
+                throw new ChangesetQueryUrlException(
+                        tr("Unexpected value for ''{0}'' in changeset query url, got {1}", parameter, value));
             switch (value) {
             case "true":
                 return true;
             case "false":
                 return false;
             default:
-                throw new ChangesetQueryUrlException(tr("Unexpected value for ''{0}'' in changeset query url, got {1}", parameter, value));
+                throw new ChangesetQueryUrlException(
+                        tr("Unexpected value for ''{0}'' in changeset query url, got {1}", parameter, value));
             }
         }
 
         protected Date parseDate(String value, String parameter) throws ChangesetQueryUrlException {
             if (value == null || value.trim().isEmpty())
-                throw new ChangesetQueryUrlException(tr("Unexpected value for ''{0}'' in changeset query url, got {1}", parameter, value));
+                throw new ChangesetQueryUrlException(
+                        tr("Unexpected value for ''{0}'' in changeset query url, got {1}", parameter, value));
             DateFormat formatter = DateUtils.newIsoDateTimeFormat();
             try {
                 return formatter.parse(value);
             } catch(ParseException e) {
-                throw new ChangesetQueryUrlException(tr("Unexpected value for ''{0}'' in changeset query url, got {1}", parameter, value));
+                throw new ChangesetQueryUrlException(
+                        tr("Unexpected value for ''{0}'' in changeset query url, got {1}", parameter, value), e);
             }
         }
 
         protected Date[] parseTime(String value) throws ChangesetQueryUrlException {
             String[] dates = value.split(",");
             if (dates == null || dates.length == 0 || dates.length > 2)
-                throw new ChangesetQueryUrlException(tr("Unexpected value for ''{0}'' in changeset query url, got {1}", "time", value));
+                throw new ChangesetQueryUrlException(
+                        tr("Unexpected value for ''{0}'' in changeset query url, got {1}", "time", value));
             if (dates.length == 1)
                 return new Date[]{parseDate(dates[0], "time")};
             else if (dates.length == 2)
@@ -402,12 +406,14 @@ public class ChangesetQuery {
                 switch(k) {
                 case "uid":
                     if (queryParams.containsKey("display_name"))
-                        throw new ChangesetQueryUrlException(tr("Cannot create a changeset query including both the query parameters ''uid'' and ''display_name''"));
+                        throw new ChangesetQueryUrlException(
+                                tr("Cannot create a changeset query including both the query parameters ''uid'' and ''display_name''"));
                     csQuery.forUser(parseUid(queryParams.get("uid")));
                     break;
                 case "display_name":
                     if (queryParams.containsKey("uid"))
-                        throw new ChangesetQueryUrlException(tr("Cannot create a changeset query including both the query parameters ''uid'' and ''display_name''"));
+                        throw new ChangesetQueryUrlException(
+                                tr("Cannot create a changeset query including both the query parameters ''uid'' and ''display_name''"));
                     csQuery.forUser(queryParams.get("display_name"));
                     break;
                 case "open":
@@ -442,7 +448,8 @@ public class ChangesetQuery {
                     }
                     break;
                 default:
-                    throw new ChangesetQueryUrlException(tr("Unsupported parameter ''{0}'' in changeset query string", k));
+                    throw new ChangesetQueryUrlException(
+                            tr("Unsupported parameter ''{0}'' in changeset query string", k));
                 }
             }
             return csQuery;

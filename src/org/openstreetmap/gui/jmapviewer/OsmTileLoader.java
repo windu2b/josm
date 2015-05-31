@@ -40,6 +40,7 @@ public class OsmTileLoader implements TileLoader {
         return new TileJob() {
 
             InputStream input = null;
+            boolean force = false;
 
             public void run() {
                 synchronized (tile) {
@@ -51,6 +52,9 @@ public class OsmTileLoader implements TileLoader {
                 }
                 try {
                     URLConnection conn = loadTileFromOsm(tile);
+                    if (force) {
+                        conn.setUseCaches(false);
+                    }
                     loadTileMetadata(tile, conn);
                     if ("no-tile".equals(tile.getValue("tile-info"))) {
                         tile.setError("No tile at this zoom level");
@@ -70,8 +74,10 @@ public class OsmTileLoader implements TileLoader {
                     listener.tileLoadingFinished(tile, false);
                     if (input == null) {
                         try {
-                            System.err.println("Failed loading " + tile.getUrl() +": " + e.getMessage());
-                        } catch(IOException i) {
+                            System.err.println("Failed loading " + tile.getUrl() +": "
+                                    +e.getClass() + ": " + e.getMessage());
+                        } catch (IOException ioe) {
+                            ioe.printStackTrace();
                         }
                     }
                 } finally {
@@ -83,6 +89,19 @@ public class OsmTileLoader implements TileLoader {
             public Tile getTile() {
                 return tile;
             }
+
+            @Override
+            public void submit() {
+                submit(false);
+
+            }
+
+            @Override
+            public void submit(boolean force) {
+                this.force = force;
+                run();
+            }
+
         };
     }
 
@@ -93,7 +112,6 @@ public class OsmTileLoader implements TileLoader {
         if (urlConn instanceof HttpURLConnection) {
             prepareHttpUrlConnection((HttpURLConnection)urlConn);
         }
-        urlConn.setReadTimeout(30000); // 30 seconds read timeout
         return urlConn;
     }
 
@@ -105,6 +123,24 @@ public class OsmTileLoader implements TileLoader {
         str = urlConn.getHeaderField("X-VE-Tile-Info");
         if (str != null) {
             tile.putValue("tile-info", str);
+        }
+
+        Long lng = urlConn.getExpiration();
+        if (lng.equals(0L)) {
+            try {
+                str = urlConn.getHeaderField("Cache-Control");
+                if (str != null) {
+                    for (String token: str.split(",")) {
+                        if (token.startsWith("max-age=")) {
+                            lng = Long.parseLong(token.substring(8)) * 1000 +
+                                    System.currentTimeMillis();
+                        }
+                    }
+                }
+            } catch (NumberFormatException e) {} //ignore malformed Cache-Control headers
+        }
+        if (!lng.equals(0L)) {
+            tile.putValue("expires", lng.toString());
         }
     }
 

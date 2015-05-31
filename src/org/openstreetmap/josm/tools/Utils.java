@@ -12,7 +12,6 @@ import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.Closeable;
 import java.io.File;
@@ -25,6 +24,7 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -41,6 +41,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
@@ -48,9 +51,17 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
 
-import org.apache.tools.bzip2.CBZip2InputStream;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
+
+import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.Version;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
 
 /**
  * Basic utils, that can be useful in different parts of the program.
@@ -156,7 +167,11 @@ public final class Utils {
     }
 
     /**
-     * Get minimum of 3 values
+     * Returns the minimum of three values.
+     * @param   a   an argument.
+     * @param   b   another argument.
+     * @param   c   another argument.
+     * @return  the smaller of {@code a}, {@code b} and {@code c}.
      */
     public static int min(int a, int b, int c) {
         if (b < c) {
@@ -170,10 +185,29 @@ public final class Utils {
         }
     }
 
+    /**
+     * Returns the greater of four {@code int} values. That is, the
+     * result is the argument closer to the value of
+     * {@link Integer#MAX_VALUE}. If the arguments have the same value,
+     * the result is that same value.
+     *
+     * @param   a   an argument.
+     * @param   b   another argument.
+     * @param   c   another argument.
+     * @param   d   another argument.
+     * @return  the larger of {@code a}, {@code b}, {@code c} and {@code d}.
+     */
     public static int max(int a, int b, int c, int d) {
         return Math.max(Math.max(a, b), Math.max(c, d));
     }
 
+    /**
+     * Ensures a logical condition is met. Otherwise throws an assertion error.
+     * @param condition the condition to be met
+     * @param message Formatted error message to raise if condition is not met
+     * @param data Message parameters, optional
+     * @throws AssertionError if the condition is not met
+     */
     public static void ensure(boolean condition, String message, Object...data) {
         if (!condition)
             throw new AssertionError(
@@ -186,7 +220,7 @@ public final class Utils {
      */
     public static int mod(int a, int n) {
         if (n <= 0)
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("n must be <= 0 but is "+n);
         int res = a % n;
         if (res < 0) {
             res += n;
@@ -203,24 +237,21 @@ public final class Utils {
      * @return null if values is null. The joined string otherwise.
      */
     public static String join(String sep, Collection<?> values) {
-        if (sep == null)
-            throw new IllegalArgumentException();
+        CheckParameterUtil.ensureParameterNotNull(sep, "sep");
         if (values == null)
             return null;
-        if (values.isEmpty())
-            return "";
         StringBuilder s = null;
         for (Object a : values) {
             if (a == null) {
                 a = "";
             }
             if (s != null) {
-                s.append(sep).append(a.toString());
+                s.append(sep).append(a);
             } else {
                 s = new StringBuilder(a.toString());
             }
         }
-        return s.toString();
+        return s != null ? s.toString() : "";
     }
 
     /**
@@ -308,20 +339,67 @@ public final class Utils {
     }
 
     /**
-     * Simple file copy function that will overwrite the target file.<br>
+     * Copies the given array. Unlike {@link Arrays#copyOf}, this method is null-safe.
+     * @param array The array to copy
+     * @return A copy of the original array, or {@code null} if {@code array} is null
+     * @since 7436
+     */
+    public static int[] copyArray(int[] array) {
+        if (array != null) {
+            return Arrays.copyOf(array, array.length);
+        }
+        return null;
+    }
+
+    /**
+     * Simple file copy function that will overwrite the target file.
      * @param in The source file
      * @param out The destination file
      * @return the path to the target file
-     * @throws java.io.IOException If any I/O error occurs
-     * @throws IllegalArgumentException If {@code in} or {@code out} is {@code null}
+     * @throws IOException if any I/O error occurs
+     * @throws IllegalArgumentException if {@code in} or {@code out} is {@code null}
      * @since 7003
      */
-    public static Path copyFile(File in, File out) throws IOException, IllegalArgumentException  {
+    public static Path copyFile(File in, File out) throws IOException {
         CheckParameterUtil.ensureParameterNotNull(in, "in");
         CheckParameterUtil.ensureParameterNotNull(out, "out");
         return Files.copy(in.toPath(), out.toPath(), StandardCopyOption.REPLACE_EXISTING);
     }
 
+    /**
+     * Recursive directory copy function
+     * @param in The source directory
+     * @param out The destination directory
+     * @throws IOException if any I/O error ooccurs
+     * @throws IllegalArgumentException if {@code in} or {@code out} is {@code null}
+     * @since 7835
+     */
+    public static void copyDirectory(File in, File out) throws IOException {
+        CheckParameterUtil.ensureParameterNotNull(in, "in");
+        CheckParameterUtil.ensureParameterNotNull(out, "out");
+        if (!out.exists() && !out.mkdirs()) {
+            Main.warn("Unable to create directory "+out.getPath());
+        }
+        File[] files = in.listFiles();
+        if (files != null) {
+            for (File f : files) {
+                File target = new File(out, f.getName());
+                if (f.isDirectory()) {
+                    copyDirectory(f, target);
+                } else {
+                    copyFile(f, target);
+                }
+            }
+        }
+    }
+
+    /**
+     * Copy data from source stream to output stream.
+     * @param source source stream
+     * @param destination target stream
+     * @return number of bytes copied
+     * @throws IOException if any I/O error occurs
+     */
     public static int copyStream(InputStream source, OutputStream destination) throws IOException {
         int count = 0;
         byte[] b = new byte[512];
@@ -333,18 +411,26 @@ public final class Utils {
         return count;
     }
 
+    /**
+     * Deletes a directory recursively.
+     * @param path The directory to delete
+     * @return  <code>true</code> if and only if the file or directory is
+     *          successfully deleted; <code>false</code> otherwise
+     */
     public static boolean deleteDirectory(File path) {
         if( path.exists() ) {
             File[] files = path.listFiles();
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    deleteDirectory(file);
-                } else {
-                    file.delete();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isDirectory()) {
+                        deleteDirectory(file);
+                    } else if (!file.delete()) {
+                        Main.warn("Unable to delete file: "+file.getPath());
+                    }
                 }
             }
         }
-        return( path.delete() );
+        return path.delete();
     }
 
     /**
@@ -412,9 +498,9 @@ public final class Utils {
     public static boolean copyToClipboard(String s) {
         try {
             Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(s), new ClipboardOwner() {
-
                 @Override
                 public void lostOwnership(Clipboard clpbrd, Transferable t) {
+                    // Do nothing
                 }
             });
             return true;
@@ -425,24 +511,38 @@ public final class Utils {
     }
 
     /**
-     * Extracts clipboard content as string.
-     * @return string clipboard contents if available, {@code null} otherwise.
+     * Extracts clipboard content as {@code Transferable} object.
+     * @param clipboard clipboard from which contents are retrieved
+     * @return clipboard contents if available, {@code null} otherwise.
+     * @since 8429
      */
-    public static String getClipboardContent() {
-        Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+    public static Transferable getTransferableContent(Clipboard clipboard) {
         Transferable t = null;
         for (int tries = 0; t == null && tries < 10; tries++) {
             try {
                 t = clipboard.getContents(null);
             } catch (IllegalStateException e) {
-                // Clipboard currently unavailable. On some platforms, the system clipboard is unavailable while it is accessed by another application.
+                // Clipboard currently unavailable.
+                // On some platforms, the system clipboard is unavailable while it is accessed by another application.
                 try {
                     Thread.sleep(1);
                 } catch (InterruptedException ex) {
                     Main.warn("InterruptedException in "+Utils.class.getSimpleName()+" while getting clipboard content");
                 }
+            } catch (NullPointerException e) {
+                // JDK-6322854: On Linux/X11, NPE can happen for unknown reasons, on all versions of Java
+                Main.error(e);
             }
         }
+        return t;
+    }
+
+    /**
+     * Extracts clipboard content as string.
+     * @return string clipboard contents if available, {@code null} otherwise.
+     */
+    public static String getClipboardContent() {
+        Transferable t = getTransferableContent(Toolkit.getDefaultToolkit().getSystemClipboard());
         try {
             if (t != null && t.isDataFlavorSupported(DataFlavor.stringFlavor)) {
                 return (String) t.getTransferData(DataFlavor.stringFlavor);
@@ -460,13 +560,13 @@ public final class Utils {
      * @return MD5 hash of data, string of length 32 with characters in range [0-9a-f]
      */
     public static String md5Hex(String data) {
-        byte[] byteData = data.getBytes(StandardCharsets.UTF_8);
         MessageDigest md = null;
         try {
             md = MessageDigest.getInstance("MD5");
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
+        byte[] byteData = data.getBytes(StandardCharsets.UTF_8);
         byte[] byteDigest = md.digest(byteData);
         return toHexString(byteDigest);
     }
@@ -609,7 +709,6 @@ public final class Utils {
     public static <A, B> List<B> transform(final List<? extends A> l, final Function<A, B> f) {
         return new AbstractList<B>() {
 
-
             @Override
             public int size() {
                 return l.size();
@@ -619,8 +718,6 @@ public final class Utils {
             public B get(int index) {
                 return f.apply(l.get(index));
             }
-
-
         };
     }
 
@@ -636,6 +733,9 @@ public final class Utils {
     public static HttpURLConnection openHttpConnection(URL httpURL) throws IOException {
         if (httpURL == null || !HTTP_PREFFIX_PATTERN.matcher(httpURL.getProtocol()).matches()) {
             throw new IllegalArgumentException("Invalid HTTP url");
+        }
+        if (Main.isDebugEnabled()) {
+            Main.debug("Opening HTTP connection to "+httpURL.toExternalForm());
         }
         HttpURLConnection connection = (HttpURLConnection) httpURL.openConnection();
         connection.setRequestProperty("User-Agent", Version.getInstance().getFullAgentString());
@@ -657,7 +757,7 @@ public final class Utils {
     /**
      * Opens a connection to the given URL, sets the User-Agent property to JOSM's one, and decompresses stream if necessary.
      * @param url The url to open
-     * @param decompress whether to wrap steam in a {@link GZIPInputStream} or {@link CBZip2InputStream}
+     * @param decompress whether to wrap steam in a {@link GZIPInputStream} or {@link BZip2CompressorInputStream}
      *                   if the {@code Content-Type} header is set accordingly.
      * @return An stream for the given URL
      * @throws IOException if an I/O exception occurs.
@@ -684,20 +784,13 @@ public final class Utils {
      * @param in The raw input stream
      * @return a Bzip2 input stream wrapping given input stream, or {@code null} if {@code in} is {@code null}
      * @throws IOException if the given input stream does not contain valid BZ2 header
-     * @since 7119
+     * @since 7867
      */
-    public static CBZip2InputStream getBZip2InputStream(InputStream in) throws IOException {
+    public static BZip2CompressorInputStream getBZip2InputStream(InputStream in) throws IOException {
         if (in == null) {
             return null;
         }
-        BufferedInputStream bis = new BufferedInputStream(in);
-        int b = bis.read();
-        if (b != 'B')
-            throw new IOException(tr("Invalid bz2 file."));
-        b = bis.read();
-        if (b != 'Z')
-            throw new IOException(tr("Invalid bz2 file."));
-        return new CBZip2InputStream(bis, /* see #9537 */ true);
+        return new BZip2CompressorInputStream(in, /* see #9537 */ true);
     }
 
     /**
@@ -763,7 +856,7 @@ public final class Utils {
     /**
      * Opens a connection to the given URL and sets the User-Agent property to JOSM's one.
      * @param url The url to open
-     * @param decompress whether to wrap steam in a {@link GZIPInputStream} or {@link CBZip2InputStream}
+     * @param decompress whether to wrap steam in a {@link GZIPInputStream} or {@link BZip2CompressorInputStream}
      *                   if the {@code Content-Type} header is set accordingly.
      * @return An buffered stream reader for the given URL (using UTF-8)
      * @throws IOException if an I/O exception occurs.
@@ -798,11 +891,11 @@ public final class Utils {
 
     /**
      * An alternative to {@link String#trim()} to effectively remove all leading and trailing white characters, including Unicode ones.
-     * @see <a href="http://closingbraces.net/2008/11/11/javastringtrim/">Java’s String.trim has a strange idea of whitespace</a>
-     * @see <a href="https://bugs.openjdk.java.net/browse/JDK-4080617">JDK bug 4080617</a>
      * @param str The string to strip
      * @return <code>str</code>, without leading and trailing characters, according to
      *         {@link Character#isWhitespace(char)} and {@link Character#isSpaceChar(char)}.
+     * @see <a href="http://closingbraces.net/2008/11/11/javastringtrim/">Java’s String.trim has a strange idea of whitespace</a>
+     * @see <a href="https://bugs.openjdk.java.net/browse/JDK-4080617">JDK bug 4080617</a>
      * @since 5772
      */
     public static String strip(String str) {
@@ -852,7 +945,7 @@ public final class Utils {
                 if (all == null) {
                     all = new StringBuilder(line);
                 } else {
-                    all.append("\n");
+                    all.append('\n');
                     all.append(line);
                 }
             }
@@ -884,7 +977,7 @@ public final class Utils {
      * @throws IllegalArgumentException if elapsedTime is &lt; 0
      * @since 6354
      */
-    public static String getDurationString(long elapsedTime) throws IllegalArgumentException {
+    public static String getDurationString(long elapsedTime) {
         if (elapsedTime < 0) {
             throw new IllegalArgumentException("elapsedTime must be >= 0");
         }
@@ -894,7 +987,7 @@ public final class Utils {
         }
         // Is it less than 1 minute ?
         if (elapsedTime < MILLIS_OF_MINUTE) {
-            return String.format("%.1f %s", elapsedTime / (float) MILLIS_OF_SECOND, tr("s"));
+            return String.format("%.1f %s", elapsedTime / (double) MILLIS_OF_SECOND, tr("s"));
         }
         // Is it less than 1 hour ?
         if (elapsedTime < MILLIS_OF_HOUR) {
@@ -928,16 +1021,16 @@ public final class Utils {
             if (cur == last + 1) {
                 ++cnt;
             } else if (cnt == 0) {
-                sb.append(",").append(cur);
+                sb.append(',').append(cur);
             } else {
-                sb.append("-").append(last);
-                sb.append(",").append(cur);
+                sb.append('-').append(last);
+                sb.append(',').append(cur);
                 cnt = 0;
             }
             last = cur;
         }
         if (cnt >= 1) {
-            sb.append("-").append(last);
+            sb.append('-').append(last);
         }
         return sb.toString();
     }
@@ -988,7 +1081,7 @@ public final class Utils {
         Throwable result = t;
         if (result != null) {
             Throwable cause = result.getCause();
-            while (cause != null && cause != result) {
+            while (cause != null && !cause.equals(result)) {
                 result = cause;
                 cause = result.getCause();
             }
@@ -1011,6 +1104,9 @@ public final class Utils {
 
     /**
      * If the string {@code s} is longer than {@code maxLength}, the string is cut and "..." is appended.
+     * @param s String to shorten
+     * @param maxLength maximum number of characters to keep (not including the "...")
+     * @return the shortened string
      */
     public static String shortenString(String s, int maxLength) {
         if (s != null && s.length() > maxLength) {
@@ -1042,14 +1138,51 @@ public final class Utils {
             if (URL_CHARS.contains(c)) {
                 sb.append(c);
             } else {
-                try {
-                    sb.append(URLEncoder.encode(c, "UTF-8"));
-                } catch (UnsupportedEncodingException ex) {
-                    throw new RuntimeException(ex);
-                }
+                sb.append(encodeUrl(c));
             }
         }
         return sb.toString();
+    }
+
+    /**
+     * Translates a string into <code>application/x-www-form-urlencoded</code>
+     * format. This method uses UTF-8 encoding scheme to obtain the bytes for unsafe
+     * characters.
+     *
+     * @param   s <code>String</code> to be translated.
+     * @return  the translated <code>String</code>.
+     * @see #decodeUrl(String)
+     * @since 8304
+     */
+    public static String encodeUrl(String s) {
+        final String enc = StandardCharsets.UTF_8.name();
+        try {
+            return URLEncoder.encode(s, enc);
+        } catch (UnsupportedEncodingException e) {
+            Main.error(e);
+            return null;
+        }
+    }
+
+    /**
+     * Decodes a <code>application/x-www-form-urlencoded</code> string.
+     * UTF-8 encoding is used to determine
+     * what characters are represented by any consecutive sequences of the
+     * form "<code>%<i>xy</i></code>".
+     *
+     * @param s the <code>String</code> to decode
+     * @return the newly decoded <code>String</code>
+     * @see #encodeUrl(String)
+     * @since 8304
+     */
+    public static String decodeUrl(String s) {
+        final String enc = StandardCharsets.UTF_8.name();
+        try {
+            return URLDecoder.decode(s, enc);
+        } catch (UnsupportedEncodingException e) {
+            Main.error(e);
+            return null;
+        }
     }
 
     /**
@@ -1062,5 +1195,102 @@ public final class Utils {
         if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("resource://"))
             return false;
         return true;
+    }
+
+    /**
+     * Returns a pair containing the number of threads (n), and a thread pool (if n > 1) to perform
+     * multi-thread computation in the context of the given preference key.
+     * @param pref The preference key
+     * @return a pair containing the number of threads (n), and a thread pool (if n > 1, null otherwise)
+     * @since 7423
+     */
+    public static Pair<Integer, ExecutorService> newThreadPool(String pref) {
+        int noThreads = Main.pref.getInteger(pref, Runtime.getRuntime().availableProcessors());
+        ExecutorService pool = noThreads <= 1 ? null : Executors.newFixedThreadPool(noThreads);
+        return new Pair<>(noThreads, pool);
+    }
+
+    /**
+     * Updates a given system property.
+     * @param key The property key
+     * @param value The property value
+     * @return the previous value of the system property, or {@code null} if it did not have one.
+     * @since 7894
+     */
+    public static String updateSystemProperty(String key, String value) {
+        if (value != null) {
+            String old = System.setProperty(key, value);
+            if (!key.toLowerCase(Locale.ENGLISH).contains("password")) {
+                Main.debug("System property '"+key+"' set to '"+value+"'. Old value was '"+old+"'");
+            } else {
+                Main.debug("System property '"+key+"' changed.");
+            }
+            return old;
+        }
+        return null;
+    }
+
+    /**
+     * Returns a new secure SAX parser, supporting XML namespaces.
+     * @return a new secure SAX parser, supporting XML namespaces
+     * @throws ParserConfigurationException if a parser cannot be created which satisfies the requested configuration.
+     * @throws SAXException for SAX errors.
+     * @since 8287
+     */
+    public static SAXParser newSafeSAXParser() throws ParserConfigurationException, SAXException {
+        SAXParserFactory parserFactory = SAXParserFactory.newInstance();
+        parserFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        parserFactory.setNamespaceAware(true);
+        return parserFactory.newSAXParser();
+    }
+
+    /**
+     * Parse the content given {@link org.xml.sax.InputSource} as XML using the specified {@link org.xml.sax.helpers.DefaultHandler}.
+     * This method uses a secure SAX parser, supporting XML namespaces.
+     *
+     * @param is The InputSource containing the content to be parsed.
+     * @param dh The SAX DefaultHandler to use.
+     * @throws ParserConfigurationException if a parser cannot be created which satisfies the requested configuration.
+     * @throws SAXException for SAX errors.
+     * @throws IOException if any IO errors occur.
+     * @since 8347
+     */
+    public static void parseSafeSAX(InputSource is, DefaultHandler dh) throws ParserConfigurationException, SAXException, IOException {
+        long start = System.currentTimeMillis();
+        if (Main.isDebugEnabled()) {
+            Main.debug("Starting SAX parsing of "+is+" using "+dh);
+        }
+        newSafeSAXParser().parse(is, dh);
+        if (Main.isDebugEnabled()) {
+            Main.debug("SAX parsing done in " + getDurationString(System.currentTimeMillis()-start));
+        }
+    }
+
+    /**
+     * Determines if the filename has one of the given extensions, in a robust manner.
+     * The comparison is case and locale insensitive.
+     * @param filename The file name
+     * @param extensions The list of extensions to look for (without dot)
+     * @return {@code true} if the filename has one of the given extensions
+     * @since 8404
+     */
+    public static boolean hasExtension(String filename, String ... extensions) {
+        String name = filename.toLowerCase(Locale.ENGLISH);
+        for (String ext : extensions)
+            if (name.endsWith("."+ext.toLowerCase(Locale.ENGLISH)))
+                return true;
+        return false;
+    }
+
+    /**
+     * Determines if the file's name has one of the given extensions, in a robust manner.
+     * The comparison is case and locale insensitive.
+     * @param file The file
+     * @param extensions The list of extensions to look for (without dot)
+     * @return {@code true} if the file's name has one of the given extensions
+     * @since 8404
+     */
+    public static boolean hasExtension(File file, String ... extensions) {
+        return hasExtension(file.getName(), extensions);
     }
 }

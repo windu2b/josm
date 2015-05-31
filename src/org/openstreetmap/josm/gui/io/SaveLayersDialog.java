@@ -45,7 +45,7 @@ import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.actions.UploadAction;
 import org.openstreetmap.josm.gui.ExceptionDialogUtil;
 import org.openstreetmap.josm.gui.io.SaveLayersModel.Mode;
-import org.openstreetmap.josm.gui.layer.ModifiableLayer;
+import org.openstreetmap.josm.gui.layer.AbstractModifiableLayer;
 import org.openstreetmap.josm.gui.progress.ProgressMonitor;
 import org.openstreetmap.josm.gui.progress.SwingRenderingProgressMonitor;
 import org.openstreetmap.josm.gui.util.GuiHelper;
@@ -67,7 +67,7 @@ public class SaveLayersDialog extends JDialog implements TableModelListener {
     private SaveAndProceedAction saveAndProceedAction;
     private DiscardAndProceedAction discardAndProceedAction;
     private CancelAction cancelAction;
-    private SaveAndUploadTask saveAndUploadTask;
+    private transient SaveAndUploadTask saveAndUploadTask;
 
     /**
      * builds the GUI
@@ -176,7 +176,7 @@ public class SaveLayersDialog extends JDialog implements TableModelListener {
             lstLayers = new JList<>();
             lstLayers.setCellRenderer(
                     new ListCellRenderer<SaveLayerInfo>() {
-                        final DefaultListCellRenderer def = new DefaultListCellRenderer();
+                        private final DefaultListCellRenderer def = new DefaultListCellRenderer();
                         @Override
                         public Component getListCellRendererComponent(JList<? extends SaveLayerInfo> list, SaveLayerInfo info, int index,
                                 boolean isSelected, boolean cellHasFocus) {
@@ -367,10 +367,10 @@ public class SaveLayersDialog extends JDialog implements TableModelListener {
     final class SaveAndProceedAction extends AbstractAction implements PropertyChangeListener {
         private static final int is = 24; // icon size
         private static final String BASE_ICON = "BASE_ICON";
-        private final Image save = ImageProvider.get("save").getImage();
-        private final Image upld = ImageProvider.get("upload").getImage();
-        private final Image saveDis = new BufferedImage(is, is, BufferedImage.TYPE_4BYTE_ABGR);
-        private final Image upldDis = new BufferedImage(is, is, BufferedImage.TYPE_4BYTE_ABGR);
+        private final transient Image save = ImageProvider.get("save").getImage();
+        private final transient Image upld = ImageProvider.get("upload").getImage();
+        private final transient Image saveDis = new BufferedImage(is, is, BufferedImage.TYPE_4BYTE_ABGR);
+        private final transient Image upldDis = new BufferedImage(is, is, BufferedImage.TYPE_4BYTE_ABGR);
 
         public SaveAndProceedAction() {
             // get disabled versions of icons
@@ -433,9 +433,9 @@ public class SaveLayersDialog extends JDialog implements TableModelListener {
      */
     protected class SaveAndUploadTask implements Runnable {
 
-        private SaveLayersModel model;
-        private ProgressMonitor monitor;
-        private ExecutorService worker;
+        private final SaveLayersModel model;
+        private final ProgressMonitor monitor;
+        private final ExecutorService worker;
         private boolean canceled;
         private Future<?> currentFuture;
         private AbstractIOTask currentTask;
@@ -448,7 +448,7 @@ public class SaveLayersDialog extends JDialog implements TableModelListener {
 
         protected void uploadLayers(List<SaveLayerInfo> toUpload) {
             for (final SaveLayerInfo layerInfo: toUpload) {
-                ModifiableLayer layer = layerInfo.getLayer();
+                AbstractModifiableLayer layer = layerInfo.getLayer();
                 if (canceled) {
                     model.setUploadState(layer, UploadOrSaveState.CANCELED);
                     continue;
@@ -591,12 +591,14 @@ public class SaveLayersDialog extends JDialog implements TableModelListener {
                     }
                 }
             });
+            worker.shutdownNow();
         }
 
         public void cancel() {
             if (currentTask != null) {
                 currentTask.cancel();
             }
+            worker.shutdown();
             canceled = true;
         }
     }

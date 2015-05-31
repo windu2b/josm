@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.osm.Node;
@@ -171,8 +170,7 @@ public class XmlStyleSource extends StyleSource implements StyleKeys {
             }
         }
         for (IconPrototype s : iconsList) {
-            if (s.check(primitive))
-            {
+            if (s.check(primitive)) {
                 icon = update(icon, s, scale, mc);
             }
         }
@@ -186,7 +184,7 @@ public class XmlStyleSource extends StyleSource implements StyleKeys {
      */
     private void get(OsmPrimitive primitive, boolean closed, WayPrototypesRecord p, Double scale, MultiCascade mc) {
         String lineIdx = null;
-        HashMap<String, LinemodPrototype> overlayMap = new HashMap<>();
+        Map<String, LinemodPrototype> overlayMap = new HashMap<>();
         boolean isNotArea = primitive.isKeyFalse("area");
         for (String key : primitive.keySet()) {
             String val = primitive.get(key);
@@ -269,8 +267,7 @@ public class XmlStyleSource extends StyleSource implements StyleKeys {
     }
 
     public void add(XmlCondition c, Collection<XmlCondition> conditions, Prototype prot) {
-         if(conditions != null)
-         {
+         if(conditions != null) {
             prot.conditions = conditions;
             if (prot instanceof IconPrototype) {
                 iconsList.add((IconPrototype) prot);
@@ -282,8 +279,7 @@ public class XmlStyleSource extends StyleSource implements StyleKeys {
                 areasList.add((AreaPrototype) prot);
             } else
                 throw new RuntimeException();
-         }
-         else {
+         } else {
              String key = c.getKey();
             prot.code = key;
             if (prot instanceof IconPrototype) {
@@ -300,12 +296,12 @@ public class XmlStyleSource extends StyleSource implements StyleKeys {
      }
 
     @Override
-    public void apply(MultiCascade mc, OsmPrimitive osm, double scale, OsmPrimitive multipolyOuterWay, boolean pretendWayIsClosed) {
+    public void apply(MultiCascade mc, OsmPrimitive osm, double scale, boolean pretendWayIsClosed) {
         Cascade def = mc.getOrCreateCascade("default");
         boolean useMinMaxScale = Main.pref.getBoolean("mappaint.zoomLevelDisplay", false);
 
         if (osm instanceof Node || (osm instanceof Relation && "restriction".equals(osm.get("type")))) {
-            IconPrototype icon = getNode(osm, (useMinMaxScale ? scale : null), mc);
+            IconPrototype icon = getNode(osm, useMinMaxScale ? scale : null, mc);
             if (icon != null) {
                 def.put(ICON_IMAGE, icon.icon);
                 if (osm instanceof Node) {
@@ -320,7 +316,7 @@ public class XmlStyleSource extends StyleSource implements StyleKeys {
             }
         } else if (osm instanceof Way || (osm instanceof Relation && ((Relation)osm).isMultipolygon())) {
             WayPrototypesRecord p = new WayPrototypesRecord();
-            get(osm, pretendWayIsClosed || !(osm instanceof Way) || ((Way) osm).isClosed(), p, (useMinMaxScale ? scale : null), mc);
+            get(osm, pretendWayIsClosed || !(osm instanceof Way) || ((Way) osm).isClosed(), p, useMinMaxScale ? scale : null, mc);
             if (p.line != null) {
                 def.put(WIDTH, new Float(p.line.getWidth()));
                 def.putOrClear(REAL_WIDTH, p.line.realWidth != null ? new Float(p.line.realWidth) : null);
@@ -364,13 +360,6 @@ public class XmlStyleSource extends StyleSource implements StyleKeys {
                     }
                     c.putOrClear(DASHES, mod.getDashed());
                     c.putOrClear(DASHES_BACKGROUND_COLOR, mod.dashedColor);
-                }
-            }
-            if (multipolyOuterWay != null) {
-                WayPrototypesRecord p2 = new WayPrototypesRecord();
-                get(multipolyOuterWay, true, p2, (useMinMaxScale ? scale : null), mc);
-                if (Objects.equals(p.area, p2.area)) {
-                    p.area = null;
                 }
             }
             if (p.area != null) {

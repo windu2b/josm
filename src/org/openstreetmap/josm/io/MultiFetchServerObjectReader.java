@@ -112,7 +112,7 @@ public class MultiFetchServerObjectReader extends OsmServerReader{
      * @throws IllegalArgumentException if ds is null
      * @throws NoSuchElementException if ds does not include an {@link OsmPrimitive} with id=<code>id</code>
      */
-    protected void remember(DataSet ds, long id, OsmPrimitiveType type) throws IllegalArgumentException, NoSuchElementException{
+    protected void remember(DataSet ds, long id, OsmPrimitiveType type) throws NoSuchElementException{
         CheckParameterUtil.ensureParameterNotNull(ds, "ds");
         if (id <= 0) return;
         OsmPrimitive primitive = ds.getPrimitiveById(id, type);
@@ -238,7 +238,7 @@ public class MultiFetchServerObjectReader extends OsmServerReader{
      * @return the subset of ids
      */
     protected Set<Long> extractIdPackage(Set<Long> ids) {
-        HashSet<Long> pkg = new HashSet<>();
+        Set<Long> pkg = new HashSet<>();
         if (ids.isEmpty())
             return pkg;
         if (ids.size() > MAX_IDS_PER_REQUEST) {
@@ -255,8 +255,7 @@ public class MultiFetchServerObjectReader extends OsmServerReader{
     }
 
     /**
-     * builds the Multi Get request string for a set of ids and a given
-     * {@link OsmPrimitiveType}.
+     * builds the Multi Get request string for a set of ids and a given {@link OsmPrimitiveType}.
      *
      * @param type The primitive type. Must be one of {@link OsmPrimitiveType#NODE NODE}, {@link OsmPrimitiveType#WAY WAY}, {@link OsmPrimitiveType#RELATION RELATION}
      * @param idPackage  the package of ids
@@ -271,15 +270,14 @@ public class MultiFetchServerObjectReader extends OsmServerReader{
         for (int i=0; i<idPackage.size(); i++) {
             sb.append(it.next());
             if (i < idPackage.size()-1) {
-                sb.append(",");
+                sb.append(',');
             }
         }
         return sb.toString();
     }
 
     /**
-     * builds the Multi Get request string for a single id and a given
-     * {@link OsmPrimitiveType}.
+     * builds the Multi Get request string for a single id and a given {@link OsmPrimitiveType}.
      *
      * @param type The primitive type. Must be one of {@link OsmPrimitiveType#NODE NODE}, {@link OsmPrimitiveType#WAY WAY}, {@link OsmPrimitiveType#RELATION RELATION}
      * @param id the id
@@ -386,7 +384,8 @@ public class MultiFetchServerObjectReader extends OsmServerReader{
     @Override
     public DataSet parseOsm(ProgressMonitor progressMonitor) throws OsmTransferException {
         int n = nodes.size() + ways.size() + relations.size();
-        progressMonitor.beginTask(trn("Downloading {0} object from ''{1}''", "Downloading {0} objects from ''{1}''", n, n, OsmApi.getOsmApi().getBaseUrl()));
+        progressMonitor.beginTask(trn("Downloading {0} object from ''{1}''",
+                "Downloading {0} objects from ''{1}''", n, n, OsmApi.getOsmApi().getBaseUrl()));
         try {
             missingPrimitives = new HashSet<>();
             if (isCanceled()) return null;

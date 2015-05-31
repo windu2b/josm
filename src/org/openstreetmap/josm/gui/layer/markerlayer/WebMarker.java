@@ -23,25 +23,26 @@ import org.openstreetmap.josm.tools.OpenBrowser;
  * Marker class with Web URL activation.
  *
  * @author Frederik Ramm
- *
+ * @since 200
  */
 public class WebMarker extends ButtonMarker {
 
     private final URL webUrl;
 
     public WebMarker(LatLon ll, URL webUrl, MarkerLayer parentLayer, double time, double offset) {
-        super(ll, "web.png", parentLayer, time, offset);
+        super(ll, "web", parentLayer, time, offset);
         CheckParameterUtil.ensureParameterNotNull(webUrl, "webUrl");
         this.webUrl = webUrl;
     }
 
-    @Override public void actionPerformed(ActionEvent ev) {
+    @Override
+    public void actionPerformed(ActionEvent ev) {
         String error = OpenBrowser.displayUrl(webUrl.toString());
         if (error != null) {
             setErroneous(true);
             new Notification(
                     "<b>" + tr("There was an error while trying to display the URL for this marker") + "</b><br>" +
-                                  tr("(URL was: ") + webUrl.toString() + ")" + "<br>" + error)
+                                  tr("(URL was: ") + webUrl + ")" + "<br>" + error)
                     .setIcon(JOptionPane.ERROR_MESSAGE)
                     .setDuration(Notification.TIME_LONG)
                     .show();
@@ -55,7 +56,7 @@ public class WebMarker extends ButtonMarker {
         WayPoint wpt = super.convertToWayPoint();
         GpxLink link = new GpxLink(webUrl.toString());
         link.type = "web";
-        wpt.attr.put(GpxConstants.META_LINKS, Collections.singleton(link));
+        wpt.put(GpxConstants.META_LINKS, Collections.singleton(link));
         return wpt;
     }
 

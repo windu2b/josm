@@ -18,16 +18,16 @@ import org.openstreetmap.josm.tools.CheckParameterUtil;
 public class SelectionTableModel extends AbstractTableModel implements SelectionChangedListener, MapView.LayerChangeListener{
 
     /** this selection table model only displays selected primitives in this layer */
-    private OsmDataLayer layer;
-    private List<OsmPrimitive> cache;
+    private transient OsmDataLayer layer;
+    private transient List<OsmPrimitive> cache;
 
     /**
      * constructor
      *
      * @param layer  the data layer. Must not be null.
-     * @exception IllegalArgumentException thrown if layer is null
+     * @throws IllegalArgumentException if layer is null
      */
-    public SelectionTableModel(OsmDataLayer layer) throws IllegalArgumentException {
+    public SelectionTableModel(OsmDataLayer layer) {
         CheckParameterUtil.ensureParameterNotNull(layer, "layer");
         this.layer = layer;
         cache = new ArrayList<>();

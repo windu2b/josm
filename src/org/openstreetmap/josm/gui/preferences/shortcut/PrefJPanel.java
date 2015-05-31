@@ -98,7 +98,7 @@ public class PrefJPanel extends JPanel {
     private JCheckBox cbDisable = new JCheckBox();
     private JosmComboBox<String> tfKey = new JosmComboBox<>();
 
-    JTable shortcutTable = new JTable();
+    private JTable shortcutTable = new JTable();
 
     private JosmTextField filterField = new JosmTextField();
 
@@ -117,8 +117,8 @@ public class PrefJPanel extends JPanel {
     }
 
     private static class ScListModel extends AbstractTableModel {
-        private String[] columnNames = new String[]{tr("Action"), tr("Shortcut")};
-        private List<Shortcut> data;
+        private final String[] columnNames = new String[]{tr("Action"), tr("Shortcut")};
+        private transient List<Shortcut> data;
 
         public ScListModel() {
             data = Shortcut.listAll();
@@ -138,10 +138,6 @@ public class PrefJPanel extends JPanel {
         @Override
         public Object getValueAt(int row, int col) {
             return (col==0)?  data.get(row).getLongText() : data.get(row);
-        }
-        @Override
-        public boolean isCellEditable(int row, int col) {
-            return false;
         }
     }
 
@@ -165,11 +161,11 @@ public class PrefJPanel extends JPanel {
             if (isSelected) {
                 label.setForeground(Main.pref.getUIColor("Table.foreground"));
             }
-            if(sc.getAssignedUser()) {
+            if(sc.isAssignedUser()) {
                 label.setBackground(Main.pref.getColor(
                         marktr("Shortcut Background: User"),
                         new Color(200,255,200)));
-            } else if(!sc.getAssignedDefault()) {
+            } else if(!sc.isAssignedDefault()) {
                 label.setBackground(Main.pref.getColor(
                         marktr("Shortcut Background: Modified"),
                         new Color(255,255,200)));
@@ -279,7 +275,7 @@ public class PrefJPanel extends JPanel {
     // more expirience with GUI coding than I have.
     private class CbAction extends AbstractAction implements ListSelectionListener {
         private PrefJPanel panel;
-        public CbAction (PrefJPanel panel) {
+        public CbAction(PrefJPanel panel) {
             this.panel = panel;
         }
         @Override
@@ -288,7 +284,7 @@ public class PrefJPanel extends JPanel {
             if (!lsm.isSelectionEmpty()) {
                 int row = panel.shortcutTable.convertRowIndexToModel(lsm.getMinSelectionIndex());
                 Shortcut sc = (Shortcut)panel.model.getValueAt(row, -1);
-                panel.cbDefault.setSelected(!sc.getAssignedUser());
+                panel.cbDefault.setSelected(!sc.isAssignedUser());
                 panel.cbDisable.setSelected(sc.getKeyStroke() == null);
                 panel.cbShift.setSelected(sc.getAssignedModifier() != -1 && (sc.getAssignedModifier() & KeyEvent.SHIFT_DOWN_MASK) != 0);
                 panel.cbCtrl.setSelected(sc.getAssignedModifier() != -1 && (sc.getAssignedModifier() & KeyEvent.CTRL_DOWN_MASK) != 0);
@@ -357,10 +353,12 @@ public class PrefJPanel extends JPanel {
     class FilterFieldAdapter implements DocumentListener {
         public void filter() {
             String expr = filterField.getText().trim();
-            if (expr.length()==0) { expr=null; }
+            if (expr.isEmpty()) {
+                expr = null;
+            }
             try {
                 final TableRowSorter<? extends TableModel> sorter =
-                    ((TableRowSorter<? extends TableModel> )shortcutTable.getRowSorter());
+                    (TableRowSorter<? extends TableModel>)shortcutTable.getRowSorter();
                 if (expr == null) {
                     sorter.setRowFilter(null);
                 } else {
@@ -379,10 +377,16 @@ public class PrefJPanel extends JPanel {
         }
 
         @Override
-        public void changedUpdate(DocumentEvent arg0) { filter(); }
+        public void changedUpdate(DocumentEvent e) {
+            filter();
+        }
         @Override
-        public void insertUpdate(DocumentEvent arg0) {  filter(); }
+        public void insertUpdate(DocumentEvent e) {
+            filter();
+        }
         @Override
-        public void removeUpdate(DocumentEvent arg0) { filter(); }
+        public void removeUpdate(DocumentEvent e) {
+            filter();
+        }
     }
 }

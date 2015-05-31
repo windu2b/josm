@@ -12,10 +12,12 @@ import static org.openstreetmap.josm.tools.I18n.tr;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Observable;
+import java.util.Set;
 
 import javax.swing.AbstractListModel;
 import javax.swing.ComboBoxModel;
@@ -84,7 +86,7 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
     protected EntriesSelectionModel theirEntriesSelectionModel;
     protected EntriesSelectionModel mergedEntriesSelectionModel;
 
-    private final List<PropertyChangeListener> listeners;
+    private final Set<PropertyChangeListener> listeners;
     private boolean isFrozen = false;
     private final ComparePairListModel comparePairListModel;
 
@@ -181,8 +183,11 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
         return getTheirEntries().size();
     }
 
+    /**
+     * Constructs a new {@code ListMergeModel}.
+     */
     public ListMergeModel() {
-        entries = new HashMap<>();
+        entries = new EnumMap<>(ListRole.class);
         for (ListRole role : ListRole.values()) {
             entries.put(role, new ArrayList<T>());
         }
@@ -195,7 +200,7 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
         theirEntriesSelectionModel = new EntriesSelectionModel(entries.get(THEIR_ENTRIES));
         mergedEntriesSelectionModel =  new EntriesSelectionModel(entries.get(MERGED_ENTRIES));
 
-        listeners = new ArrayList<>();
+        listeners = new HashSet<>();
         comparePairListModel = new ComparePairListModel();
 
         setFrozen(true);
@@ -203,7 +208,7 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
 
     public void addPropertyChangeListener(PropertyChangeListener listener) {
         synchronized(listeners) {
-            if (listener != null && ! listeners.contains(listener)) {
+            if (listener != null && !listeners.contains(listener)) {
                 listeners.add(listener);
             }
         }
@@ -356,10 +361,10 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
             items.add(tr("{0} more...", deletedIds.size() - MAX_DELETED_PRIMITIVE_IN_DIALOG));
         }
         StringBuilder sb = new StringBuilder();
-        sb.append("<html>");
-        sb.append(tr("The following objects could not be copied to the target object<br>because they are deleted in the target dataset:"));
-        sb.append(Utils.joinAsHtmlUnorderedList(items));
-        sb.append("</html>");
+        sb.append("<html>")
+          .append(tr("The following objects could not be copied to the target object<br>because they are deleted in the target dataset:"))
+          .append(Utils.joinAsHtmlUnorderedList(items))
+          .append("</html>");
         HelpAwareOptionPane.showOptionDialog(
                 Main.parent,
                 sb.toString(),
@@ -371,7 +376,7 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
 
     private void copy(ListRole sourceRole, int[] rows, int position) {
         if (position < 0 || position > getMergedEntriesSize())
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("Position must be between 0 and "+getMergedEntriesSize()+" but is "+position);
         List<T> newItems = new ArrayList<>(rows.length);
         List<T> source = entries.get(sourceRole);
         List<PrimitiveId> deletedIds = new ArrayList<>();
@@ -409,8 +414,7 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
      * @param source the list of nodes to copy from
      * @param rows the indices
      * @param current the row index before which the nodes are inserted
-     * @exception IllegalArgumentException thrown, if current &lt; 0 or &gt;= #nodes in list of merged nodes
-     *
+     * @throws IllegalArgumentException if current &lt; 0 or &gt;= #nodes in list of merged nodes
      */
     protected void copyBeforeCurrent(ListRole source, int [] rows, int current) {
         copy(source, rows, current);
@@ -423,8 +427,7 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
      *
      * @param rows the indices
      * @param current the row index before which the nodes are inserted
-     * @exception IllegalArgumentException thrown, if current &lt; 0 or &gt;= #nodes in list of merged nodes
-     *
+     * @throws IllegalArgumentException if current &lt; 0 or &gt;= #nodes in list of merged nodes
      */
     public void copyMyBeforeCurrent(int [] rows, int current) {
         copyBeforeCurrent(MY_ENTRIES,rows,current);
@@ -436,8 +439,7 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
      *
      * @param rows the indices
      * @param current the row index before which the nodes are inserted
-     * @exception IllegalArgumentException thrown, if current &lt; 0 or &gt;= #nodes in list of merged nodes
-     *
+     * @throws IllegalArgumentException if current &lt; 0 or &gt;= #nodes in list of merged nodes
      */
     public void copyTheirBeforeCurrent(int [] rows, int current) {
         copyBeforeCurrent(THEIR_ENTRIES,rows,current);
@@ -450,8 +452,7 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
      * @param source the list of nodes to copy from
      * @param rows the indices
      * @param current the row index after which the nodes are inserted
-     * @exception IllegalArgumentException thrown, if current &lt; 0 or &gt;= #nodes in list of merged nodes
-     *
+     * @throws IllegalArgumentException if current &lt; 0 or &gt;= #nodes in list of merged nodes
      */
     protected void copyAfterCurrent(ListRole source, int [] rows, int current) {
         copy(source, rows, current + 1);
@@ -465,8 +466,7 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
      *
      * @param rows the indices
      * @param current the row index after which the nodes are inserted
-     * @exception IllegalArgumentException thrown, if current &lt; 0 or &gt;= #nodes in list of merged nodes
-     *
+     * @throws IllegalArgumentException if current &lt; 0 or &gt;= #nodes in list of merged nodes
      */
     public void copyMyAfterCurrent(int [] rows, int current) {
         copyAfterCurrent(MY_ENTRIES, rows, current);
@@ -478,8 +478,7 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
      *
      * @param rows the indices
      * @param current the row index after which the nodes are inserted
-     * @exception IllegalArgumentException thrown, if current &lt; 0 or &gt;= #nodes in list of merged nodes
-     *
+     * @throws IllegalArgumentException if current &lt; 0 or &gt;= #nodes in list of merged nodes
      */
     public void copyTheirAfterCurrent(int [] rows, int current) {
         copyAfterCurrent(THEIR_ENTRIES, rows, current);
@@ -600,8 +599,7 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
         @Override
         public int getRowCount() {
             int count = Math.max(getMyEntries().size(), getMergedEntries().size());
-            count = Math.max(count, getTheirEntries().size());
-            return count;
+            return Math.max(count, getTheirEntries().size());
         }
 
         @Override
@@ -647,7 +645,7 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
          * @param row  the row number
          * @return true if the entry at <code>row</code> is equal to the entry at the
          * same position in the opposite list of the current {@link ComparePairType}
-         * @exception IllegalStateException thrown, if this model is not participating in the
+         * @throws IllegalStateException if this model is not participating in the
          *   current  {@link ComparePairType}
          * @see ComparePairType#getOppositeRole(ListRole)
          * @see #getRole()
@@ -671,8 +669,8 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
          * @param row the current row
          * @return true if the entry at the current position is present in the opposite list
          * of the current {@link ComparePairType}.
-         * @exception IllegalStateException thrown, if this model is not participating in the
-         *   current  {@link ComparePairType}
+         * @throws IllegalStateException if this model is not participating in the
+         *   current {@link ComparePairType}
          * @see ComparePairType#getOppositeRole(ListRole)
          * @see #getRole()
          * @see #getOppositeEntries()
@@ -734,9 +732,9 @@ public abstract class ListMergeModel<T extends PrimitiveId> extends Observable {
      *
      */
     protected class EntriesSelectionModel extends DefaultListSelectionModel {
-        private final List<T> entries;
+        private final transient List<T> entries;
 
-        public EntriesSelectionModel(ArrayList<T> nodes) {
+        public EntriesSelectionModel(List<T> nodes) {
             this.entries = nodes;
         }
 

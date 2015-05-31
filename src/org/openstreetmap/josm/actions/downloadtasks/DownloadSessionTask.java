@@ -21,14 +21,8 @@ import org.openstreetmap.josm.tools.Utils;
 public class DownloadSessionTask extends AbstractDownloadTask {
 
     private static final String PATTERN_SESSION =  "https?://.*/.*\\.jo(s|z)";
-    
+
     private Loader loader;
-    
-    /**
-     * Constructs a new {@code DownloadSessionTask}.
-     */
-    public DownloadSessionTask() {
-    }
 
     @Override
     public String getTitle() {
@@ -70,5 +64,17 @@ public class DownloadSessionTask extends AbstractDownloadTask {
     public String getConfirmationMessage(URL url) {
         // TODO
         return null;
+    }
+
+    /**
+     * Do not allow to load a session file via remotecontrol.
+     *
+     * Session importers can be added by plugins and there is currently
+     * no way to ensure that these are safe for remotecontol.
+     * @return <code>true</code> if session import is allowed
+     */
+    @Override
+    public boolean isSafeForRemotecontrolRequests() {
+        return Main.pref.getBoolean("remotecontrol.import.allow_session", false);
     }
 }

@@ -19,20 +19,23 @@ import java.awt.TexturePaint;
 import java.awt.font.FontRenderContext;
 import java.awt.font.GlyphVector;
 import java.awt.font.LineMetrics;
+import java.awt.font.TextLayout;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
+import java.text.Bidi;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import javax.swing.AbstractButton;
@@ -69,25 +72,21 @@ import org.openstreetmap.josm.gui.mappaint.NodeElemStyle.Symbol;
 import org.openstreetmap.josm.gui.mappaint.RepeatImageElemStyle.LineImageAlignment;
 import org.openstreetmap.josm.gui.mappaint.StyleCache.StyleList;
 import org.openstreetmap.josm.gui.mappaint.TextElement;
+import org.openstreetmap.josm.gui.mappaint.mapcss.MapCSSStyleSource;
+import org.openstreetmap.josm.gui.mappaint.mapcss.Selector;
 import org.openstreetmap.josm.tools.CompositeList;
 import org.openstreetmap.josm.tools.ImageProvider;
+import org.openstreetmap.josm.tools.Pair;
 import org.openstreetmap.josm.tools.Utils;
 
 /**
- * <p>A map renderer which renders a map according to style rules in a set of style sheets.</p>
- *
+ * A map renderer which renders a map according to style rules in a set of style sheets.
+ * @since 486
  */
 public class StyledMapRenderer extends AbstractMapRenderer {
 
-    final public static int noThreads;
-    final public static ExecutorService styleCreatorPool;
-
-    static {
-        noThreads = Main.pref.getInteger(
-                "mappaint.StyledMapRenderer.style_creation.numberOfThreads",
-                Runtime.getRuntime().availableProcessors());
-        styleCreatorPool = noThreads <= 1 ? null : Executors.newFixedThreadPool(noThreads);
-    }
+    private static final Pair<Integer, ExecutorService> THREAD_POOL =
+            Utils.newThreadPool("mappaint.StyledMapRenderer.style_creation.numberOfThreads");
 
     /**
      * Iterates over a list of Way Nodes and returns screen coordinates that
@@ -99,8 +98,8 @@ public class StyledMapRenderer extends AbstractMapRenderer {
      */
     private class OffsetIterator implements Iterator<Point> {
 
-        private List<Node> nodes;
-        private float offset;
+        private final List<Node> nodes;
+        private final double offset;
         private int idx;
 
         private Point prev = null;
@@ -108,9 +107,9 @@ public class StyledMapRenderer extends AbstractMapRenderer {
          * line from 'prev' to 'prev0' is perpendicular to the way segment from
          * 'prev' to the next point.
          */
-        private int x_prev0, y_prev0;
+        private int xPrev0, yPrev0;
 
-        public OffsetIterator(List<Node> nodes, float offset) {
+        public OffsetIterator(List<Node> nodes, double offset) {
             this.nodes = nodes;
             this.offset = offset;
             idx = 0;
@@ -123,14 +122,14 @@ public class StyledMapRenderer extends AbstractMapRenderer {
 
         @Override
         public Point next() {
-            if (Math.abs(offset) < 0.1f) return nc.getPoint(nodes.get(idx++));
+            if (Math.abs(offset) < 0.1d) return nc.getPoint(nodes.get(idx++));
 
             Point current = nc.getPoint(nodes.get(idx));
 
             if (idx == nodes.size() - 1) {
                 ++idx;
                 if (prev != null) {
-                    return new Point(x_prev0 + current.x - prev.x, y_prev0 + current.y - prev.y);
+                    return new Point(xPrev0 + current.x - prev.x, yPrev0 + current.y - prev.y);
                 } else {
                     return current;
                 }
@@ -138,48 +137,47 @@ public class StyledMapRenderer extends AbstractMapRenderer {
 
             Point next = nc.getPoint(nodes.get(idx+1));
 
-            int dx_next = next.x - current.x;
-            int dy_next = next.y - current.y;
-            double len_next = Math.sqrt(dx_next*dx_next + dy_next*dy_next);
+            int dxNext = next.x - current.x;
+            int dyNext = next.y - current.y;
+            double lenNext = Math.sqrt(dxNext*dxNext + dyNext*dyNext);
 
-            if (len_next == 0) {
-                len_next = 1; // value does not matter, because dy_next and dx_next is 0
+            if (lenNext == 0) {
+                lenNext = 1; // value does not matter, because dy_next and dx_next is 0
             }
 
-            int x_current0 = current.x + (int) Math.round(offset * dy_next / len_next);
-            int y_current0 = current.y - (int) Math.round(offset * dx_next / len_next);
+            int xCurrent0 = current.x + (int) Math.round(offset * dyNext / lenNext);
+            int yCurrent0 = current.y - (int) Math.round(offset * dxNext / lenNext);
 
             if (idx==0) {
                 ++idx;
                 prev = current;
-                x_prev0 = x_current0;
-                y_prev0 = y_current0;
-                return new Point(x_current0, y_current0);
+                xPrev0 = xCurrent0;
+                yPrev0 = yCurrent0;
+                return new Point(xCurrent0, yCurrent0);
             } else {
-                int dx_prev = current.x - prev.x;
-                int dy_prev = current.y - prev.y;
+                int dxPrev = current.x - prev.x;
+                int dyPrev = current.y - prev.y;
 
-                // determine intersection of the lines parallel to the two
-                // segments
-                int det = dx_next*dy_prev - dx_prev*dy_next;
+                // determine intersection of the lines parallel to the two segments
+                int det = dxNext*dyPrev - dxPrev*dyNext;
 
                 if (det == 0) {
                     ++idx;
                     prev = current;
-                    x_prev0 = x_current0;
-                    y_prev0 = y_current0;
-                    return new Point(x_current0, y_current0);
+                    xPrev0 = xCurrent0;
+                    yPrev0 = yCurrent0;
+                    return new Point(xCurrent0, yCurrent0);
                 }
 
-                int m = dx_next*(y_current0 - y_prev0) - dy_next*(x_current0 - x_prev0);
+                int m = dxNext*(yCurrent0 - yPrev0) - dyNext*(xCurrent0 - xPrev0);
 
-                int cx_ = x_prev0 + Math.round((float)m * dx_prev / det);
-                int cy_ = y_prev0 + Math.round((float)m * dy_prev / det);
+                int cx = xPrev0 + (int) Math.round((double)m * dxPrev / det);
+                int cy = yPrev0 + (int) Math.round((double)m * dyPrev / det);
                 ++idx;
                 prev = current;
-                x_prev0 = x_current0;
-                y_prev0 = y_current0;
-                return new Point(cx_, cy_);
+                xPrev0 = xCurrent0;
+                yPrev0 = yCurrent0;
+                return new Point(cx, cy);
             }
         }
 
@@ -190,9 +188,9 @@ public class StyledMapRenderer extends AbstractMapRenderer {
     }
 
     private static class StyleRecord implements Comparable<StyleRecord> {
-        final ElemStyle style;
-        final OsmPrimitive osm;
-        final int flags;
+        private final ElemStyle style;
+        private final OsmPrimitive osm;
+        private final int flags;
 
         public StyleRecord(ElemStyle style, OsmPrimitive osm, int flags) {
             this.style = style;
@@ -207,7 +205,7 @@ public class StyledMapRenderer extends AbstractMapRenderer {
             if ((this.flags & FLAG_DISABLED) == 0 && (other.flags & FLAG_DISABLED) != 0)
                 return 1;
 
-            int d0 = Float.compare(this.style.major_z_index, other.style.major_z_index);
+            int d0 = Float.compare(this.style.majorZIndex, other.style.majorZIndex);
             if (d0 != 0)
                 return d0;
 
@@ -218,7 +216,7 @@ public class StyledMapRenderer extends AbstractMapRenderer {
             if (this.flags < other.flags)
                 return -1;
 
-            int dz = Float.compare(this.style.z_index, other.style.z_index);
+            int dz = Float.compare(this.style.zIndex, other.style.zIndex);
             if (dz != 0)
                 return dz;
 
@@ -235,11 +233,11 @@ public class StyledMapRenderer extends AbstractMapRenderer {
             if (id < 0)
                 return -1;
 
-            return Float.compare(this.style.object_z_index, other.style.object_z_index);
+            return Float.compare(this.style.objectZIndex, other.style.objectZIndex);
         }
     }
 
-    private static Boolean IS_GLYPH_VECTOR_DOUBLE_TRANSLATION_BUG = null;
+    private static Map<Font,Boolean> IS_GLYPH_VECTOR_DOUBLE_TRANSLATION_BUG = new HashMap<>();
 
     /**
      * Check, if this System has the GlyphVector double translation bug.
@@ -252,34 +250,51 @@ public class StyledMapRenderer extends AbstractMapRenderer {
      *
      * This bug has only been observed on Mac OS X, see #7841.
      *
-     * @return true, if the GlyphVector double translation bug is present on
-     * this System
+     * After switch to Java 7, this test is a false positive on Mac OS X (see #10446),
+     * i.e. it returns true, but the real rendering code does not require any special
+     * handling.
+     * It hasn't been further investigated why the test reports a wrong result in
+     * this case, but the method has been changed to simply return false by default.
+     * (This can be changed with a setting in the advanced preferences.)
+     *
+     * @return false by default, but depends on the value of the advanced
+     * preference glyph-bug=false|true|auto, where auto is the automatic detection
+     * method which apparently no longer gives a useful result for Java 7.
      */
-    public static boolean isGlyphVectorDoubleTranslationBug() {
-        if (IS_GLYPH_VECTOR_DOUBLE_TRANSLATION_BUG != null)
-            return IS_GLYPH_VECTOR_DOUBLE_TRANSLATION_BUG;
-        FontRenderContext frc = new FontRenderContext(null, false, false);
-        Font font = new Font("Dialog", Font.PLAIN, 12);
-        GlyphVector gv = font.createGlyphVector(frc, "x");
-        gv.setGlyphTransform(0, AffineTransform.getTranslateInstance(1000, 1000));
-        Shape shape = gv.getGlyphOutline(0);
-        // x is about 1000 on normal stystems and about 2000 when the bug occurs
-        int x = shape.getBounds().x;
-        IS_GLYPH_VECTOR_DOUBLE_TRANSLATION_BUG = x > 1500;
-        return IS_GLYPH_VECTOR_DOUBLE_TRANSLATION_BUG;
+    public static boolean isGlyphVectorDoubleTranslationBug(Font font) {
+        Boolean cached  = IS_GLYPH_VECTOR_DOUBLE_TRANSLATION_BUG.get(font);
+        if (cached != null)
+            return cached;
+        String overridePref = Main.pref.get("glyph-bug", "auto");
+        if ("auto".equals(overridePref)) {
+            FontRenderContext frc = new FontRenderContext(null, false, false);
+            GlyphVector gv = font.createGlyphVector(frc, "x");
+            gv.setGlyphTransform(0, AffineTransform.getTranslateInstance(1000, 1000));
+            Shape shape = gv.getGlyphOutline(0);
+            Main.trace("#10446: shape: "+shape.getBounds());
+            // x is about 1000 on normal stystems and about 2000 when the bug occurs
+            int x = shape.getBounds().x;
+            boolean isBug = x > 1500;
+            IS_GLYPH_VECTOR_DOUBLE_TRANSLATION_BUG.put(font, isBug);
+            return isBug;
+        } else {
+            boolean override = Boolean.parseBoolean(overridePref);
+            IS_GLYPH_VECTOR_DOUBLE_TRANSLATION_BUG.put(font, override);
+            return override;
+        }
     }
 
     private double circum;
 
     private MapPaintSettings paintSettings;
 
-    private Color relationSelectedColor;
     private Color highlightColorTransparent;
 
     private static final int FLAG_NORMAL = 0;
     private static final int FLAG_DISABLED = 1;
     private static final int FLAG_MEMBER_OF_SELECTED = 2;
     private static final int FLAG_SELECTED = 4;
+    private static final int FLAG_OUTERMEMBER_OF_SELECTED = 8;
 
     private static final double PHI = Math.toRadians(20);
     private static final double cosPHI = Math.cos(PHI);
@@ -299,11 +314,12 @@ public class StyledMapRenderer extends AbstractMapRenderer {
     private boolean useStrokes;
     private boolean showNames;
     private boolean showIcons;
-    private boolean  isOutlineOnly;
+    private boolean isOutlineOnly;
 
     private Font orderFont;
 
     private boolean leftHandTraffic;
+    private Object antialiasing;
 
     /**
      * Constructs a new {@code StyledMapRenderer}.
@@ -312,8 +328,8 @@ public class StyledMapRenderer extends AbstractMapRenderer {
      * @param nc the map viewport. Must not be null.
      * @param isInactiveMode if true, the paint visitor shall render OSM objects such that they
      * look inactive. Example: rendering of data in an inactive layer using light gray as color only.
-     * @throws IllegalArgumentException thrown if {@code g} is null
-     * @throws IllegalArgumentException thrown if {@code nc} is null
+     * @throws IllegalArgumentException if {@code g} is null
+     * @throws IllegalArgumentException if {@code nc} is null
      */
     public StyledMapRenderer(Graphics2D g, NavigatableComponent nc, boolean isInactiveMode) {
         super(g, nc, isInactiveMode);
@@ -393,11 +409,15 @@ public class StyledMapRenderer extends AbstractMapRenderer {
         } else if (text.haloRadius != null) {
             g.setStroke(new BasicStroke(2*text.haloRadius, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND));
             g.setColor(text.haloColor);
+            Shape textOutline;
             if (gv == null) {
+                if (s.isEmpty()) return;
                 FontRenderContext frc = g.getFontRenderContext();
-                gv = text.font.createGlyphVector(frc, s);
+                TextLayout tl = new TextLayout(s, text.font, frc);
+                textOutline = tl.getOutline(AffineTransform.getTranslateInstance(x, y));
+            } else {
+                textOutline = gv.getOutline(x, y);
             }
-            Shape textOutline = gv.getOutline(x, y);
             g.draw(textOutline);
             g.setStroke(new BasicStroke());
             g.setColor(text.color);
@@ -413,11 +433,12 @@ public class StyledMapRenderer extends AbstractMapRenderer {
         }
     }
 
-    protected void drawArea(OsmPrimitive osm, Path2D.Double path, Color color, MapImage fillImage, TextElement text) {
+    protected void drawArea(OsmPrimitive osm, Path2D.Double path, Color color, MapImage fillImage, boolean disabled, TextElement text) {
 
         Shape area = path.createTransformedShape(nc.getAffineTransform());
 
         if (!isOutlineOnly) {
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
             if (fillImage == null) {
                 if (isInactiveMode) {
                     g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.33f));
@@ -425,18 +446,23 @@ public class StyledMapRenderer extends AbstractMapRenderer {
                 g.setColor(color);
                 g.fill(area);
             } else {
-                TexturePaint texture = new TexturePaint(fillImage.getImage(),
+                TexturePaint texture = new TexturePaint(fillImage.getImage(disabled),
                         new Rectangle(0, 0, fillImage.getWidth(), fillImage.getHeight()));
                 g.setPaint(texture);
-                Float alpha = Utils.color_int2float(fillImage.alpha);
-                if (alpha != 1f) {
+                Float alpha = fillImage.getAlphaFloat();
+                if (!Utils.equalsEpsilon(alpha, 1f)) {
                     g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
                 }
                 g.fill(area);
                 g.setPaintMode();
             }
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, antialiasing);
         }
 
+        drawAreaText(osm, text, area);
+    }
+
+    private void drawAreaText(OsmPrimitive osm, TextElement text, Shape area) {
         if (text != null && isShowNames()) {
             // abort if we can't compose the label to be rendered
             if (text.labelCompositionStrategy == null) return;
@@ -453,24 +479,64 @@ public class StyledMapRenderer extends AbstractMapRenderer {
             // will have to do.                                    ++
             // Centroids are not optimal either, just imagine a U-shaped house.
 
-            Rectangle centeredNBounds = new Rectangle(pb.x + (int)((pb.width - nb.getWidth())/2.0),
-                    pb.y + (int)((pb.height - nb.getHeight())/2.0),
-                    (int)nb.getWidth(),
-                    (int)nb.getHeight());
+            // quick check to see if label box is smaller than primitive box
+            if (pb.width >= nb.getWidth() && pb.height >= nb.getHeight()) {
 
-            if ((pb.width >= nb.getWidth() && pb.height >= nb.getHeight()) && // quick check
-                    area.contains(centeredNBounds) // slow but nice
-            ) {
-                Font defaultFont = g.getFont();
-                int x = (int)(centeredNBounds.getMinX() - nb.getMinX());
-                int y = (int)(centeredNBounds.getMinY() - nb.getMinY());
-                displayText(null, name, x, y, osm.isDisabled(), text);
-                g.setFont(defaultFont);
+                final double w = pb.width  - nb.getWidth();
+                final double h = pb.height - nb.getHeight();
+
+                final int x2 = pb.x + (int)(w/2.0);
+                final int y2 = pb.y + (int)(h/2.0);
+
+                final int nbw = (int) nb.getWidth();
+                final int nbh = (int) nb.getHeight();
+
+                Rectangle centeredNBounds = new Rectangle(x2, y2, nbw, nbh);
+
+                // slower check to see if label is displayed inside primitive shape
+                boolean labelOK = area.contains(centeredNBounds);
+                if (!labelOK) {
+                    // if center position (C) is not inside osm shape, try naively some other positions as follows:
+                    final int x1 = pb.x + (int)(  w/4.0);
+                    final int x3 = pb.x + (int)(3*w/4.0);
+                    final int y1 = pb.y + (int)(  h/4.0);
+                    final int y3 = pb.y + (int)(3*h/4.0);
+                    // +-----------+
+                    // |  5  1  6  |
+                    // |  4  C  2  |
+                    // |  8  3  7  |
+                    // +-----------+
+                    Rectangle[] candidates = new Rectangle[] {
+                            new Rectangle(x2, y1, nbw, nbh),
+                            new Rectangle(x3, y2, nbw, nbh),
+                            new Rectangle(x2, y3, nbw, nbh),
+                            new Rectangle(x1, y2, nbw, nbh),
+                            new Rectangle(x1, y1, nbw, nbh),
+                            new Rectangle(x3, y1, nbw, nbh),
+                            new Rectangle(x3, y3, nbw, nbh),
+                            new Rectangle(x1, y3, nbw, nbh)
+                    };
+                    // Dumb algorithm to find a better placement. We could surely find a smarter one but it should
+                    // solve most of building issues with only few calculations (8 at most)
+                    for (int i = 0; i < candidates.length && !labelOK; i++) {
+                        centeredNBounds = candidates[i];
+                        labelOK = area.contains(centeredNBounds);
+                    }
+                }
+                if (labelOK) {
+                    Font defaultFont = g.getFont();
+                    int x = (int)(centeredNBounds.getMinX() - nb.getMinX());
+                    int y = (int)(centeredNBounds.getMinY() - nb.getMinY());
+                    displayText(null, name, x, y, osm.isDisabled(), text);
+                    g.setFont(defaultFont);
+                } else if (Main.isDebugEnabled()) {
+                    Main.debug("Couldn't find a correct label placement for "+osm+" / "+name);
+                }
             }
         }
     }
 
-    public void drawArea(Relation r, Color color, MapImage fillImage, TextElement text) {
+    public void drawArea(Relation r, Color color, MapImage fillImage, boolean disabled, TextElement text) {
         Multipolygon multipolygon = MultipolygonCache.getInstance().get(nc, r);
         if (!r.isDisabled() && !multipolygon.getOuterWays().isEmpty()) {
             for (PolyData pd : multipolygon.getCombinedPolygons()) {
@@ -480,13 +546,13 @@ public class StyledMapRenderer extends AbstractMapRenderer {
                 }
                 drawArea(r, p,
                         pd.selected ? paintSettings.getRelationSelectedColor(color.getAlpha()) : color,
-                                fillImage, text);
+                                fillImage, disabled, text);
             }
         }
     }
 
-    public void drawArea(Way w, Color color, MapImage fillImage, TextElement text) {
-        drawArea(w, getPath(w), color, fillImage, text);
+    public void drawArea(Way w, Color color, MapImage fillImage, boolean disabled, TextElement text) {
+        drawArea(w, getPath(w), color, fillImage, disabled, text);
     }
 
     public void drawBoxText(Node n, BoxTextElemStyle bs) {
@@ -534,9 +600,9 @@ public class StyledMapRenderer extends AbstractMapRenderer {
             FontRenderContext frc = g.getFontRenderContext();
             LineMetrics metrics = text.font.getLineMetrics(s, frc);
             if (bs.vAlign == VerticalTextAlignment.ABOVE) {
-                y -= - box.y + metrics.getDescent();
+                y -= -box.y + metrics.getDescent();
             } else if (bs.vAlign == VerticalTextAlignment.TOP) {
-                y -= - box.y - metrics.getAscent();
+                y -= -box.y - metrics.getAscent();
             } else if (bs.vAlign == VerticalTextAlignment.CENTER) {
                 y += (metrics.getAscent() - metrics.getDescent()) / 2;
             } else if (bs.vAlign == VerticalTextAlignment.BELOW) {
@@ -555,13 +621,13 @@ public class StyledMapRenderer extends AbstractMapRenderer {
      * @param offset offset from the way
      * @param spacing spacing between two images
      * @param phase initial spacing
-     * @param align alignment of the image. The top, center or bottom edge
-     * can be aligned with the way.
+     * @param align alignment of the image. The top, center or bottom edge can be aligned with the way.
      */
-    public void drawRepeatImage(Way way, Image pattern, float offset, float spacing, float phase, LineImageAlignment align) {
-        final int imgWidth = pattern.getWidth(null);
+    public void drawRepeatImage(Way way, MapImage pattern, boolean disabled, double offset, double spacing, double phase,
+            LineImageAlignment align) {
+        final int imgWidth = pattern.getWidth();
         final double repeat = imgWidth + spacing;
-        final int imgHeight = pattern.getHeight(null);
+        final int imgHeight = pattern.getHeight();
 
         Point lastP = null;
         double currentWayLength = phase % repeat;
@@ -610,12 +676,12 @@ public class StyledMapRenderer extends AbstractMapRenderer {
                 if (pos > spacing) {
                     // segment is too short for a complete image
                     if (pos > segmentLength + spacing) {
-                        g.drawImage(pattern, 0, dy1, (int) segmentLength, dy2,
+                        g.drawImage(pattern.getImage(disabled), 0, dy1, (int) segmentLength, dy2,
                                 (int) (repeat - pos), 0,
                                 (int) (repeat - pos + segmentLength), imgHeight, null);
                     // rest of the image fits fully on the current segment
                     } else {
-                        g.drawImage(pattern, 0, dy1, (int) (pos - spacing), dy2,
+                        g.drawImage(pattern.getImage(disabled), 0, dy1, (int) (pos - spacing), dy2,
                                 (int) (repeat - pos), 0, imgWidth, imgHeight, null);
                     }
                 }
@@ -623,10 +689,10 @@ public class StyledMapRenderer extends AbstractMapRenderer {
                 while (pos < segmentLength) {
                     // cut off at the end?
                     if (pos + imgWidth > segmentLength) {
-                        g.drawImage(pattern, (int) pos, dy1, (int) segmentLength, dy2,
+                        g.drawImage(pattern.getImage(disabled), (int) pos, dy1, (int) segmentLength, dy2,
                                 0, 0, (int) segmentLength - (int) pos, imgHeight, null);
                     } else {
-                        g.drawImage(pattern, (int) pos, dy1, nc);
+                        g.drawImage(pattern.getImage(disabled), (int) pos, dy1, nc);
                     }
                     pos += repeat;
                 }
@@ -666,23 +732,26 @@ public class StyledMapRenderer extends AbstractMapRenderer {
         }
     }
 
-    public void drawNodeIcon(Node n, Image img, float alpha, boolean selected, boolean member) {
+    public void drawNodeIcon(Node n, MapImage img, boolean disabled, boolean selected, boolean member, double theta) {
         Point p = nc.getPoint(n);
 
-        final int w = img.getWidth(null), h=img.getHeight(null);
+        final int w = img.getWidth(), h = img.getHeight();
         if(n.isHighlighted()) {
             drawPointHighlight(p, Math.max(w, h));
         }
 
-        if (alpha != 1f) {
+        float alpha = img.getAlphaFloat();
+
+        if (!Utils.equalsEpsilon(alpha, 1f)) {
             g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
         }
-        g.drawImage(img, p.x-w/2, p.y-h/2, nc);
+        g.rotate(theta, p.x, p.y);
+        g.drawImage(img.getImage(disabled), p.x - w/2 + img.offsetX, p.y - h/2 + img.offsetY, nc);
+        g.rotate(-theta, p.x, p.y);
         g.setPaintMode();
-        if (selected || member)
-        {
+        if (selected || member) {
             Color color;
-            if (isInactiveMode || n.isDisabled()) {
+            if (disabled) {
                 color = inactiveColor;
             } else if (selected) {
                 color = selectedColor;
@@ -690,7 +759,7 @@ public class StyledMapRenderer extends AbstractMapRenderer {
                 color = relationSelectedColor;
             }
             g.setColor(color);
-            g.drawRect(p.x-w/2-2, p.y-h/2-2, w+4, h+4);
+            g.drawRect(p.x - w/2 + img.offsetX - 2, p.y - h/2 + img.offsetY - 2, w + 4, h + 4);
         }
     }
 
@@ -794,7 +863,7 @@ public class StyledMapRenderer extends AbstractMapRenderer {
         if(path == null)
             return;
         g.setColor(highlightColorTransparent);
-        float w = (line.getLineWidth() + highlightLineWidth);
+        float w = line.getLineWidth() + highlightLineWidth;
         if (useWiderHighlight) w+=widerHighlight;
         while(w >= line.getLineWidth()) {
             g.setStroke(new BasicStroke(w, line.getEndCap(), line.getLineJoin(), line.getMiterLimit()));
@@ -811,7 +880,7 @@ public class StyledMapRenderer extends AbstractMapRenderer {
         int s = size + highlightPointRadius;
         if (useWiderHighlight) s+=widerHighlight;
         while(s >= size) {
-            int r = (int) Math.floor(s/2);
+            int r = (int) Math.floor(s/2d);
             g.fillRoundRect(p.x-r, p.y-r, s, s, r, r);
             s -= highlightStep;
         }
@@ -829,7 +898,7 @@ public class StyledMapRenderer extends AbstractMapRenderer {
         }
     }
 
-    public void drawRestriction(Relation r, MapImage icon) {
+    public void drawRestriction(Relation r, MapImage icon, boolean disabled) {
         Way fromWay = null;
         Way toWay = null;
         OsmPrimitive via = null;
@@ -874,31 +943,27 @@ public class StyledMapRenderer extends AbstractMapRenderer {
             return;
 
         Node viaNode;
-        if(via instanceof Node)
-        {
+        if(via instanceof Node) {
             viaNode = (Node) via;
             if(!fromWay.isFirstLastNode(viaNode))
                 return;
-        }
-        else
-        {
+        } else {
             Way viaWay = (Way) via;
             Node firstNode = viaWay.firstNode();
             Node lastNode = viaWay.lastNode();
-            Boolean onewayvia = false;
+            Boolean onewayvia = Boolean.FALSE;
 
             String onewayviastr = viaWay.get("oneway");
-            if(onewayviastr != null)
-            {
+            if(onewayviastr != null) {
                 if("-1".equals(onewayviastr)) {
-                    onewayvia = true;
+                    onewayvia = Boolean.TRUE;
                     Node tmp = firstNode;
                     firstNode = lastNode;
                     lastNode = tmp;
                 } else {
                     onewayvia = OsmUtils.getOsmBoolean(onewayviastr);
                     if (onewayvia == null) {
-                        onewayvia = false;
+                        onewayvia = Boolean.FALSE;
                     }
                 }
             }
@@ -927,11 +992,11 @@ public class StyledMapRenderer extends AbstractMapRenderer {
            away from the "via" node along the first segment of the "from" way)
          */
         double distanceFromVia=14;
-        double dx = (pFrom.x >= pVia.x) ? (pFrom.x - pVia.x) : (pVia.x - pFrom.x);
-        double dy = (pFrom.y >= pVia.y) ? (pFrom.y - pVia.y) : (pVia.y - pFrom.y);
+        double dx = pFrom.x >= pVia.x ? pFrom.x - pVia.x : pVia.x - pFrom.x;
+        double dy = pFrom.y >= pVia.y ? pFrom.y - pVia.y : pVia.y - pFrom.y;
 
         double fromAngle;
-        if(dx == 0.0) {
+        if (dx == 0) {
             fromAngle = Math.PI/2;
         } else {
             fromAngle = Math.atan(dy / dx);
@@ -998,7 +1063,7 @@ public class StyledMapRenderer extends AbstractMapRenderer {
             iconAngle = 270-fromAngleDeg;
         }
 
-        drawRestriction(isInactiveMode || r.isDisabled() ? icon.getDisabled() : icon.getImage(),
+        drawRestriction(icon.getImage(disabled),
                 pVia, vx, vx2, vy, vy2, iconAngle, r.isSelected());
     }
 
@@ -1009,11 +1074,23 @@ public class StyledMapRenderer extends AbstractMapRenderer {
         if (name == null || name.isEmpty())
             return;
 
+        FontMetrics fontMetrics = g.getFontMetrics(text.font);
+        Rectangle2D rec = fontMetrics.getStringBounds(name, g);
+
+        Rectangle bounds = g.getClipBounds();
+
         Polygon poly = new Polygon();
         Point lastPoint = null;
         Iterator<Node> it = way.getNodes().iterator();
         double pathLength = 0;
         long dx, dy;
+
+        // find half segments that are long enough to draw text on
+        // (don't draw text over the cross hair in the center of each segment)
+        List<Double> longHalfSegmentStart = new ArrayList<>(); // start point of half segment (as length along the way)
+        List<Double> longHalfSegmentEnd = new ArrayList<>(); // end point of half segment (as length along the way)
+        List<Double> longHalfsegmentQuality = new ArrayList<>(); // quality factor (off screen / partly on screen / fully on screen)
+
         while (it.hasNext()) {
             Node n = it.next();
             Point p = nc.getPoint(n);
@@ -1022,19 +1099,88 @@ public class StyledMapRenderer extends AbstractMapRenderer {
             if(lastPoint != null) {
                 dx = p.x - lastPoint.x;
                 dy = p.y - lastPoint.y;
-                pathLength += Math.sqrt(dx*dx + dy*dy);
+                double segmentLength = Math.sqrt(dx*dx + dy*dy);
+                if (segmentLength > 2*(rec.getWidth()+4)) {
+                    Point center = new Point((lastPoint.x + p.x)/2, (lastPoint.y + p.y)/2);
+                    double q = 0;
+                    if (bounds != null) {
+                        if (bounds.contains(lastPoint) && bounds.contains(center)) {
+                            q = 2;
+                        } else if (bounds.contains(lastPoint) || bounds.contains(center)) {
+                            q = 1;
+                        }
+                    }
+                    longHalfSegmentStart.add(pathLength);
+                    longHalfSegmentEnd.add(pathLength + segmentLength / 2);
+                    longHalfsegmentQuality.add(q);
+
+                    q = 0;
+                    if (bounds != null) {
+                        if (bounds.contains(center) && bounds.contains(p)) {
+                            q = 2;
+                        } else if (bounds.contains(center) || bounds.contains(p)) {
+                            q = 1;
+                        }
+                    }
+                    longHalfSegmentStart.add(pathLength + segmentLength / 2);
+                    longHalfSegmentEnd.add(pathLength + segmentLength);
+                    longHalfsegmentQuality.add(q);
+                }
+                pathLength += segmentLength;
             }
             lastPoint = p;
         }
 
-        FontMetrics fontMetrics = g.getFontMetrics(text.font); // if slow, use cache
-        Rectangle2D rec = fontMetrics.getStringBounds(name, g); // if slow, approximate by strlen()*maxcharbounds(font)
-
         if (rec.getWidth() > pathLength)
             return;
 
-        double t1 = (pathLength/2 - rec.getWidth()/2) / pathLength;
-        double t2 = (pathLength/2 + rec.getWidth()/2) / pathLength;
+        double t1, t2;
+
+        if (!longHalfSegmentStart.isEmpty()) {
+            if (way.getNodesCount() == 2) {
+                // For 2 node ways, the two half segments are exactly
+                // the same size and distance from the center.
+                // Prefer the first one for consistency.
+                longHalfsegmentQuality.set(0, longHalfsegmentQuality.get(0) + 0.5);
+            }
+
+            // find the long half segment that is closest to the center of the way
+            // candidates with higher quality value are preferred
+            double bestStart = Double.NaN;
+            double bestEnd = Double.NaN;
+            double bestDistanceToCenter = Double.MAX_VALUE;
+            double bestQuality = -1;
+            for (int i=0; i<longHalfSegmentStart.size(); i++) {
+                double start = longHalfSegmentStart.get(i);
+                double end = longHalfSegmentEnd.get(i);
+                double dist = Math.abs(0.5 * (end + start) - 0.5 * pathLength);
+                if (longHalfsegmentQuality.get(i) > bestQuality
+                        || (dist < bestDistanceToCenter && Utils.equalsEpsilon(longHalfsegmentQuality.get(i), bestQuality))) {
+                    bestStart = start;
+                    bestEnd = end;
+                    bestDistanceToCenter = dist;
+                    bestQuality = longHalfsegmentQuality.get(i);
+                }
+            }
+            double remaining = bestEnd - bestStart - rec.getWidth(); // total space left and right from the text
+            // The space left and right of the text should be distributed 20% - 80% (towards the center),
+            // but the smaller space should not be less than 7 px.
+            // However, if the total remaining space is less than 14 px, then distribute it evenly.
+            double smallerSpace = Math.min(Math.max(0.2 * remaining, 7), 0.5 * remaining);
+            if ((bestEnd + bestStart)/2 < pathLength/2) {
+                t2 = bestEnd - smallerSpace;
+                t1 = t2 - rec.getWidth();
+            } else {
+                t1 = bestStart + smallerSpace;
+                t2 = t1 + rec.getWidth();
+            }
+        } else {
+            // doesn't fit into one half-segment -> just put it in the center of the way
+            t1 = pathLength/2 - rec.getWidth()/2;
+            t2 = pathLength/2 + rec.getWidth()/2;
+        }
+        t1 /= pathLength;
+        t2 /= pathLength;
 
         double[] p1 = pointAt(t1, poly, pathLength);
         double[] p2 = pointAt(t2, poly, pathLength);
@@ -1059,7 +1205,17 @@ public class StyledMapRenderer extends AbstractMapRenderer {
         }
 
         FontRenderContext frc = g.getFontRenderContext();
-        GlyphVector gv = text.font.createGlyphVector(frc, name);
+        char[] chars = name.toCharArray();
+        int dirFlag = Bidi.DIRECTION_LEFT_TO_RIGHT;
+        if (Bidi.requiresBidi(chars, 0, chars.length)) {
+            Bidi bd = new Bidi(name, Bidi.DIRECTION_DEFAULT_LEFT_TO_RIGHT);
+            if (bd.isRightToLeft()) {
+                dirFlag = Bidi.DIRECTION_RIGHT_TO_LEFT;
+            }
+        }
+        // only works for text that is completely left-to-right or completely
+        // right-to-left, not bi-directional text
+        GlyphVector gv = text.font.layoutGlyphVector(frc, chars, 0, chars.length, dirFlag);
 
         for (int i=0; i<gv.getNumGlyphs(); ++i) {
             Rectangle2D rect = gv.getGlyphLogicalBounds(i).getBounds2D();
@@ -1070,7 +1226,7 @@ public class StyledMapRenderer extends AbstractMapRenderer {
                 trfm.rotate(p[2]+angleOffset);
                 double off = -rect.getY() - rect.getHeight()/2 + text.yOffset;
                 trfm.translate(-rect.getWidth()/2, off);
-                if (isGlyphVectorDoubleTranslationBug()) {
+                if (isGlyphVectorDoubleTranslationBug(text.font)) {
                     // scale the translation components by one half
                     AffineTransform tmp = AffineTransform.getTranslateInstance(-0.5 * trfm.getTranslateX(), -0.5 * trfm.getTranslateY());
                     tmp.concatenate(trfm);
@@ -1111,7 +1267,7 @@ public class StyledMapRenderer extends AbstractMapRenderer {
         if (wayNodes.size() < 2) return;
 
         // only highlight the segment if the way itself is not highlighted
-        if (!way.isHighlighted()) {
+        if (!way.isHighlighted() && highlightWaySegments != null) {
             GeneralPath highlightSegs = null;
             for (WaySegment ws : highlightWaySegments) {
                 if (ws.way != way || ws.lowerIndex < offset) {
@@ -1157,20 +1313,20 @@ public class StyledMapRenderer extends AbstractMapRenderer {
                     /* draw arrow */
                     if (showHeadArrowOnly ? !it.hasNext() : showOrientation) {
                         final double segmentLength = p1.distance(p2);
-                        if (segmentLength != 0.0) {
+                        if (segmentLength != 0) {
                             final double l =  (10. + line.getLineWidth()) / segmentLength;
 
                             final double sx = l * (p1.x - p2.x);
                             final double sy = l * (p1.y - p2.y);
 
-                            orientationArrows.moveTo (p2.x + cosPHI * sx - sinPHI * sy, p2.y + sinPHI * sx + cosPHI * sy);
+                            orientationArrows.moveTo(p2.x + cosPHI * sx - sinPHI * sy, p2.y + sinPHI * sx + cosPHI * sy);
                             orientationArrows.lineTo(p2.x, p2.y);
-                            orientationArrows.lineTo (p2.x + cosPHI * sx + sinPHI * sy, p2.y - sinPHI * sx + cosPHI * sy);
+                            orientationArrows.lineTo(p2.x + cosPHI * sx + sinPHI * sy, p2.y - sinPHI * sx + cosPHI * sy);
                         }
                     }
                     if (showOneway) {
                         final double segmentLength = p1.distance(p2);
-                        if (segmentLength != 0.0) {
+                        if (segmentLength != 0) {
                             final double nx = (p2.x - p1.x) / segmentLength;
                             final double ny = (p2.y - p1.y) / segmentLength;
 
@@ -1194,8 +1350,8 @@ public class StyledMapRenderer extends AbstractMapRenderer {
                                     final double y = p1.y + ny * (dist + (onewayReversed ? -1 : 1) * (onewaySize / sinPHI));
 
                                     onewayPath.moveTo(x, y);
-                                    onewayPath.lineTo (x + cosPHI * sx - sinPHI * sy, y + sinPHI * sx + cosPHI * sy);
-                                    onewayPath.lineTo (x + cosPHI * sx + sinPHI * sy, y - sinPHI * sx + cosPHI * sy);
+                                    onewayPath.lineTo(x + cosPHI * sx - sinPHI * sy, y + sinPHI * sx + cosPHI * sy);
+                                    onewayPath.lineTo(x + cosPHI * sx + sinPHI * sy, y - sinPHI * sx + cosPHI * sy);
                                     onewayPath.lineTo(x, y);
                                 }
                                 dist += interval;
@@ -1220,13 +1376,12 @@ public class StyledMapRenderer extends AbstractMapRenderer {
     @Override
     public void getColors() {
         super.getColors();
-        this.relationSelectedColor = PaintColors.RELATIONSELECTED.get();
         this.highlightColorTransparent = new Color(highlightColor.getRed(), highlightColor.getGreen(), highlightColor.getBlue(), 100);
         this.backgroundColor = PaintColors.getBackgroundColor();
     }
 
     @Override
-    protected void getSettings(boolean virtual) {
+    public void getSettings(boolean virtual) {
         super.getSettings(virtual);
         paintSettings = MapPaintSettings.INSTANCE;
 
@@ -1238,11 +1393,11 @@ public class StyledMapRenderer extends AbstractMapRenderer {
         showNames = paintSettings.getShowNamesDistance() > circum;
         showIcons = paintSettings.getShowIconsDistance() > circum;
         isOutlineOnly = paintSettings.isOutlineOnly();
-        orderFont = new Font(Main.pref.get("mappaint.font", "Helvetica"), Font.PLAIN, Main.pref.getInteger("mappaint.fontsize", 8));
+        orderFont = new Font(Main.pref.get("mappaint.font", "Droid Sans"), Font.PLAIN, Main.pref.getInteger("mappaint.fontsize", 8));
 
-        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                Main.pref.getBoolean("mappaint.use-antialiasing", true) ?
-                        RenderingHints.VALUE_ANTIALIAS_ON : RenderingHints.VALUE_ANTIALIAS_OFF);
+        antialiasing = Main.pref.getBoolean("mappaint.use-antialiasing", true) ?
+                        RenderingHints.VALUE_ANTIALIAS_ON : RenderingHints.VALUE_ANTIALIAS_OFF;
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, antialiasing);
 
         highlightLineWidth = Main.pref.getInteger("mappaint.highlight.width", 4);
         highlightPointRadius = Main.pref.getInteger("mappaint.highlight.radius", 7);
@@ -1320,7 +1475,6 @@ public class StyledMapRenderer extends AbstractMapRenderer {
         private final int from;
         private final int to;
         private final List<StyleRecord> output;
-        private final DataSet data;
 
         private final ElemStyles styles = MapPaintStyles.getStyles();
 
@@ -1334,33 +1488,36 @@ public class StyledMapRenderer extends AbstractMapRenderer {
          * @param from first index of <code>input</code> to use
          * @param to last index + 1
          * @param output the list of styles to which styles will be added
-         * @param data the data set
          */
-        public ComputeStyleListWorker(final List<? extends OsmPrimitive> input, int from, int to, List<StyleRecord> output, DataSet data) {
+        public ComputeStyleListWorker(final List<? extends OsmPrimitive> input, int from, int to, List<StyleRecord> output) {
             this.input = input;
             this.from = from;
             this.to = to;
             this.output = output;
-            this.data = data;
             this.styles.setDrawMultipolygon(drawMultipolygon);
         }
 
         @Override
         public List<StyleRecord> call() throws Exception {
-            for (int i = from; i<to; i++) {
-                OsmPrimitive osm = input.get(i);
-                if (osm.isDrawable()) {
-                    osm.accept(this);
+            MapCSSStyleSource.STYLE_SOURCE_LOCK.readLock().lock();
+            try {
+                for (int i = from; i<to; i++) {
+                    OsmPrimitive osm = input.get(i);
+                    if (osm.isDrawable()) {
+                        osm.accept(this);
+                    }
                 }
+                return output;
+            } finally {
+                MapCSSStyleSource.STYLE_SOURCE_LOCK.readLock().unlock();
             }
-            return output;
         }
 
         @Override
         public void visit(Node n) {
             if (n.isDisabled()) {
                 add(n, FLAG_DISABLED);
-            } else if (data.isSelected(n)) {
+            } else if (n.isSelected()) {
                 add(n, FLAG_SELECTED);
             } else if (n.isMemberOfSelected()) {
                 add(n, FLAG_MEMBER_OF_SELECTED);
@@ -1373,8 +1530,10 @@ public class StyledMapRenderer extends AbstractMapRenderer {
         public void visit(Way w) {
             if (w.isDisabled()) {
                 add(w, FLAG_DISABLED);
-            } else if (data.isSelected(w)) {
+            } else if (w.isSelected()) {
                 add(w, FLAG_SELECTED);
+            } else if (w.isOuterMemberOfSelected()) {
+                add(w, FLAG_OUTERMEMBER_OF_SELECTED);
             } else if (w.isMemberOfSelected()) {
                 add(w, FLAG_MEMBER_OF_SELECTED);
             } else {
@@ -1386,8 +1545,12 @@ public class StyledMapRenderer extends AbstractMapRenderer {
         public void visit(Relation r) {
             if (r.isDisabled()) {
                 add(r, FLAG_DISABLED);
-            } else if (data.isSelected(r)) {
+            } else if (r.isSelected()) {
                 add(r, FLAG_SELECTED);
+            } else if (r.isOuterMemberOfSelected()) {
+                add(r, FLAG_OUTERMEMBER_OF_SELECTED);
+            } else if (r.isMemberOfSelected()) {
+                add(r, FLAG_MEMBER_OF_SELECTED);
             } else {
                 add(r, FLAG_NORMAL);
             }
@@ -1430,23 +1593,21 @@ public class StyledMapRenderer extends AbstractMapRenderer {
     private class ConcurrentTasksHelper {
 
         private final List<StyleRecord> allStyleElems;
-        private final DataSet data;
 
-        public ConcurrentTasksHelper(List<StyleRecord> allStyleElems, DataSet data) {
+        public ConcurrentTasksHelper(List<StyleRecord> allStyleElems) {
             this.allStyleElems = allStyleElems;
-            this.data = data;
         }
 
         void process(List<? extends OsmPrimitive> prims) {
             final List<ComputeStyleListWorker> tasks = new ArrayList<>();
-            final int bucketsize = Math.max(100, prims.size()/noThreads/3);
+            final int bucketsize = Math.max(100, prims.size()/THREAD_POOL.a/3);
             final int noBuckets = (prims.size() + bucketsize - 1) / bucketsize;
-            final boolean singleThread = noThreads == 1 || noBuckets == 1;
+            final boolean singleThread = THREAD_POOL.a == 1 || noBuckets == 1;
             for (int i=0; i<noBuckets; i++) {
                 int from = i*bucketsize;
                 int to = Math.min((i+1)*bucketsize, prims.size());
                 List<StyleRecord> target = singleThread ? allStyleElems : new ArrayList<StyleRecord>(to - from);
-                tasks.add(new ComputeStyleListWorker(prims, from, to, target, data));
+                tasks.add(new ComputeStyleListWorker(prims, from, to, target));
             }
             if (singleThread) {
                 try {
@@ -1456,10 +1617,10 @@ public class StyledMapRenderer extends AbstractMapRenderer {
                 } catch (Exception ex) {
                     throw new RuntimeException(ex);
                 }
-            } else if (tasks.size() > 1) {
+            } else if (!tasks.isEmpty()) {
                 try {
-                    for (Future<List<StyleRecord>> future : styleCreatorPool.invokeAll(tasks)) {
-                            allStyleElems.addAll(future.get());
+                    for (Future<List<StyleRecord>> future : THREAD_POOL.b.invokeAll(tasks)) {
+                        allStyleElems.addAll(future.get());
                     }
                 } catch (InterruptedException | ExecutionException ex) {
                     throw new RuntimeException(ex);
@@ -1481,16 +1642,15 @@ public class StyledMapRenderer extends AbstractMapRenderer {
             if (Main.isTraceEnabled()) {
                 timeStart = System.currentTimeMillis();
                 System.err.print("BENCHMARK: rendering ");
-                Main.debug(null);
             }
 
             List<Node> nodes = data.searchNodes(bbox);
             List<Way> ways = data.searchWays(bbox);
             List<Relation> relations = data.searchRelations(bbox);
-    
+
             final List<StyleRecord> allStyleElems = new ArrayList<>(nodes.size()+ways.size()+relations.size());
-    
-            ConcurrentTasksHelper helper = new ConcurrentTasksHelper(allStyleElems, data);
+
+            ConcurrentTasksHelper helper = new ConcurrentTasksHelper(allStyleElems);
 
             // Need to process all relations first.
             // Reason: Make sure, ElemStyles.getStyleCacheWithRange is
@@ -1502,10 +1662,10 @@ public class StyledMapRenderer extends AbstractMapRenderer {
 
             if (Main.isTraceEnabled()) {
                 timePhase1 = System.currentTimeMillis();
-                System.err.print("phase 1 (calculate styles): " + (timePhase1 - timeStart) + " ms");
+                System.err.print("phase 1 (calculate styles): " + Utils.getDurationString(timePhase1 - timeStart));
             }
 
-            Collections.sort(allStyleElems);
+            Collections.sort(allStyleElems); // TODO: try parallel sort when switching to Java 8
 
             for (StyleRecord r : allStyleElems) {
                 r.style.paintPrimitive(
@@ -1513,15 +1673,18 @@ public class StyledMapRenderer extends AbstractMapRenderer {
                         paintSettings,
                         StyledMapRenderer.this,
                         (r.flags & FLAG_SELECTED) != 0,
+                        (r.flags & FLAG_OUTERMEMBER_OF_SELECTED) != 0,
                         (r.flags & FLAG_MEMBER_OF_SELECTED) != 0
                 );
             }
-    
+
             if (Main.isTraceEnabled()) {
                 timeFinished = System.currentTimeMillis();
-                System.err.println("; phase 2 (draw): " + (timeFinished - timePhase1) + " ms; total: " + (timeFinished - timeStart) + " ms");
+                System.err.println("; phase 2 (draw): " + Utils.getDurationString(timeFinished - timePhase1) +
+                    "; total: " + Utils.getDurationString(timeFinished - timeStart) +
+                    " (scale: " + circum + " zoom level: " + Selector.GeneralSelector.scale2level(circum) + ")");
             }
-    
+
             drawVirtualNodes(data, bbox);
         } finally {
             data.getReadLock().unlock();

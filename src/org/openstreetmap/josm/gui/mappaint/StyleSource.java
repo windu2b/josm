@@ -10,7 +10,9 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.swing.ImageIcon;
 
@@ -18,6 +20,7 @@ import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.gui.mappaint.MapPaintStyles.IconReference;
 import org.openstreetmap.josm.gui.preferences.SourceEntry;
 import org.openstreetmap.josm.io.CachedFile;
+import org.openstreetmap.josm.tools.ImageOverlay;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.Utils;
 
@@ -32,19 +35,41 @@ public abstract class StyleSource extends SourceEntry {
     private List<Throwable> errors = new ArrayList<>();
     public File zipIcons;
 
-    private ImageIcon imageIcon;
+    /** image provider returning the icon for this style */
+    private ImageProvider imageIconProvider;
+
+    /** image provider returning the default icon */
+    private static ImageProvider defaultIconProvider;
 
     /******
      * The following fields is additional information found in the header
      * of the source file.
      */
-
     public String icon;
 
+    /**
+     * List of settings for user customization.
+     */
+    public final List<StyleSetting> settings = new ArrayList<>();
+    /**
+     * Values of the settings for efficient lookup.
+     */
+    public Map<String, Object> settingValues = new HashMap<>();
+
+    /**
+     * Constructs a new, active {@link StyleSource}.
+     * @param url URL that {@link org.openstreetmap.josm.io.CachedFile} understands
+     * @param name The name for this StyleSource
+     * @param title The title that can be used as menu entry
+     */
     public StyleSource(String url, String name, String title) {
         super(url, name, title, true);
     }
 
+    /**
+     * Constructs a new {@link StyleSource}
+     * @param entry The entry to copy the data (url, name, ...) from.
+     */
     public StyleSource(SourceEntry entry) {
         super(entry);
     }
@@ -58,14 +83,11 @@ public abstract class StyleSource extends SourceEntry {
      * @param mc the current MultiCascade, empty for the first StyleSource
      * @param osm the primitive
      * @param scale the map scale
-     * @param multipolyOuterWay support for a very old multipolygon tagging style
-     * where you add the tags both to the outer and the inner way.
-     * However, independent inner way style is also possible.
      * @param pretendWayIsClosed For styles that require the way to be closed,
      * we pretend it is. This is useful for generating area styles from the (segmented)
      * outer ways of a multipolygon.
      */
-    public abstract void apply(MultiCascade mc, OsmPrimitive osm, double scale, OsmPrimitive multipolyOuterWay, boolean pretendWayIsClosed);
+    public abstract void apply(MultiCascade mc, OsmPrimitive osm, double scale, boolean pretendWayIsClosed);
 
     /**
      * Loads the style source.
@@ -91,8 +113,8 @@ public abstract class StyleSource extends SourceEntry {
     /**
      * Closes the source input stream previously returned by {@link #getSourceInputStream()} and other linked resources, if applicable.
      * @param is The source input stream that must be closed
-     * @since 6289
      * @see #getSourceInputStream()
+     * @since 6289
      */
     public void closeSourceInputStream(InputStream is) {
         Utils.close(is);
@@ -106,42 +128,76 @@ public abstract class StyleSource extends SourceEntry {
         return Collections.unmodifiableCollection(errors);
     }
 
+    /**
+     * Initialize the class.
+     */
     protected void init() {
         errors.clear();
-        imageIcon = null;
+        imageIconProvider = null;
         icon = null;
     }
 
-    private static ImageIcon defaultIcon;
-
-    private static ImageIcon getDefaultIcon() {
-        if (defaultIcon == null) {
-            defaultIcon = ImageProvider.get("dialogs/mappaint", "pencil");
+    /**
+     * Image provider for default icon.
+     *
+     * @return image provider for default styles icon
+     * @see #getIconProvider()
+     * @since 8097
+     */
+    private static synchronized ImageProvider getDefaultIconProvider() {
+        if (defaultIconProvider == null) {
+            defaultIconProvider = new ImageProvider("dialogs/mappaint", "pencil");
         }
-        return defaultIcon;
+        return defaultIconProvider;
     }
 
-    protected ImageIcon getSourceIcon() {
-        if (imageIcon == null) {
+    /**
+     * Image provider for source icon. Uses default icon, when not else available.
+     *
+     * @return image provider for styles icon
+     * @see #getIconProvider()
+     * @since 8097
+     */
+    protected ImageProvider getSourceIconProvider() {
+        if (imageIconProvider == null) {
             if (icon != null) {
-                imageIcon = MapPaintStyles.getIcon(new IconReference(icon, this), -1, -1);
+                imageIconProvider = MapPaintStyles.getIconProvider(new IconReference(icon, this), true);
             }
-            if (imageIcon == null) {
-                imageIcon = getDefaultIcon();
+            if (imageIconProvider == null) {
+                imageIconProvider = getDefaultIconProvider();
             }
         }
-        return imageIcon;
+        return imageIconProvider;
     }
 
+    /**
+     * Image provider for source icon.
+     *
+     * @return image provider for styles icon
+     * @since 8097
+     */
+    public final ImageProvider getIconProvider() {
+        ImageProvider i = getSourceIconProvider();
+        if (!getErrors().isEmpty()) {
+            i = new ImageProvider(i).addOverlay(new ImageOverlay(new ImageProvider("dialogs/mappaint/error_small")));
+        }
+        return i;
+    }
+
+    /**
+     * Image for source icon.
+     *
+     * @return styles icon for display
+     */
     public final ImageIcon getIcon() {
-        if (getErrors().isEmpty())
-            return getSourceIcon();
-        else
-            return ImageProvider.overlay(getSourceIcon(),
-                    ImageProvider.get("dialogs/mappaint/error_small"),
-                    ImageProvider.OverlayPosition.SOUTHEAST);
+        return getIconProvider().setMaxSize(ImageProvider.ImageSizes.MENU).get();
     }
 
+    /**
+     * Return text to display as ToolTip.
+     *
+     * @return tooltip text containing error status
+     */
     public String getToolTipText() {
         if (errors.isEmpty())
             return null;

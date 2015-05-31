@@ -41,7 +41,7 @@ class LayerNameAndFilePathTableCell extends JPanel implements TableCellRenderer,
 
     private static final GBC defaultCellStyle = GBC.eol().fill(GBC.HORIZONTAL).insets(2, 0, 2, 0);
 
-    private final CellEditorSupport cellEditorSupport = new CellEditorSupport(this);
+    private final transient CellEditorSupport cellEditorSupport = new CellEditorSupport(this);
     private File value;
 
     /** constructor that sets the default on each element **/
@@ -53,6 +53,7 @@ class LayerNameAndFilePathTableCell extends JPanel implements TableCellRenderer,
 
         lblFilename.setPreferredSize(new Dimension(lblFilename.getPreferredSize().width, 19));
         lblFilename.setOpaque(true);
+        lblFilename.setLabelFor(btnFileChooser);
 
         tfFilename.setToolTipText(tr("Either edit the path manually in the text field or click the \"...\" button to open a file chooser."));
         tfFilename.setPreferredSize(new Dimension(tfFilename.getPreferredSize().width, 19));
@@ -78,13 +79,12 @@ class LayerNameAndFilePathTableCell extends JPanel implements TableCellRenderer,
         removeAll();
         SaveLayerInfo info = (SaveLayerInfo)value;
         StringBuilder sb = new StringBuilder();
-        sb.append("<html>");
-        sb.append(addLblLayerName(info));
-        sb.append("<br>");
+        sb.append("<html>")
+          .append(addLblLayerName(info))
+          .append("<br>");
         add(btnFileChooser, GBC.std());
-        sb.append(addLblFilename(info));
-
-        sb.append("</html>");
+        sb.append(addLblFilename(info))
+          .append("</html>");
         setToolTipText(sb.toString());
         return this;
     }
@@ -97,16 +97,16 @@ class LayerNameAndFilePathTableCell extends JPanel implements TableCellRenderer,
         tfFilename.setText(value == null ? "" : value.toString());
 
         StringBuilder sb = new StringBuilder();
-        sb.append("<html>");
-        sb.append(addLblLayerName(info));
-        sb.append("<br/>");
+        sb.append("<html>")
+          .append(addLblLayerName(info))
+          .append("<br/>");
 
         add(btnFileChooser, GBC.std());
         add(tfFilename, GBC.eol().fill(GBC.HORIZONTAL).insets(1, 0, 0, 0));
         tfFilename.selectAll();
 
-        sb.append(tfFilename.getToolTipText());
-        sb.append("</html>");
+        sb.append(tfFilename.getToolTipText())
+          .append("</html>");
         setToolTipText(sb.toString());
         return this;
     }

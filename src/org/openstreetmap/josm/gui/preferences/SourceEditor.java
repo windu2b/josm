@@ -9,7 +9,6 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.Image;
 import java.awt.Insets;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
@@ -49,7 +48,6 @@ import javax.swing.Box;
 import javax.swing.DefaultListModel;
 import javax.swing.DefaultListSelectionModel;
 import javax.swing.Icon;
-import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
@@ -86,13 +84,18 @@ import org.openstreetmap.josm.gui.ExtendedDialog;
 import org.openstreetmap.josm.gui.HelpAwareOptionPane;
 import org.openstreetmap.josm.gui.PleaseWaitRunnable;
 import org.openstreetmap.josm.gui.util.FileFilterAllFiles;
+import org.openstreetmap.josm.gui.util.GuiHelper;
 import org.openstreetmap.josm.gui.util.TableHelper;
-import org.openstreetmap.josm.gui.widgets.JFileChooserManager;
+import org.openstreetmap.josm.gui.widgets.AbstractFileChooser;
+import org.openstreetmap.josm.gui.widgets.FileChooserManager;
 import org.openstreetmap.josm.gui.widgets.JosmTextField;
 import org.openstreetmap.josm.io.CachedFile;
+import org.openstreetmap.josm.io.OnlineResource;
 import org.openstreetmap.josm.io.OsmTransferException;
 import org.openstreetmap.josm.tools.GBC;
+import org.openstreetmap.josm.tools.ImageOverlay;
 import org.openstreetmap.josm.tools.ImageProvider;
+import org.openstreetmap.josm.tools.ImageProvider.ImageSizes;
 import org.openstreetmap.josm.tools.LanguageInfo;
 import org.openstreetmap.josm.tools.Utils;
 import org.xml.sax.SAXException;
@@ -107,7 +110,7 @@ public abstract class SourceEditor extends JPanel {
     protected final JList<ExtendedSourceEntry> lstAvailableSources;
     protected final AvailableSourcesListModel availableSourcesModel;
     protected final String availableSourcesUrl;
-    protected final List<SourceProvider> sourceProviders;
+    protected final transient List<SourceProvider> sourceProviders;
 
     protected JTable tblIconPaths;
     protected IconPathTableModel iconPathsModel;
@@ -323,7 +326,7 @@ public abstract class SourceEditor extends JPanel {
         tblIconPaths.setTableHeader(null);
         tblIconPaths.getColumnModel().getColumn(0).setCellEditor(new FileOrUrlCellEditor(false));
         tblIconPaths.setRowHeight(20);
-        tblIconPaths.putClientProperty("terminateEditOnFocusLost", true);
+        tblIconPaths.putClientProperty("terminateEditOnFocusLost", Boolean.TRUE);
         iconPathsModel.setIconPaths(getInitialIconPathsList());
 
         EditIconPathAction editIconPathAction = new EditIconPathAction();
@@ -443,7 +446,7 @@ public abstract class SourceEditor extends JPanel {
     }
 
     protected static class AvailableSourcesListModel extends DefaultListModel<ExtendedSourceEntry> {
-        private List<ExtendedSourceEntry> data;
+        private transient List<ExtendedSourceEntry> data;
         private DefaultListSelectionModel selectionModel;
 
         public AvailableSourcesListModel(DefaultListSelectionModel selectionModel) {
@@ -495,7 +498,7 @@ public abstract class SourceEditor extends JPanel {
     }
 
     protected class ActiveSourcesModel extends AbstractTableModel {
-        private List<SourceEntry> data;
+        private transient List<SourceEntry> data;
         private DefaultListSelectionModel selectionModel;
 
         public ActiveSourcesModel(DefaultListSelectionModel selectionModel) {
@@ -698,8 +701,8 @@ public abstract class SourceEditor extends JPanel {
         }
     }
 
-    private static void prepareFileChooser(String url, JFileChooser fc) {
-        if (url == null || url.trim().length() == 0) return;
+    private static void prepareFileChooser(String url, AbstractFileChooser fc) {
+        if (url == null || url.trim().isEmpty()) return;
         URL sourceUrl = null;
         try {
             sourceUrl = new URL(url);
@@ -810,10 +813,10 @@ public abstract class SourceEditor extends JPanel {
                     Main.error("Unsupported source type: "+sourceType);
                     return;
                 }
-                JFileChooserManager fcm = new JFileChooserManager(true)
+                FileChooserManager fcm = new FileChooserManager(true)
                         .createFileChooser(true, null, Arrays.asList(ff, FileFilterAllFiles.getInstance()), ff, JFileChooser.FILES_ONLY);
                 prepareFileChooser(tfURL.getText(), fcm.getFileChooser());
-                JFileChooser fc = fcm.openFileChooser(JOptionPane.getFrameForComponent(SourceEditor.this));
+                AbstractFileChooser fc = fcm.openFileChooser(JOptionPane.getFrameForComponent(SourceEditor.this));
                 if (fc != null) {
                     tfURL.setText(fc.getSelectedFile().toString());
                 }
@@ -935,7 +938,7 @@ public abstract class SourceEditor extends JPanel {
      * The action to move the currently selected entries up or down in the list.
      */
     class MoveUpDownAction extends AbstractAction implements ListSelectionListener, TableModelListener {
-        final int increment;
+        private final int increment;
         public MoveUpDownAction(boolean isDown) {
             increment = isDown ? 1 : -1;
             putValue(SMALL_ICON, isDown ? ImageProvider.get("dialogs", "down") : ImageProvider.get("dialogs", "up"));
@@ -998,10 +1001,8 @@ public abstract class SourceEditor extends JPanel {
                     ExtendedDialog dlg = new ExtendedDialog(Main.parent, tr("Warning"), new String [] { tr("Cancel"), tr("Continue anyway") });
                     dlg.setButtonIcons(new Icon[] {
                         ImageProvider.get("cancel"),
-                        ImageProvider.overlay(
-                            ImageProvider.get("ok"),
-                            new ImageIcon(ImageProvider.get("warning-small").getImage().getScaledInstance(12 , 12, Image.SCALE_SMOOTH)),
-                            ImageProvider.OverlayPosition.SOUTHEAST)
+                        new ImageProvider("ok").setMaxSize(ImageSizes.LARGEICON).addOverlay(
+                                new ImageOverlay(new ImageProvider("warning-small"), 0.5, 0.5, 1.0, 1.0)).get()
                     });
                     dlg.setToolTipTexts(new String[] {
                         tr("Cancel and return to the previous dialog"),
@@ -1033,13 +1034,14 @@ public abstract class SourceEditor extends JPanel {
 
     class ReloadSourcesAction extends AbstractAction {
         private final String url;
-        private final List<SourceProvider> sourceProviders;
+        private final transient List<SourceProvider> sourceProviders;
         public ReloadSourcesAction(String url, List<SourceProvider> sourceProviders) {
             putValue(NAME, tr("Reload"));
             putValue(SHORT_DESCRIPTION, tr(getStr(I18nString.RELOAD_ALL_AVAILABLE), url));
             putValue(SMALL_ICON, ImageProvider.get("dialogs", "refresh"));
             this.url = url;
             this.sourceProviders = sourceProviders;
+            setEnabled(!Main.isOffline(OnlineResource.JOSM_WEBSITE));
         }
 
         @Override
@@ -1255,15 +1257,20 @@ public abstract class SourceEditor extends JPanel {
         protected void warn(Exception e) {
             String emsg = e.getMessage() != null ? e.getMessage() : e.toString();
             emsg = emsg.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-            String msg = tr(getStr(I18nString.FAILED_TO_LOAD_SOURCES_FROM), url, emsg);
+            final String msg = tr(getStr(I18nString.FAILED_TO_LOAD_SOURCES_FROM), url, emsg);
 
-            HelpAwareOptionPane.showOptionDialog(
-                    Main.parent,
-                    msg,
-                    tr("Error"),
-                    JOptionPane.ERROR_MESSAGE,
-                    ht(getStr(I18nString.FAILED_TO_LOAD_SOURCES_FROM_HELP_TOPIC))
-                    );
+            GuiHelper.runInEDT(new Runnable() {
+                @Override
+                public void run() {
+                    HelpAwareOptionPane.showOptionDialog(
+                            Main.parent,
+                            msg,
+                            tr("Error"),
+                            JOptionPane.ERROR_MESSAGE,
+                            ht(getStr(I18nString.FAILED_TO_LOAD_SOURCES_FROM_HELP_TOPIC))
+                            );
+                }
+            });
         }
 
         @Override
@@ -1325,7 +1332,7 @@ public abstract class SourceEditor extends JPanel {
                                 last.description = value;
                             } else if ("min-josm-version".equals(key)) {
                                 try {
-                                    last.minJosmVersion = Integer.parseInt(value);
+                                    last.minJosmVersion = Integer.valueOf(value);
                                 } catch (NumberFormatException e) {
                                     // ignore
                                 }
@@ -1503,12 +1510,12 @@ public abstract class SourceEditor extends JPanel {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                JFileChooserManager fcm = new JFileChooserManager(true).createFileChooser();
+                FileChooserManager fcm = new FileChooserManager(true).createFileChooser();
                 if (!isFile) {
                     fcm.getFileChooser().setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
                 }
                 prepareFileChooser(tfFileName.getText(), fcm.getFileChooser());
-                JFileChooser fc = fcm.openFileChooser(JOptionPane.getFrameForComponent(SourceEditor.this));
+                AbstractFileChooser fc = fcm.openFileChooser(JOptionPane.getFrameForComponent(SourceEditor.this));
                 if (fc != null) {
                     tfFileName.setText(fc.getSelectedFile().toString());
                 }

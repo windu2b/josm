@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui.dialogs;
 
 import java.awt.Dimension;
@@ -9,11 +9,12 @@ import javax.swing.BoxLayout;
 import javax.swing.JPanel;
 import javax.swing.JSplitPane;
 
-import org.openstreetmap.josm.gui.widgets.MultiSplitPane;
 import org.openstreetmap.josm.gui.widgets.MultiSplitLayout.Divider;
 import org.openstreetmap.josm.gui.widgets.MultiSplitLayout.Leaf;
 import org.openstreetmap.josm.gui.widgets.MultiSplitLayout.Node;
 import org.openstreetmap.josm.gui.widgets.MultiSplitLayout.Split;
+import org.openstreetmap.josm.gui.widgets.MultiSplitPane;
+import org.openstreetmap.josm.tools.CheckParameterUtil;
 import org.openstreetmap.josm.tools.Destroyable;
 
 public class DialogsPanel extends JPanel implements Destroyable {
@@ -135,8 +136,7 @@ public class DialogsPanel extends JPanel implements Destroyable {
                 }
                 p.add(dlg, 0);
                 p.setVisible(true);
-            }
-            else if (dlg.isDialogInCollapsedView()) {
+            } else if (dlg.isDialogInCollapsedView()) {
                 p.add(dlg, 0);
                 p.setVisible(true);
             }
@@ -156,12 +156,11 @@ public class DialogsPanel extends JPanel implements Destroyable {
                 if (dlg.isDialogInDefaultView()) {
                     final int ph = dlg.getPreferredHeight();
                     final int ah = dlg.getSize().height;
-                    dlg.setPreferredSize(new Dimension(Integer.MAX_VALUE, (ah < 20 ? ph : ah)));
+                    dlg.setPreferredSize(new Dimension(Integer.MAX_VALUE, ah < 20 ? ph : ah));
                 }
             }
         } else {
-            if (triggeredBy == null)
-                throw new IllegalArgumentException();
+            CheckParameterUtil.ensureParameterNotNull(triggeredBy, "triggeredBy");
 
             int sumP = 0;   // sum of preferred heights of dialogs in default view (without the triggering dialog)
             int sumA = 0;   // sum of actual heights of dialogs in default view (without the triggering dialog)
@@ -277,8 +276,7 @@ public class DialogsPanel extends JPanel implements Destroyable {
         /**
          * Hide the Panel, if there is nothing to show
          */
-        if (numPanels == 1 && panels.get(N-1).getComponents().length == 0)
-        {
+        if (numPanels == 1 && panels.get(N-1).getComponents().length == 0) {
             parent.setDividerSize(0);
             this.setVisible(false);
         } else {

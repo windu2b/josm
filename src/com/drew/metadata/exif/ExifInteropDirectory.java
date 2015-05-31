@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 Drew Noakes
+ * Copyright 2002-2015 Drew Noakes
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -15,39 +15,28 @@
  *
  * More information about this project is available at:
  *
- *    http://drewnoakes.com/code/exif/
- *    http://code.google.com/p/metadata-extractor/
+ *    https://drewnoakes.com/code/exif/
+ *    https://github.com/drewnoakes/metadata-extractor
  */
 package com.drew.metadata.exif;
 
 import com.drew.lang.annotations.NotNull;
-import com.drew.metadata.Directory;
 
 import java.util.HashMap;
 
 /**
  * Describes Exif interoperability tags.
  *
- * @author Drew Noakes http://drewnoakes.com
+ * @author Drew Noakes https://drewnoakes.com
  */
-public class ExifInteropDirectory extends Directory
+public class ExifInteropDirectory extends ExifDirectoryBase
 {
-    public static final int TAG_INTEROP_INDEX = 0x0001;
-    public static final int TAG_INTEROP_VERSION = 0x0002;
-    public static final int TAG_RELATED_IMAGE_FILE_FORMAT = 0x1000;
-    public static final int TAG_RELATED_IMAGE_WIDTH = 0x1001;
-    public static final int TAG_RELATED_IMAGE_LENGTH = 0x1002;
-
     @NotNull
     protected static final HashMap<Integer, String> _tagNameMap = new HashMap<Integer, String>();
 
     static
     {
-        _tagNameMap.put(TAG_INTEROP_INDEX, "Interoperability Index");
-        _tagNameMap.put(TAG_INTEROP_VERSION, "Interoperability Version");
-        _tagNameMap.put(TAG_RELATED_IMAGE_FILE_FORMAT, "Related Image File Format");
-        _tagNameMap.put(TAG_RELATED_IMAGE_WIDTH, "Related Image Width");
-        _tagNameMap.put(TAG_RELATED_IMAGE_LENGTH, "Related Image Length");
+        addExifTagNames(_tagNameMap);
     }
 
     public ExifInteropDirectory()
@@ -55,12 +44,14 @@ public class ExifInteropDirectory extends Directory
         this.setDescriptor(new ExifInteropDescriptor(this));
     }
 
+    @Override
     @NotNull
     public String getName()
     {
         return "Interoperability";
     }
 
+    @Override
     @NotNull
     protected HashMap<Integer, String> getTagNameMap()
     {

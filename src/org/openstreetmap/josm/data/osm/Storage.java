@@ -2,13 +2,14 @@
 package org.openstreetmap.josm.data.osm;
 
 import java.util.AbstractSet;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * A Set-like class that allows looking up equivalent preexising instance.
@@ -87,8 +88,8 @@ public class Storage<T> extends AbstractSet<T> {
     private T[] data;
     private int mask;
     private int size;
-    private transient volatile int modCount = 0;
-    private float loadFactor = 0.6f;
+    private volatile int modCount = 0;
+    private double loadFactor = 0.6d;
     private static final int DEFAULT_CAPACITY = 16;
     private final boolean safeIterator;
     private boolean arrayCopyNecessary;
@@ -147,7 +148,7 @@ public class Storage<T> extends AbstractSet<T> {
 
     private void copyArray() {
         if (arrayCopyNecessary) {
-            data = Arrays.copyOf(data, data.length);
+            data = Utils.copyArray(data);
             arrayCopyNecessary = false;
         }
     }
@@ -372,7 +373,7 @@ public class Storage<T> extends AbstractSet<T> {
      */
 
     private final class FMap<K> implements Map<K,T> {
-        Hash<K,? super T> fHash;
+        private Hash<K,? super T> fHash;
 
         private FMap(Hash<K,? super T> h) {
             fHash = h;
@@ -455,8 +456,8 @@ public class Storage<T> extends AbstractSet<T> {
     }
 
     private final class SafeReadonlyIter implements Iterator<T> {
-        final T[] data;
-        int slot = 0;
+        private final T[] data;
+        private int slot = 0;
 
         SafeReadonlyIter(T[] data) {
             this.data = data;
@@ -489,8 +490,8 @@ public class Storage<T> extends AbstractSet<T> {
 
     private final class Iter implements Iterator<T> {
         private final int mods;
-        int slot = 0;
-        int removeSlot = -1;
+        private int slot = 0;
+        private int removeSlot = -1;
 
         Iter() {
             mods = modCount;

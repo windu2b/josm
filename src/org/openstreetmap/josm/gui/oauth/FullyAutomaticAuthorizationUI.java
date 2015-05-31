@@ -59,8 +59,8 @@ public class FullyAutomaticAuthorizationUI extends AbstractAuthorizationUI {
 
     private JosmTextField tfUserName;
     private JosmPasswordField tfPassword;
-    private UserNameValidator valUserName;
-    private PasswordValidator valPassword;
+    private transient UserNameValidator valUserName;
+    private transient PasswordValidator valPassword;
     private AccessTokenInfoPanel pnlAccessTokenInfo;
     private OsmPrivilegesPanel pnlOsmPrivileges;
     private JPanel pnlPropertiesPanel;
@@ -386,7 +386,7 @@ public class FullyAutomaticAuthorizationUI extends AbstractAuthorizationUI {
     class TestAccessTokenAction extends AbstractAction {
         public TestAccessTokenAction() {
             putValue(NAME, tr("Test Access Token"));
-            putValue(SMALL_ICON, ImageProvider.get("about"));
+            putValue(SMALL_ICON, ImageProvider.get("logo"));
         }
 
         @Override

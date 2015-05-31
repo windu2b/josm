@@ -15,22 +15,26 @@ import org.openstreetmap.josm.data.osm.OsmPrimitive;
 import org.openstreetmap.josm.data.osm.Tag;
 import org.openstreetmap.josm.data.osm.TagCollection;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
+
 /**
  * Represents a decision for a conflict due to multiple possible value for a tag.
- *
- *
+ * @since 2008
  */
 public class MultiValueResolutionDecision {
 
     /** the type of decision */
     private MultiValueDecisionType type;
     /** the collection of tags for which a decision is needed */
-    private TagCollection  tags;
+    private TagCollection tags;
     /** the selected value if {@link #type} is {@link MultiValueDecisionType#KEEP_ONE} */
     private String value;
 
+    private static final String[] SUMMABLE_KEYS = new String[] {
+        "capacity(:.+)?", "step_count"
+    };
+
     /**
-     * constuctor
+     * constructor
      */
     public MultiValueResolutionDecision() {
         type = MultiValueDecisionType.UNDECIDED;
@@ -43,11 +47,11 @@ public class MultiValueResolutionDecision {
      * All tags must have the same key.
      *
      * @param tags the tags. Must not be null.
-     * @exception IllegalArgumentException  thrown if tags is null
-     * @exception IllegalArgumentException thrown if there are more than one keys
-     * @exception IllegalArgumentException thrown if tags is empty
+     * @throws IllegalArgumentException if tags is null
+     * @throws IllegalArgumentException if there are more than one keys
+     * @throws IllegalArgumentException if tags is empty
      */
-    public MultiValueResolutionDecision(TagCollection tags) throws IllegalArgumentException {
+    public MultiValueResolutionDecision(TagCollection tags) {
         CheckParameterUtil.ensureParameterNotNull(tags, "tags");
         if (tags.isEmpty())
             throw new IllegalArgumentException(MessageFormat.format("Parameter ''{0}'' must not be empty.", "tags"));
@@ -88,13 +92,21 @@ public class MultiValueResolutionDecision {
     }
 
     /**
+     * Apply the decision to sum all numeric values
+     * @since 7743
+     */
+    public void sumAllNumeric() {
+        this.type = MultiValueDecisionType.SUM_ALL_NUMERIC;
+    }
+
+    /**
      * Apply the decision to keep exactly one value
      *
      * @param value  the value to keep
-     * @throws IllegalArgumentException thrown if value is null
-     * @throws IllegalStateException thrown if value is not in the list of known values for this tag
+     * @throws IllegalArgumentException if value is null
+     * @throws IllegalStateException if value is not in the list of known values for this tag
      */
-    public void keepOne(String value) throws IllegalArgumentException, IllegalStateException {
+    public void keepOne(String value) {
         CheckParameterUtil.ensureParameterNotNull(value, "value");
         if (!tags.getValues().contains(value))
             throw new IllegalStateException(tr("Tag collection does not include the selected value ''{0}''.", value));
@@ -128,17 +140,17 @@ public class MultiValueResolutionDecision {
      * Replies the chosen value
      *
      * @return the chosen value
-     * @throws IllegalStateException thrown if this resolution is not yet decided
+     * @throws IllegalStateException if this resolution is not yet decided
      */
-    public String getChosenValue() throws IllegalStateException {
+    public String getChosenValue() {
         switch(type) {
         case UNDECIDED: throw new IllegalStateException(tr("Not decided yet."));
         case KEEP_ONE: return value;
-        case KEEP_NONE: return null;
+        case SUM_ALL_NUMERIC: return tags.getSummedValues(getKey());
         case KEEP_ALL: return tags.getJoinedValues(getKey());
+        case KEEP_NONE:
+        default: return null;
         }
-        // should not happen
-        return null;
     }
 
     /**
@@ -182,6 +194,24 @@ public class MultiValueResolutionDecision {
     }
 
     /**
+     * Replies true, if summing all numeric values is a possible value in this resolution
+     *
+     * @return true, if summing all numeric values is a possible value in this resolution
+     * @since 7743
+     */
+    public boolean canSumAllNumeric() {
+        if (!canKeepAll()) {
+            return false;
+        }
+        for (String key : SUMMABLE_KEYS) {
+            if (getKey().matches(key)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Replies  true if this resolution is decided
      *
      * @return true if this resolution is decided
@@ -203,19 +233,18 @@ public class MultiValueResolutionDecision {
      * Applies the resolution to an {@link OsmPrimitive}
      *
      * @param primitive the primitive
-     * @throws IllegalStateException thrown if this resolution is not resolved yet
+     * @throws IllegalStateException if this resolution is not resolved yet
      *
      */
-    public void applyTo(OsmPrimitive primitive) throws IllegalStateException{
+    public void applyTo(OsmPrimitive primitive) {
         if (primitive == null) return;
         if (!isDecided())
             throw new IllegalStateException(tr("Not decided yet."));
         String key = tags.getKeys().iterator().next();
-        String value = getChosenValue();
         if (type.equals(MultiValueDecisionType.KEEP_NONE)) {
             primitive.remove(key);
         } else {
-            primitive.put(key, value);
+            primitive.put(key, getChosenValue());
         }
     }
 
@@ -223,9 +252,9 @@ public class MultiValueResolutionDecision {
      * Applies this resolution to a collection of primitives
      *
      * @param primitives the collection of primitives
-     * @throws IllegalStateException thrown if this resolution is not resolved yet
+     * @throws IllegalStateException if this resolution is not resolved yet
      */
-    public void applyTo(Collection<? extends OsmPrimitive> primitives) throws IllegalStateException {
+    public void applyTo(Collection<? extends OsmPrimitive> primitives) {
         if (primitives == null) return;
         for (OsmPrimitive primitive: primitives) {
             if (primitive == null) {
@@ -240,10 +269,10 @@ public class MultiValueResolutionDecision {
      *
      * @param primitive  the primitive
      * @return the change command
-     * @throws IllegalArgumentException thrown if primitive is null
-     * @throws IllegalStateException thrown if this resolution is not resolved yet
+     * @throws IllegalArgumentException if primitive is null
+     * @throws IllegalStateException if this resolution is not resolved yet
      */
-    public Command buildChangeCommand(OsmPrimitive primitive) throws IllegalArgumentException, IllegalStateException {
+    public Command buildChangeCommand(OsmPrimitive primitive) {
         CheckParameterUtil.ensureParameterNotNull(primitive, "primitive");
         if (!isDecided())
             throw new IllegalStateException(tr("Not decided yet."));
@@ -254,10 +283,10 @@ public class MultiValueResolutionDecision {
     /**
      * Builds a change command for applying this resolution to a collection of primitives
      *
-     * @param primitives  the collection of primitives
+     * @param primitives the collection of primitives
      * @return the change command
-     * @throws IllegalArgumentException thrown if primitives is null
-     * @throws IllegalStateException thrown if this resolution is not resolved yet
+     * @throws IllegalArgumentException if primitives is null
+     * @throws IllegalStateException if this resolution is not resolved yet
      */
     public Command buildChangeCommand(Collection<? extends OsmPrimitive> primitives) {
         CheckParameterUtil.ensureParameterNotNull(primitives, "primitives");
@@ -274,11 +303,12 @@ public class MultiValueResolutionDecision {
      */
     public Tag getResolution() {
         switch(type) {
+        case SUM_ALL_NUMERIC: return new Tag(getKey(), tags.getSummedValues(getKey()));
         case KEEP_ALL: return new Tag(getKey(), tags.getJoinedValues(getKey()));
         case KEEP_ONE: return new Tag(getKey(),value);
         case KEEP_NONE: return new Tag(getKey(), "");
-        case UNDECIDED: return null;
+        case UNDECIDED:
+        default: return null;
         }
-        return null;
     }
 }

@@ -13,6 +13,7 @@ import org.openstreetmap.josm.data.Preferences.StringSetting;
 import org.openstreetmap.josm.data.osm.UserInfo;
 import org.openstreetmap.josm.gui.preferences.server.OAuthAccessTokenHolder;
 import org.openstreetmap.josm.gui.progress.NullProgressMonitor;
+import org.openstreetmap.josm.io.OnlineResource;
 import org.openstreetmap.josm.io.OsmApi;
 import org.openstreetmap.josm.io.OsmServerUserInfoReader;
 import org.openstreetmap.josm.io.OsmTransferException;
@@ -57,10 +58,11 @@ public final class JosmUserIdentityManager implements PreferenceChangedListener{
      *
      * @return the unique instance of the JOSM user identity manager
      */
-    public static JosmUserIdentityManager getInstance() {
+    public static synchronized JosmUserIdentityManager getInstance() {
         if (instance == null) {
             instance = new JosmUserIdentityManager();
-            if (OsmApi.isUsingOAuth() && OAuthAccessTokenHolder.getInstance().containsAccessToken()) {
+            if (OsmApi.isUsingOAuth() && OAuthAccessTokenHolder.getInstance().containsAccessToken() &&
+                    !Main.isOffline(OnlineResource.OSM_API)) {
                 try {
                     instance.initFromOAuth(Main.parent);
                 } catch (Exception e) {
@@ -97,10 +99,10 @@ public final class JosmUserIdentityManager implements PreferenceChangedListener{
      * by the user name of its OSM account.
      *
      * @param userName the user name. Must not be null. Must not be empty (whitespace only).
-     * @throws IllegalArgumentException thrown if userName is null
-     * @throws IllegalArgumentException thrown if userName is empty
+     * @throws IllegalArgumentException if userName is null
+     * @throws IllegalArgumentException if userName is empty
      */
-    public void setPartiallyIdentified(String userName) throws IllegalArgumentException {
+    public void setPartiallyIdentified(String userName) {
         CheckParameterUtil.ensureParameterNotNull(userName, "userName");
         if (userName.trim().isEmpty())
             throw new IllegalArgumentException(MessageFormat.format("Expected non-empty value for parameter ''{0}'', got ''{1}''", "userName", userName));
@@ -114,11 +116,11 @@ public final class JosmUserIdentityManager implements PreferenceChangedListener{
      *
      * @param username the user name. Must not be null. Must not be empty.
      * @param userinfo additional information about the user, retrieved from the OSM server and including the user id
-     * @throws IllegalArgumentException thrown if userName is null
-     * @throws IllegalArgumentException thrown if userName is empty
-     * @throws IllegalArgumentException thrown if userinfo is null
+     * @throws IllegalArgumentException if userName is null
+     * @throws IllegalArgumentException if userName is empty
+     * @throws IllegalArgumentException if userinfo is null
      */
-    public void setFullyIdentified(String username, UserInfo userinfo) throws IllegalArgumentException {
+    public void setFullyIdentified(String username, UserInfo userinfo) {
         CheckParameterUtil.ensureParameterNotNull(username, "username");
         if (username.trim().isEmpty())
             throw new IllegalArgumentException(tr("Expected non-empty value for parameter ''{0}'', got ''{1}''", "userName", userName));
@@ -280,7 +282,7 @@ public final class JosmUserIdentityManager implements PreferenceChangedListener{
             accessTokenSecretChanged = false;
             if (OsmApi.isUsingOAuth()) {
                 try {
-                    instance.initFromOAuth(Main.parent);
+                    getInstance().initFromOAuth(Main.parent);
                 } catch (Exception e) {
                     Main.error(e);
                 }

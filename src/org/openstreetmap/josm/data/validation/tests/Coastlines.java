@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.data.validation.tests;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -188,8 +188,7 @@ public class Coastlines extends Test {
 
                 errors.add(new TestError(this, Severity.ERROR, tr("Unordered coastline"),
                         UNORDERED_COASTLINE, primitives, highlight));
-            }
-            else if (reversed) {
+            } else if (reversed) {
                 errors.add(new TestError(this, Severity.ERROR, tr("Reversed coastline"),
                         REVERSED_COASTLINE, primitives));
             }
@@ -237,7 +236,7 @@ public class Coastlines extends Test {
     @Override
     public boolean isFixable(TestError testError) {
         if (testError.getTester() instanceof Coastlines)
-            return (testError.getCode() == REVERSED_COASTLINE);
+            return testError.getCode() == REVERSED_COASTLINE;
 
         return false;
     }

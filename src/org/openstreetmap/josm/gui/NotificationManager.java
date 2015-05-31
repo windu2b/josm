@@ -72,10 +72,10 @@ class NotificationManager {
 
     private static NotificationManager INSTANCE = null;
 
-    private final Color PANEL_SEMITRANSPARENT = new Color(224, 236, 249, 230);
-    private final Color PANEL_OPAQUE = new Color(224, 236, 249);
+    private static final Color PANEL_SEMITRANSPARENT = new Color(224, 236, 249, 230);
+    private static final Color PANEL_OPAQUE = new Color(224, 236, 249);
 
-    public static NotificationManager getInstance() {
+    public static synchronized NotificationManager getInstance() {
         if (INSTANCE == null) {
             INSTANCE = new NotificationManager();
         }
@@ -104,7 +104,7 @@ class NotificationManager {
 
         currentNotification = queue.poll();
         if (currentNotification == null) return;
-        
+
         currentNotificationPanel = new NotificationPanel(currentNotification);
         currentNotificationPanel.validate();
 
@@ -149,9 +149,11 @@ class NotificationManager {
         @Override
         public void actionPerformed(ActionEvent e) {
             hideTimer.stop();
-            currentNotificationPanel.setVisible(false);
-            ((JFrame) Main.parent).getLayeredPane().remove(currentNotificationPanel);
-            currentNotificationPanel = null;
+            if (currentNotificationPanel != null) {
+                currentNotificationPanel.setVisible(false);
+                ((JFrame) Main.parent).getLayeredPane().remove(currentNotificationPanel);
+                currentNotificationPanel = null;
+            }
             pauseTimer.restart();
         }
     }
@@ -171,8 +173,10 @@ class NotificationManager {
 
         @Override
         public void actionPerformed(ActionEvent e) {
-            currentNotificationPanel.setNotificationBackground(PANEL_SEMITRANSPARENT);
-            currentNotificationPanel.repaint();
+            if (currentNotificationPanel != null) {
+                currentNotificationPanel.setNotificationBackground(PANEL_SEMITRANSPARENT);
+                currentNotificationPanel.repaint();
+            }
             startHideTimer();
         }
     }
@@ -308,7 +312,7 @@ class NotificationManager {
             public HideAction() {
                 putValue(SMALL_ICON, ImageProvider.get("misc", "grey_x"));
             }
-            
+
             @Override
             public void actionPerformed(ActionEvent e) {
                 new HideEvent().actionPerformed(null);
@@ -352,11 +356,11 @@ class NotificationManager {
                     RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setColor(getBackground());
             float lineWidth = 1.4f;
-            Shape rect = new RoundRectangle2D.Float(
-                    lineWidth/2 + getInsets().left,
-                    lineWidth/2 + getInsets().top,
-                    getWidth() - lineWidth/2 - getInsets().left - getInsets().right,
-                    getHeight() - lineWidth/2 - getInsets().top - getInsets().bottom,
+            Shape rect = new RoundRectangle2D.Double(
+                    lineWidth/2d + getInsets().left,
+                    lineWidth/2d + getInsets().top,
+                    getWidth() - lineWidth/2d - getInsets().left - getInsets().right,
+                    getHeight() - lineWidth/2d - getInsets().top - getInsets().bottom,
                     20, 20);
 
             g.fill(rect);

@@ -36,6 +36,7 @@ import org.openstreetmap.josm.gui.help.HelpUtil;
 import org.openstreetmap.josm.gui.preferences.server.ProxyPreferencesPanel;
 import org.openstreetmap.josm.gui.widgets.JMultilineLabel;
 import org.openstreetmap.josm.gui.widgets.JosmPasswordField;
+import org.openstreetmap.josm.gui.widgets.JosmTextField;
 import org.openstreetmap.josm.io.OsmApi;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.WindowGeometry;
@@ -62,7 +63,7 @@ public class CredentialDialog extends JDialog {
 
     private boolean canceled;
     protected CredentialPanel pnlCredentials;
-    String saveUsernameAndPasswordCheckboxText;
+    private String saveUsernameAndPasswordCheckboxText;
 
     public boolean isCanceled() {
         return canceled;
@@ -147,7 +148,7 @@ public class CredentialDialog extends JDialog {
     }
 
     protected static class CredentialPanel extends JPanel {
-        protected JTextField tfUserName;
+        protected JosmTextField tfUserName;
         protected JosmPasswordField tfPassword;
         protected JCheckBox cbSaveCredentials;
         protected JMultilineLabel lblHeading;
@@ -155,7 +156,7 @@ public class CredentialDialog extends JDialog {
         protected CredentialDialog owner; // owner Dependency Injection to use Key listeners for username and password text fields
 
         protected void build() {
-            tfUserName = new JTextField(20);
+            tfUserName = new JosmTextField(20);
             tfPassword = new JosmPasswordField(20);
             tfUserName.addFocusListener(new SelectAllOnFocusHandler());
             tfPassword.addFocusListener(new SelectAllOnFocusHandler());
@@ -281,7 +282,7 @@ public class CredentialDialog extends JDialog {
 
     private static class OtherHostCredentialsPanel extends CredentialPanel {
 
-        String host;
+        private String host;
 
         @Override
         protected void build() {
@@ -341,8 +342,7 @@ public class CredentialDialog extends JDialog {
         protected JTextField currentTF;
         protected JTextField nextTF;
 
-        public TFKeyListener (CredentialDialog owner, JTextField currentTF, JTextField nextTF)
-        {
+        public TFKeyListener(CredentialDialog owner, JTextField currentTF, JTextField nextTF) {
             this.owner = owner;
             this.currentTF = currentTF;
             this.nextTF = nextTF;
@@ -366,11 +366,11 @@ public class CredentialDialog extends JDialog {
         }
 
         @Override
-        public void keyReleased ( KeyEvent e ){
+        public void keyReleased(KeyEvent e) {
         }
 
         @Override
-        public void keyTyped ( KeyEvent e ){
+        public void keyTyped(KeyEvent e) {
         }
     }
 

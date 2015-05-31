@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.io;
 
 import static org.openstreetmap.josm.tools.I18n.tr;
@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.osm.Changeset;
@@ -51,7 +52,7 @@ public abstract class AbstractReader {
      * Data structure for relation objects
      */
     protected final Map<Long, Collection<RelationMemberData>> relations = new HashMap<>();
-    
+
     /**
      * Replies the parsed data set
      *
@@ -60,7 +61,7 @@ public abstract class AbstractReader {
     public DataSet getDataSet() {
         return ds;
     }
-    
+
     /**
      * Processes the parsed nodes after parsing. Just adds them to
      * the dataset
@@ -78,17 +79,18 @@ public abstract class AbstractReader {
      * Processes the ways after parsing. Rebuilds the list of nodes of each way and
      * adds the way to the dataset
      *
-     * @throws IllegalDataException thrown if a data integrity problem is detected
+     * @throws IllegalDataException if a data integrity problem is detected
      */
     protected void processWaysAfterParsing() throws IllegalDataException{
-        for (Long externalWayId: ways.keySet()) {
+        for (Entry<Long, Collection<Long>> entry : ways.entrySet()) {
+            Long externalWayId = entry.getKey();
             Way w = (Way)externalIdMap.get(new SimplePrimitiveId(externalWayId, OsmPrimitiveType.WAY));
             List<Node> wayNodes = new ArrayList<>();
-            for (long id : ways.get(externalWayId)) {
+            for (long id : entry.getValue()) {
                 Node n = (Node)externalIdMap.get(new SimplePrimitiveId(id, OsmPrimitiveType.NODE));
                 if (n == null) {
                     if (id <= 0)
-                        throw new IllegalDataException (
+                        throw new IllegalDataException(
                                 tr("Way with external ID ''{0}'' includes missing node with external ID ''{1}''.",
                                         externalWayId,
                                         id));
@@ -118,9 +120,8 @@ public abstract class AbstractReader {
     /**
      * Completes the parsed relations with its members.
      *
-     * @throws IllegalDataException thrown if a data integrity problem is detected, i.e. if a
+     * @throws IllegalDataException if a data integrity problem is detected, i.e. if a
      * relation member refers to a local primitive which wasn't available in the data
-     *
      */
     protected void processRelationsAfterParsing() throws IllegalDataException {
 
@@ -132,12 +133,13 @@ public abstract class AbstractReader {
             ds.addPrimitive(relation);
         }
 
-        for (Long externalRelationId : relations.keySet()) {
+        for (Entry<Long, Collection<RelationMemberData>> entry : relations.entrySet()) {
+            Long externalRelationId = entry.getKey();
             Relation relation = (Relation) externalIdMap.get(
                     new SimplePrimitiveId(externalRelationId, OsmPrimitiveType.RELATION)
             );
             List<RelationMember> relationMembers = new ArrayList<>();
-            for (RelationMemberData rm : relations.get(externalRelationId)) {
+            for (RelationMemberData rm : entry.getValue()) {
                 OsmPrimitive primitive = null;
 
                 // lookup the member from the map of already created primitives
@@ -190,7 +192,7 @@ public abstract class AbstractReader {
             }
         }
     }
-    
+
     protected final void prepareDataSet() throws IllegalDataException {
         try {
             ds.beginUpdate();

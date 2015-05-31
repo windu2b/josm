@@ -13,9 +13,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.imagery.ImageryInfo.ImageryPreferenceEntry;
 import org.openstreetmap.josm.io.CachedFile;
+import org.openstreetmap.josm.io.OfflineAccessException;
+import org.openstreetmap.josm.io.OnlineResource;
 import org.openstreetmap.josm.io.imagery.ImageryReader;
 import org.xml.sax.SAXException;
 
@@ -27,12 +30,21 @@ public class ImageryLayerInfo {
     public static final ImageryLayerInfo instance = new ImageryLayerInfo();
     private final List<ImageryInfo> layers = new ArrayList<>();
     private final Map<String, ImageryInfo> layerIds = new HashMap<>();
-    private final static List<ImageryInfo> defaultLayers = new ArrayList<>();
-    private final static Map<String, ImageryInfo> defaultLayerIds = new HashMap<>();
+    private static final List<ImageryInfo> defaultLayers = new ArrayList<>();
+    private static final Map<String, ImageryInfo> defaultLayerIds = new HashMap<>();
 
     private static final String[] DEFAULT_LAYER_SITES = {
         Main.getJOSMWebsite()+"/maps"
     };
+
+    /**
+     * Returns the list of imagery layers sites.
+     * @return the list of imagery layers sites
+     * @since 7434
+     */
+    public static Collection<String> getImageryLayersSites() {
+        return Main.pref.getCollection("imagery.layers.sites", Arrays.asList(DEFAULT_LAYER_SITES));
+    }
 
     private ImageryLayerInfo() {
     }
@@ -75,8 +87,15 @@ public class ImageryLayerInfo {
     public void loadDefaults(boolean clearCache) {
         defaultLayers.clear();
         defaultLayerIds.clear();
-        for (String source : Main.pref.getCollection("imagery.layers.sites", Arrays.asList(DEFAULT_LAYER_SITES))) {
-            if (clearCache) {
+        for (String source : getImageryLayersSites()) {
+            boolean online = true;
+            try {
+                OnlineResource.JOSM_WEBSITE.checkOfflineAccess(source, Main.getJOSMWebsite());
+            } catch (OfflineAccessException e) {
+                Main.warn(e.getMessage());
+                online = false;
+            }
+            if (clearCache && online) {
                 CachedFile.cleanup(source);
             }
             try {
@@ -95,7 +114,7 @@ public class ImageryLayerInfo {
         updateEntriesFromDefaults();
         buildIdMap(layers, layerIds);
     }
-    
+
     /**
      * Build the mapping of unique ids to {@link ImageryInfo}s.
      * @param lst input list
@@ -119,7 +138,7 @@ public class ImageryLayerInfo {
             idMap.remove(i);
         }
     }
-    
+
     /**
      * Update user entries according to the list of default entries.
      */
@@ -129,6 +148,24 @@ public class ImageryLayerInfo {
         Collection<String> knownDefaults = Main.pref.getCollection("imagery.layers.default");
         Collection<String> newKnownDefaults = new TreeSet<>(knownDefaults);
         for (ImageryInfo def : defaultLayers) {
+            // temporary migration code, so all user preferences will get updated with new settings from JOSM site (can be removed ~Dez. 2015)
+            if (def.getNoTileHeaders() != null || def.getTileSize() > 0 || def.getMetadataHeaders() != null ) {
+                for (ImageryInfo i: layers) {
+                    if (isSimilar(def,  i)) {
+                        if (def.getNoTileHeaders() != null) {
+                            i.setNoTileHeaders(def.getNoTileHeaders());
+                        }
+                        if (def.getTileSize() > 0) {
+                            i.setTileSize(def.getTileSize());
+                        }
+                        if (def.getMetadataHeaders() != null && def.getMetadataHeaders().size() > 0) {
+                            i.setMetadataHeaders(def.getMetadataHeaders());
+                        }
+                        changed = true;
+                    }
+                }
+            }
+
             if (def.isDefaultEntry()) {
                 boolean isKnownDefault = false;
                 for (String url : knownDefaults) {
@@ -178,7 +215,7 @@ public class ImageryLayerInfo {
             }
         }
         Main.pref.putCollection("imagery.layers.addedIds", newAddedIds);
-        
+
         // automatically update user entries with same id as a default entry
         for (int i=0; i<layers.size(); i++) {
             ImageryInfo info = layers.get(i);
@@ -191,7 +228,7 @@ public class ImageryLayerInfo {
                 changed = true;
             }
         }
-        
+
         if (changed) {
             save();
         }
@@ -201,12 +238,12 @@ public class ImageryLayerInfo {
         if (iiA.getId() != null && iiB.getId() != null) return iiA.getId().equals(iiB.getId());
         return isSimilar(iiA.getUrl(), iiB.getUrl());
     }
-    
+
     // some additional checks to respect extended URLs in preferences (legacy workaround)
     private boolean isSimilar(String a, String b) {
         return Objects.equals(a, b) || (a != null && b != null && !a.isEmpty() && !b.isEmpty() && (a.contains(b) || b.contains(a)));
     }
-    
+
     public void add(ImageryInfo info) {
         layers.add(info);
     }
@@ -243,10 +280,10 @@ public class ImageryLayerInfo {
         instance.save();
         Collections.sort(instance.layers);
     }
-    
+
     /**
      * Get unique id for ImageryInfo.
-     * 
+     *
      * This takes care, that no id is used twice (due to a user error)
      * @param info the ImageryInfo to look up
      * @return null, if there is no id or the id is used twice,

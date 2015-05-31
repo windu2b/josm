@@ -9,6 +9,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
@@ -17,22 +19,26 @@ import java.util.regex.Pattern;
 import javax.swing.ImageIcon;
 
 import org.openstreetmap.gui.jmapviewer.Coordinate;
+import org.openstreetmap.gui.jmapviewer.OsmMercator;
 import org.openstreetmap.gui.jmapviewer.interfaces.Attributed;
 import org.openstreetmap.gui.jmapviewer.tilesources.AbstractTileSource;
 import org.openstreetmap.gui.jmapviewer.tilesources.OsmTileSource.Mapnik;
+import org.openstreetmap.gui.jmapviewer.tilesources.TileSourceInfo;
 import org.openstreetmap.josm.Main;
 import org.openstreetmap.josm.data.Bounds;
 import org.openstreetmap.josm.data.Preferences.pref;
+import org.openstreetmap.josm.io.Capabilities;
 import org.openstreetmap.josm.io.OsmApi;
 import org.openstreetmap.josm.tools.CheckParameterUtil;
 import org.openstreetmap.josm.tools.ImageProvider;
+import org.openstreetmap.josm.tools.LanguageInfo;
 
 /**
  * Class that stores info about an image background layer.
  *
  * @author Frederik Ramm
  */
-public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
+public class ImageryInfo extends TileSourceInfo implements Comparable<ImageryInfo>, Attributed {
 
     /**
      * Type of imagery entry.
@@ -50,6 +56,7 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
         SCANEX("scanex"),
         /** A WMS endpoint entry only stores the WMS server info, without layer, which are chosen later by the user. **/
         WMS_ENDPOINT("wms_endpoint");
+
 
         private final String typeString;
 
@@ -147,32 +154,50 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
             return true;
         }
     }
-    
-    /** name of the imagery entry (gets translated by josm usually) */
-    private String name;
-    /** original name of the imagery entry in case of translation call */
+
+
+    /** original name of the imagery entry in case of translation call, for multiple languages English when possible */
     private String origName;
-    /** id for this imagery entry, optional at the moment */
-    private String id;
-    private String url = null;
+    /** (original) language of the translated name entry */
+    private String langName;
+    /** whether this is a entry activated by default or not */
     private boolean defaultEntry = false;
+    /** The data part of HTTP cookies header in case the service requires cookies to work */
     private String cookies = null;
-    private String eulaAcceptanceRequired= null;
+    /** Whether this service requires a explicit EULA acceptance before it can be activated */
+    private String eulaAcceptanceRequired = null;
+    /** type of the imagery servics - WMS, TMS, ... */
     private ImageryType imageryType = ImageryType.WMS;
     private double pixelPerDegree = 0.0;
+    /** maximum zoom level for TMS imagery */
     private int defaultMaxZoom = 0;
+    /** minimum zoom level for TMS imagery */
     private int defaultMinZoom = 0;
+    /** display bounds of imagery, displayed in prefs and used for automatic imagery selection */
     private ImageryBounds bounds = null;
+    /** projections supported by WMS servers */
     private List<String> serverProjections;
+    /** description of the imagery entry, should contain notes what type of data it is */
+    private String description;
+    /** language of the description entry */
+    private String langDescription;
+    /** Text of a text attribution displayed when using the imagery */
     private String attributionText;
+    /** Link behing the text attribution displayed when using the imagery */
     private String attributionLinkURL;
+    /** Image of a graphical attribution displayed when using the imagery */
     private String attributionImage;
+    /** Link behind the graphical attribution displayed when using the imagery */
     private String attributionImageURL;
+    /** Text with usage terms displayed when using the imagery */
     private String termsOfUseText;
+    /** Link behind the text with usage terms displayed when using the imagery */
     private String termsOfUseURL;
+    /** country code of the imagery (for country specific imagery) */
     private String countryCode = "";
+    /** icon used in menu */
     private String icon;
-    // when adding a field, also adapt the ImageryInfo(ImageryInfo) constructor
+    // when adding a field, also adapt the ImageryInfo(ImageryInfo) constructor, equals method, and ImageryPreferenceEntry
 
     /**
      * Auxiliary class to save an {@link ImageryInfo} object in the preferences.
@@ -198,6 +223,10 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
         @pref String shapes;
         @pref String projections;
         @pref String icon;
+        @pref String description;
+        @pref Map<String, String> noTileHeaders;
+        @pref int tileSize = OsmMercator.DEFAUL_TILE_SIZE;
+        @pref Map<String, String> metadataHeaders;
 
         /**
          * Constructs a new empty WMS {@code ImageryPreferenceEntry}.
@@ -227,12 +256,13 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
             min_zoom = i.defaultMinZoom;
             cookies = i.cookies;
             icon = i.icon;
+            description = i.description;
             if (i.bounds != null) {
                 bounds = i.bounds.encodeAsString(",");
                 StringBuilder shapesString = new StringBuilder();
                 for (Shape s : i.bounds.getShapes()) {
                     if (shapesString.length() > 0) {
-                        shapesString.append(";");
+                        shapesString.append(';');
                     }
                     shapesString.append(s.encodeAsString(","));
                 }
@@ -244,12 +274,21 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
                 StringBuilder val = new StringBuilder();
                 for (String p : i.serverProjections) {
                     if (val.length() > 0) {
-                        val.append(",");
+                        val.append(',');
                     }
                     val.append(p);
                 }
                 projections = val.toString();
             }
+            if (i.noTileHeaders != null && !i.noTileHeaders.isEmpty()) {
+                noTileHeaders = i.noTileHeaders;
+            }
+
+            if (i.metadataHeaders != null && !i.metadataHeaders.isEmpty()) {
+                metadataHeaders = i.metadataHeaders;
+            }
+
+            tileSize = i.getTileSize();
         }
 
         @Override
@@ -267,6 +306,7 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
      * Constructs a new WMS {@code ImageryInfo}.
      */
     public ImageryInfo() {
+        super();
     }
 
     /**
@@ -274,7 +314,7 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
      * @param name The entry name
      */
     public ImageryInfo(String name) {
-        this.name=name;
+        super(name);
     }
 
     /**
@@ -283,7 +323,7 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
      * @param url The entry extended URL
      */
     public ImageryInfo(String name, String url) {
-        this.name=name;
+        this(name);
         setExtendedUrl(url);
     }
 
@@ -294,20 +334,36 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
      * @param eulaAcceptanceRequired The EULA URL
      */
     public ImageryInfo(String name, String url, String eulaAcceptanceRequired) {
-        this.name=name;
+        this(name);
         setExtendedUrl(url);
         this.eulaAcceptanceRequired = eulaAcceptanceRequired;
     }
 
+    /**
+     * Constructs a new {@code ImageryInfo} with given name, url, extended and EULA URLs.
+     * @param name The entry name
+     * @param url The entry URL
+     * @param type The entry imagery type. If null, WMS will be used as default
+     * @param eulaAcceptanceRequired The EULA URL
+     * @param cookies The data part of HTTP cookies header in case the service requires cookies to work
+     * @throws IllegalArgumentException if type refers to an unknown imagery type
+     */
     public ImageryInfo(String name, String url, String type, String eulaAcceptanceRequired, String cookies) {
-        this.name=name;
+        this(name);
         setExtendedUrl(url);
         ImageryType t = ImageryType.fromString(type);
         this.cookies=cookies;
         this.eulaAcceptanceRequired = eulaAcceptanceRequired;
         if (t != null) {
             this.imageryType = t;
+        } else if (type != null && !type.trim().isEmpty()) {
+            throw new IllegalArgumentException("unknown type: "+type);
         }
+    }
+
+    public ImageryInfo(String name, String url, String type, String eulaAcceptanceRequired, String cookies, String id) {
+        this(name, url, type, eulaAcceptanceRequired, cookies);
+        setId(id);
     }
 
     /**
@@ -320,6 +376,7 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
         name = e.name;
         id = e.id;
         url = e.url;
+        description = e.description;
         cookies = e.cookies;
         eulaAcceptanceRequired = e.eula;
         imageryType = ImageryType.fromString(e.type);
@@ -350,6 +407,11 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
         termsOfUseURL = e.terms_of_use_url;
         countryCode = e.country_code;
         icon = e.icon;
+        if (e.noTileHeaders != null) {
+            noTileHeaders = e.noTileHeaders;
+        }
+        setTileSize(e.tileSize);
+        metadataHeaders = e.metadataHeaders;
     }
 
     /**
@@ -377,6 +439,9 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
         this.termsOfUseURL = i.termsOfUseURL;
         this.countryCode = i.countryCode;
         this.icon = i.icon;
+        this.description = i.description;
+        this.noTileHeaders = i.noTileHeaders;
+        this.metadataHeaders = i.metadataHeaders;
     }
 
     @Override
@@ -392,13 +457,13 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
 
         return true;
     }
-    
+
     /**
      * Check if this object equals another ImageryInfo with respect to the properties
      * that get written to the preference file.
-     * 
+     *
      * The field {@link #pixelPerDegree} is ignored.
-     * 
+     *
      * @param other the ImageryInfo object to compare to
      * @return true if they are equal
      */
@@ -406,64 +471,31 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
         if (other == null) {
             return false;
         }
-        if (!Objects.equals(this.name, other.name)) {
-            return false;
-        }
-        if (!Objects.equals(this.id, other.id)) {
-            return false;
-        }
-        if (!Objects.equals(this.url, other.url)) {
-            return false;
-        }
-        if (!Objects.equals(this.cookies, other.cookies)) {
-            return false;
-        }
-        if (!Objects.equals(this.eulaAcceptanceRequired, other.eulaAcceptanceRequired)) {
-            return false;
-        }
-        if (this.imageryType != other.imageryType) {
-            return false;
-        }
-        if (this.defaultMaxZoom != other.defaultMaxZoom) {
-            return false;
-        }
-        if (this.defaultMinZoom != other.defaultMinZoom) {
-            return false;
-        }
-        if (!Objects.equals(this.bounds, other.bounds)) {
-            return false;
-        }
-        if (!Objects.equals(this.serverProjections, other.serverProjections)) {
-            return false;
-        }
-        if (!Objects.equals(this.attributionText, other.attributionText)) {
-            return false;
-        }
-        if (!Objects.equals(this.attributionLinkURL, other.attributionLinkURL)) {
-            return false;
-        }
-        if (!Objects.equals(this.attributionImage, other.attributionImage)) {
-            return false;
-        }
-        if (!Objects.equals(this.attributionImageURL, other.attributionImageURL)) {
-            return false;
-        }
-        if (!Objects.equals(this.termsOfUseText, other.termsOfUseText)) {
-            return false;
-        }
-        if (!Objects.equals(this.termsOfUseURL, other.termsOfUseURL)) {
-            return false;
-        }
-        if (!Objects.equals(this.countryCode, other.countryCode)) {
-            return false;
-        }
-        if (!Objects.equals(this.icon, other.icon)) {
-            return false;
-        }
-        return true;
+
+        return
+                Objects.equals(this.name, other.name) &&
+                Objects.equals(this.id, other.id) &&
+                Objects.equals(this.url, other.url) &&
+                Objects.equals(this.cookies, other.cookies) &&
+                Objects.equals(this.eulaAcceptanceRequired, other.eulaAcceptanceRequired) &&
+                Objects.equals(this.imageryType, other.imageryType) &&
+                Objects.equals(this.defaultMaxZoom, other.defaultMaxZoom) &&
+                Objects.equals(this.defaultMinZoom, other.defaultMinZoom) &&
+                Objects.equals(this.bounds, other.bounds) &&
+                Objects.equals(this.serverProjections, other.serverProjections) &&
+                Objects.equals(this.attributionText, other.attributionText) &&
+                Objects.equals(this.attributionLinkURL, other.attributionLinkURL) &&
+                Objects.equals(this.attributionImageURL, other.attributionImageURL) &&
+                Objects.equals(this.attributionImage, other.attributionImage) &&
+                Objects.equals(this.termsOfUseText, other.termsOfUseText) &&
+                Objects.equals(this.termsOfUseURL, other.termsOfUseURL) &&
+                Objects.equals(this.countryCode, other.countryCode) &&
+                Objects.equals(this.icon, other.icon) &&
+                Objects.equals(this.description, other.description) &&
+                Objects.equals(this.noTileHeaders, other.noTileHeaders) &&
+                Objects.equals(this.metadataHeaders, other.metadataHeaders);
     }
 
-    
     @Override
     public int hashCode() {
         int result = url != null ? url.hashCode() : 0;
@@ -485,7 +517,7 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
     public int compareTo(ImageryInfo in) {
         int i = countryCode.compareTo(in.countryCode);
         if (i == 0) {
-            i = name.toLowerCase().compareTo(in.name.toLowerCase());
+            i = name.toLowerCase(Locale.ENGLISH).compareTo(in.name.toLowerCase(Locale.ENGLISH));
         }
         if (i == 0) {
             i = url.compareTo(in.url);
@@ -618,10 +650,10 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
                 this.url = m.group(3);
                 this.imageryType = type;
                 if (m.group(2) != null) {
-                    defaultMaxZoom = Integer.valueOf(m.group(2));
+                    defaultMaxZoom = Integer.parseInt(m.group(2));
                 }
                 if (m.group(1) != null) {
-                    defaultMinZoom = Integer.valueOf(m.group(1));
+                    defaultMinZoom = Integer.parseInt(m.group(1));
                 }
                 break;
             }
@@ -630,7 +662,7 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
         if (serverProjections == null || serverProjections.isEmpty()) {
             try {
                 serverProjections = new ArrayList<>();
-                Matcher m = Pattern.compile(".*\\{PROJ\\(([^)}]+)\\)\\}.*").matcher(url.toUpperCase());
+                Matcher m = Pattern.compile(".*\\{PROJ\\(([^)}]+)\\)\\}.*").matcher(url.toUpperCase(Locale.ENGLISH));
                 if(m.matches()) {
                     for(String p : m.group(1).split(","))
                         serverProjections.add(p);
@@ -645,6 +677,7 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
      * Returns the entry name.
      * @return The entry name
      */
+    @Override
     public String getName() {
         return this.name;
     }
@@ -667,18 +700,25 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
     }
 
     /**
-     * Sets the entry name and translates it.
+     * Sets the entry name and handle translation.
+     * @param language The used language
      * @param name The entry name
-     * @since 6968
+     * @since 8091
      */
-    public void setTranslatedName(String name) {
-        this.name = tr(name);
-        this.origName = name;
+    public void setName(String language, String name) {
+        boolean isdefault = LanguageInfo.getJOSMLocaleCode(null).equals(language);
+        if(LanguageInfo.isBetterLanguage(langName, language)) {
+            this.name = isdefault ? tr(name) : name;
+            this.langName = language;
+        }
+        if(origName == null || isdefault) {
+            this.origName = name;
+        }
     }
 
     /**
      * Gets the entry id.
-     * 
+     *
      * Id can be null. This gets the configured id as is. Due to a user error,
      * this may not be unique. Use {@link ImageryLayerInfo#getUniqueId} to ensure
      * a unique value.
@@ -695,7 +735,7 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
     public void setId(String id) {
         this.id = id;
     }
-    
+
     public void clearId() {
         if (this.id != null) {
             Collection<String> newAddedIds = new TreeSet<>(Main.pref.getCollection("imagery.layers.addedIds"));
@@ -709,6 +749,7 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
      * Returns the entry URL.
      * @return The entry URL
      */
+    @Override
     public String getUrl() {
         return this.url;
     }
@@ -737,6 +778,11 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
         this.defaultEntry = defaultEntry;
     }
 
+    /**
+     * Return the data part of HTTP cookies header in case the service requires cookies to work
+     * @return the cookie data part
+     */
+    @Override
     public String getCookies() {
         return this.cookies;
     }
@@ -749,6 +795,7 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
      * Returns the maximum zoom level.
      * @return The maximum zoom level
      */
+    @Override
     public int getMaxZoom() {
         return this.defaultMaxZoom;
     }
@@ -757,8 +804,45 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
      * Returns the minimum zoom level.
      * @return The minimum zoom level
      */
+    @Override
     public int getMinZoom() {
         return this.defaultMinZoom;
+    }
+
+    /**
+     * Returns the description text when existing.
+     * @return The description
+     * @since 8065
+     */
+    public String getDescription() {
+        return this.description;
+    }
+
+    /**
+     * Sets the description text when existing.
+     * @param language The used language
+     * @param description the imagery description text
+     * @since 8091
+     */
+    public void setDescription(String language, String description) {
+        boolean isdefault = LanguageInfo.getJOSMLocaleCode(null).equals(language);
+        if(LanguageInfo.isBetterLanguage(langDescription, language)) {
+            this.description = isdefault ? tr(description) : description;
+            this.langDescription = language;
+        }
+    }
+
+    /**
+     * Returns a tool tip text for display.
+     * @return The text
+     * @since 8065
+     */
+    public String getToolTipText() {
+        String desc = getDescription();
+        if (desc != null && !desc.isEmpty()) {
+            return "<html>" + getName() + "<br>" + desc + "</html>";
+        }
+        return getName();
     }
 
     /**
@@ -836,7 +920,7 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
 
     public String getToolbarName() {
         String res = name;
-        if(pixelPerDegree != 0.0) {
+        if (pixelPerDegree != 0) {
             res += "#PPD="+pixelPerDegree;
         }
         return res;
@@ -844,7 +928,7 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
 
     public String getMenuName() {
         String res = name;
-        if(pixelPerDegree != 0.0) {
+        if (pixelPerDegree != 0) {
             res += " ("+pixelPerDegree+")";
         }
         return res;
@@ -933,6 +1017,34 @@ public class ImageryInfo implements Comparable<ImageryInfo>, Attributed {
      * @return {@code true} is this entry is blacklisted, {@code false} otherwise
      */
     public boolean isBlacklisted() {
-        return OsmApi.getOsmApi().getCapabilities().isOnImageryBlacklist(this.url);
+        Capabilities capabilities = OsmApi.getOsmApi().getCapabilities();
+        return capabilities != null && capabilities.isOnImageryBlacklist(this.url);
+    }
+
+    /**
+     * Sets the Map of <header name, header value> that if any of this header
+     * will be returned, then this tile will be treated as "no tile at this zoom level"
+     *
+     * @param noTileHeaders
+     * @since 8344
+     */
+    public void setNoTileHeaders(Map<String, String> noTileHeaders) {
+       this.noTileHeaders = noTileHeaders;
+    }
+
+    @Override
+    public Map<String, String> getNoTileHeaders() {
+        return noTileHeaders;
+    }
+
+    /**
+     * Returns the map <header name, metadata key> indicating, which HTTP headers should
+     * be moved to metadata
+     *
+     * @param metadataHeaders
+     * @since 8418
+     */
+    public void setMetadataHeaders(Map<String, String> metadataHeaders) {
+        this.metadataHeaders = metadataHeaders;
     }
 }

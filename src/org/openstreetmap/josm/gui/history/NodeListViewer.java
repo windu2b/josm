@@ -17,6 +17,8 @@ import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
+import javax.swing.event.TableModelEvent;
+import javax.swing.event.TableModelListener;
 import javax.swing.table.TableModel;
 
 import org.openstreetmap.josm.Main;
@@ -45,11 +47,11 @@ import org.openstreetmap.josm.tools.ImageProvider;
  */
 public class NodeListViewer extends JPanel {
 
-    private HistoryBrowserModel model;
+    private transient HistoryBrowserModel model;
     private VersionInfoPanel referenceInfoPanel;
     private VersionInfoPanel currentInfoPanel;
-    private AdjustmentSynchronizer adjustmentSynchronizer;
-    private SelectionSynchronizer selectionSynchronizer;
+    private transient AdjustmentSynchronizer adjustmentSynchronizer;
+    private transient SelectionSynchronizer selectionSynchronizer;
     private NodeListPopupMenu popupMenu;
 
     protected JScrollPane embeddInScrollPane(JTable table) {
@@ -59,10 +61,10 @@ public class NodeListViewer extends JPanel {
     }
 
     protected JTable buildReferenceNodeListTable() {
-        JTable table = new JTable(
-                model.getNodeListTableModel(PointInTimeType.REFERENCE_POINT_IN_TIME),
-                new NodeListTableColumnModel()
-        );
+        final DiffTableModel tableModel = model.getNodeListTableModel(PointInTimeType.REFERENCE_POINT_IN_TIME);
+        final NodeListTableColumnModel columnModel = new NodeListTableColumnModel();
+        final JTable table = new JTable(tableModel, columnModel);
+        tableModel.addTableModelListener(newReversedChangeListener(table, columnModel));
         table.setName("table.referencenodelisttable");
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         selectionSynchronizer.participateInSynchronizedSelection(table.getSelectionModel());
@@ -72,16 +74,36 @@ public class NodeListViewer extends JPanel {
     }
 
     protected JTable buildCurrentNodeListTable() {
-        JTable table = new JTable(
-                model.getNodeListTableModel(PointInTimeType.CURRENT_POINT_IN_TIME),
-                new NodeListTableColumnModel()
-        );
+        final DiffTableModel tableModel = model.getNodeListTableModel(PointInTimeType.CURRENT_POINT_IN_TIME);
+        final NodeListTableColumnModel columnModel = new NodeListTableColumnModel();
+        final JTable table = new JTable(tableModel, columnModel);
+        tableModel.addTableModelListener(newReversedChangeListener(table, columnModel));
         table.setName("table.currentnodelisttable");
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         selectionSynchronizer.participateInSynchronizedSelection(table.getSelectionModel());
         table.addMouseListener(new InternalPopupMenuLauncher());
         table.addMouseListener(new DoubleClickAdapter(table));
         return table;
+    }
+
+    protected TableModelListener newReversedChangeListener(final JTable table, final NodeListTableColumnModel columnModel) {
+        return new TableModelListener() {
+            private Boolean reversed = null;
+            private final String nonReversedText = tr("Nodes") + (table.getFont().canDisplay('\u25bc') ? " \u25bc" : " (1-n)");
+            private final String reversedText = tr("Nodes") + (table.getFont().canDisplay('\u25b2') ? " \u25b2" : " (n-1)");
+
+            @Override
+            public void tableChanged(TableModelEvent e) {
+                if (e.getSource() instanceof DiffTableModel) {
+                    final DiffTableModel model = (DiffTableModel) e.getSource();
+                    if (reversed == null || reversed != model.isReversed()) {
+                        reversed = model.isReversed();
+                        columnModel.getColumn(0).setHeaderValue(reversed ? reversedText : nonReversedText);
+                        table.getTableHeader().repaint();
+                    }
+                }
+            }
+        };
     }
 
     protected void build() {
@@ -192,8 +214,11 @@ public class NodeListViewer extends JPanel {
     }
 
     static class ZoomToNodeAction extends AbstractAction {
-        private PrimitiveId primitiveId;
+        private transient PrimitiveId primitiveId;
 
+        /**
+         * Constructs a new {@code ZoomToNodeAction}.
+         */
         public ZoomToNodeAction() {
             putValue(NAME, tr("Zoom to node"));
             putValue(SHORT_DESCRIPTION, tr("Zoom to this node in the current data layer"));
@@ -235,8 +260,11 @@ public class NodeListViewer extends JPanel {
     }
 
     static class ShowHistoryAction extends AbstractAction {
-        private PrimitiveId primitiveId;
+        private transient PrimitiveId primitiveId;
 
+        /**
+         * Constructs a new {@code ShowHistoryAction}.
+         */
         public ShowHistoryAction() {
             putValue(NAME, tr("Show history"));
             putValue(SHORT_DESCRIPTION, tr("Open a history browser with the history of this node"));

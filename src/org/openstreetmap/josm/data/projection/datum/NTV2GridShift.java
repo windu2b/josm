@@ -36,6 +36,8 @@ import org.openstreetmap.josm.data.coor.LatLon;
  */
 public class NTV2GridShift implements Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     private static final double METRE_PER_SECOND = 2.0 * Math.PI * 6378137.0 / 3600.0 / 360.0;
     private static final double RADIANS_PER_SECOND = 2.0 * Math.PI / 3600.0 / 360.0;
     private double lon;
@@ -44,16 +46,21 @@ public class NTV2GridShift implements Serializable {
     private double latShift;
     private double lonAccuracy;
     private double latAccuracy;
-    boolean latAccuracyAvailable;
-    boolean lonAccuracyAvailable;
+    private boolean latAccuracyAvailable;
+    private boolean lonAccuracyAvailable;
     private String subGridName;
 
     /**
      * Constructs a new {@code NTV2GridShift}.
      */
     public NTV2GridShift() {
+        // contents can be set later with setters
     }
 
+    /**
+     * Constructs a new {@code NTV2GridShift} from a {@code LatLon}.
+     * @param p lat/lon
+     */
     public NTV2GridShift(LatLon p) {
         setLatDegrees(p.lat());
         setLonPositiveEastDegrees(p.lon());

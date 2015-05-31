@@ -1,4 +1,4 @@
-//License: GPL. For details, see LICENSE file.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.data;
 
 import java.util.Collection;
@@ -95,8 +95,7 @@ public class UndoRedoHandler implements MapView.LayerChangeListener {
                     break;
                 }
             }
-        }
-        finally {
+        } finally {
             Main.main.getCurrentDataSet().endUpdate();
         }
         fireCommandsChanged();
@@ -175,9 +174,14 @@ public class UndoRedoHandler implements MapView.LayerChangeListener {
     }
 
     @Override
-    public void layerAdded(Layer newLayer) {}
+    public void layerAdded(Layer newLayer) {
+        // Do nothing
+    }
+
     @Override
-    public void activeLayerChange(Layer oldLayer, Layer newLayer) {}
+    public void activeLayerChange(Layer oldLayer, Layer newLayer) {
+        // Do nothing
+    }
 
     /**
      * Removes a command queue listener.

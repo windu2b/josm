@@ -1,18 +1,10 @@
 // License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm;
 
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.util.Arrays;
 import java.util.Comparator;
-
-import org.junit.Test;
-import org.openstreetmap.josm.data.osm.OsmPrimitive;
-import org.openstreetmap.josm.data.osm.OsmUtils;
-import org.openstreetmap.josm.data.osm.Way;
 
 /**
  * Various utils, useful for unit tests.
@@ -21,6 +13,7 @@ public class TestUtils {
 
     /**
      * Returns the path to test data root directory.
+     * @return path to test data root directory
      */
     public static String getTestDataRoot() {
         String testDataRoot = System.getProperty("josm.test.data");
@@ -31,18 +24,23 @@ public class TestUtils {
         return testDataRoot.endsWith("/") ? testDataRoot : testDataRoot + "/";
     }
 
-    @Test
-    public void testCreatePrimitive() throws Exception {
-        final OsmPrimitive p = OsmUtils.createPrimitive("way name=Foo railway=rail");
-        assertTrue(p instanceof Way);
-        assertThat(p.keySet().size(), is(2));
-        assertThat(p.get("name"), is("Foo"));
-        assertThat(p.get("railway"), is("rail"));
+    /**
+     * Gets path to test data directory for given ticket id.
+     * @param ticketid Ticket numeric identifier
+     * @return path to test data directory for given ticket id
+     */
+    public static String getRegressionDataDir(int ticketid) {
+        return TestUtils.getTestDataRoot() + "/regress/" + ticketid;
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void testCreatePrimitiveFail() throws Exception {
-        OsmUtils.createPrimitive("noway name=Foo");
+    /**
+     * Gets path to given file in test data directory for given ticket id.
+     * @param ticketid Ticket numeric identifier
+     * @param filename File name
+     * @return path to given file in test data directory for given ticket id
+     */
+    public static String getRegressionDataFile(int ticketid, String filename) {
+        return getRegressionDataDir(ticketid) + '/' + filename;
     }
 
     /**

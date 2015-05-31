@@ -8,8 +8,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,7 +22,6 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.swing.AbstractAction;
-import javax.swing.JOptionPane;
 import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
 import javax.swing.event.ListSelectionEvent;
@@ -45,6 +42,7 @@ import org.openstreetmap.josm.gui.util.GuiHelper;
 import org.openstreetmap.josm.tools.ImageProvider;
 import org.openstreetmap.josm.tools.OpenBrowser;
 import org.openstreetmap.josm.tools.Shortcut;
+import org.openstreetmap.josm.tools.Utils;
 
 /**
  * Displays a dialog with all users who have last edited something in the
@@ -61,10 +59,12 @@ public class UserListDialog extends ToggleDialog implements SelectionChangedList
     private SelectUsersPrimitivesAction selectionUsersPrimitivesAction;
     private ShowUserInfoAction showUserInfoAction;
 
+    /**
+     * Constructs a new {@code UserListDialog}.
+     */
     public UserListDialog() {
         super(tr("Authors"), "userlist", tr("Open a list of people working on the selected objects."),
                 Shortcut.registerShortcut("subwindow:authors", tr("Toggle: {0}", tr("Authors")), KeyEvent.VK_A, Shortcut.ALT_SHIFT), 150);
-
         build();
     }
 
@@ -192,7 +192,7 @@ public class UserListDialog extends ToggleDialog implements SelectionChangedList
             super(false);
             putValue(NAME, tr("Show info"));
             putValue(SHORT_DESCRIPTION, tr("Launches a browser with information about the user"));
-            putValue(SMALL_ICON, ImageProvider.get("about"));
+            putValue(SMALL_ICON, ImageProvider.get("help/internet"));
             updateEnabledState();
         }
 
@@ -220,19 +220,7 @@ public class UserListDialog extends ToggleDialog implements SelectionChangedList
         @Override
         protected String createInfoUrl(Object infoObject) {
             User user = (User)infoObject;
-            try {
-                return getBaseUserUrl() + "/" + URLEncoder.encode(user.getName(), "UTF-8").replaceAll("\\+", "%20");
-            } catch(UnsupportedEncodingException e) {
-                Main.error(e);
-                JOptionPane.showMessageDialog(
-                        Main.parent,
-                        tr("<html>Failed to create an URL because the encoding ''{0}''<br>"
-                                + "was missing on this system.</html>", "UTF-8"),
-                                tr("Missing encoding"),
-                                JOptionPane.ERROR_MESSAGE
-                );
-                return null;
-            }
+            return Main.getBaseUserUrl() + "/" + Utils.encodeUrl(user.getName()).replaceAll("\\+", "%20");
         }
 
         @Override
@@ -290,7 +278,7 @@ public class UserListDialog extends ToggleDialog implements SelectionChangedList
      *
      */
     static class UserTableModel extends DefaultTableModel {
-        private List<UserInfo> data;
+        private transient List<UserInfo> data;
 
         public UserTableModel() {
             setColumnIdentifiers(new String[]{tr("Author"),tr("# Objects"),"%"});
@@ -298,7 +286,7 @@ public class UserListDialog extends ToggleDialog implements SelectionChangedList
         }
 
         protected Map<User, Integer> computeStatistics(Collection<? extends OsmPrimitive> primitives) {
-            HashMap<User, Integer> ret = new HashMap<>();
+            Map<User, Integer> ret = new HashMap<>();
             if (primitives == null || primitives.isEmpty()) return ret;
             for (OsmPrimitive primitive: primitives) {
                 if (ret.containsKey(primitive.getUser())) {
@@ -365,7 +353,7 @@ public class UserListDialog extends ToggleDialog implements SelectionChangedList
         }
 
         public List<User> getSelectedUsers(int[] rows) {
-            LinkedList<User> ret = new LinkedList<>();
+            List<User> ret = new LinkedList<>();
             if (rows == null || rows.length == 0) return ret;
             for (int row: rows) {
                 if (data.get(row).user == null) {

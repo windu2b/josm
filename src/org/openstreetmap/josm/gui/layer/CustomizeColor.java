@@ -1,4 +1,4 @@
-// License: GPL. See LICENSE file for details.
+// License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.gui.layer;
 
 import static org.openstreetmap.josm.gui.help.HelpUtil.ht;
@@ -22,7 +22,7 @@ import org.openstreetmap.josm.gui.layer.Layer.MultiLayerAction;
 import org.openstreetmap.josm.tools.ImageProvider;
 
 public class CustomizeColor extends AbstractAction implements LayerAction, MultiLayerAction {
-    List<Layer> layers;
+    private transient List<Layer> layers;
 
     public CustomizeColor(List<Layer> l) {
         this();

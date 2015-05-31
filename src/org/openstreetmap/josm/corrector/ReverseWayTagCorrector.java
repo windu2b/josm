@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -74,12 +75,12 @@ public class ReverseWayTagCorrector extends TagCorrector<Way> {
             Matcher m = pattern.matcher(text);
 
             if (m.lookingAt()) {
-                String leftRight = m.group(2).toLowerCase();
+                String leftRight = m.group(2).toLowerCase(Locale.ENGLISH);
 
                 StringBuilder result = new StringBuilder();
-                result.append(text.substring(0, m.start(2)));
-                result.append(leftRight.equals(a) ? b : a);
-                result.append(text.substring(m.end(2)));
+                result.append(text.substring(0, m.start(2)))
+                      .append(leftRight.equals(a) ? b : a)
+                      .append(text.substring(m.end(2)));
 
                 return result.toString();
             }
@@ -102,7 +103,7 @@ public class ReverseWayTagCorrector extends TagCorrector<Way> {
          * @param tag The tag to reverse
          * @return The reversed tag (is equal to <code>tag</code> if no change is needed)
          */
-        public static final Tag apply(final Tag tag) {
+        public static Tag apply(final Tag tag) {
             return apply(tag.getKey(), tag.getValue());
         }
 
@@ -112,7 +113,7 @@ public class ReverseWayTagCorrector extends TagCorrector<Way> {
          * @param value The tag value
          * @return The reversed tag (is equal to <code>key=value</code> if no change is needed)
          */
-        public static final Tag apply(final String key, final String value) {
+        public static Tag apply(final String key, final String value) {
             String newKey = key;
             String newValue = value;
 
@@ -121,6 +122,12 @@ public class ReverseWayTagCorrector extends TagCorrector<Way> {
                     newValue = OsmUtils.trueval;
                 } else if (OsmUtils.isTrue(value)) {
                     newValue = OsmUtils.reverseval;
+                }
+                for (StringSwitcher prefixSuffixSwitcher : stringSwitchers) {
+                    newKey = prefixSuffixSwitcher.apply(key);
+                    if (!key.equals(newKey)) {
+                        break;
+                    }
                 }
             } else if (key.startsWith("incline") || key.endsWith("incline")
                     || key.startsWith("direction") || key.endsWith("direction")) {
@@ -131,7 +138,6 @@ public class ReverseWayTagCorrector extends TagCorrector<Way> {
             } else if (key.endsWith(":forward") || key.endsWith(":backward")) {
                 // Change key but not left/right value (fix #8518)
                 newKey = FORWARD_BACKWARD.apply(key);
-
             } else if (!ignoreKeyForCorrection(key)) {
                 for (StringSwitcher prefixSuffixSwitcher : stringSwitchers) {
                     newKey = prefixSuffixSwitcher.apply(key);
