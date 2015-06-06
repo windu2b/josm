@@ -42,6 +42,7 @@ import org.openstreetmap.josm.data.validation.tests.Lanes;
 import org.openstreetmap.josm.data.validation.tests.LongSegment;
 import org.openstreetmap.josm.data.validation.tests.MapCSSTagChecker;
 import org.openstreetmap.josm.data.validation.tests.Maxspeed;
+import org.openstreetmap.josm.data.validation.tests.Maxweight;
 import org.openstreetmap.josm.data.validation.tests.MultipolygonTest;
 import org.openstreetmap.josm.data.validation.tests.NameMismatch;
 import org.openstreetmap.josm.data.validation.tests.OpeningHourTest;
@@ -128,6 +129,7 @@ public class OsmValidator implements LayerChangeListener {
         ApiCapabilitiesTest.class, // 3400 .. 3499
         LongSegment.class, // 3500 .. 3599
         Maxspeed.class, // 3600 .. 3699
+        Maxweight.class, // 3600 .. 3799
     };
 
     private static Map<String, Test> allTestsMap;
