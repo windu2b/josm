@@ -28,6 +28,17 @@ class SimplePrimitiveIdTest extends GroovyTestCase {
         assert SimplePrimitiveId.fuzzyParse("foo relation/123 and way/345 but also node/789").toString() == "[relation 123, way 345, node 789]"
     }
 
+    void testMultipleIDs() {
+        assert SimplePrimitiveId.fuzzyParse("node/123-125").toString() == "[node 123, node 124, node 125]"
+        assert SimplePrimitiveId.fuzzyParse("n/123-125").toString() == "[node 123, node 124, node 125]"
+        assert SimplePrimitiveId.fuzzyParse("node123-125").toString() == "[node 123, node 124, node 125]"
+        assert SimplePrimitiveId.fuzzyParse("way/123-125").toString() == "[way 123, way 124, way 125]"
+        assert SimplePrimitiveId.fuzzyParse("w/123-125").toString() == "[way 123, way 124, way 125]"
+        assert SimplePrimitiveId.fuzzyParse("way123-125").toString() == "[way 123, way 124, way 125]"
+        assert SimplePrimitiveId.fuzzyParse("relation/123-125").toString() == "[relation 123, relation 124, relation 125]"
+        assert SimplePrimitiveId.fuzzyParse("r/123-125").toString() == "[relation 123, relation 124, relation 125]"
+        assert SimplePrimitiveId.fuzzyParse("relation123-125").toString() == "[relation 123, relation 124, relation 125]"
+
     void testFromCopyAction() {
         assert SimplePrimitiveId.fromString("node 123") == new SimplePrimitiveId(123, OsmPrimitiveType.NODE)
         assert SimplePrimitiveId.fromString("way 123") == new SimplePrimitiveId(123, OsmPrimitiveType.WAY)

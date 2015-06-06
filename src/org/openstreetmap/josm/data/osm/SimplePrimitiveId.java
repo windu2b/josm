@@ -1,11 +1,7 @@
 // License: GPL. For details, see LICENSE file.
 package org.openstreetmap.josm.data.osm;
 
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import groovyjarjarantlr.collections.List;
 
 public class SimplePrimitiveId implements PrimitiveId, Serializable {
 
@@ -15,6 +11,8 @@ public class SimplePrimitiveId implements PrimitiveId, Serializable {
     private final OsmPrimitiveType type;
 
     public static final Pattern ID_PATTERN = Pattern.compile("((n(ode)?|w(ay)?|r(el(ation)?)?)[ /]?)(\\d+)");
+
+    public static final Pattern MULTIPLE_IDS_PATTERN = Pattern.compile("((n(ode)?|w(ay)?|r(el(ation)?)?)/?)(\\d+)(-(\\d+))?");
 
     public SimplePrimitiveId(long id, OsmPrimitiveType type) {
         this.id = id;
@@ -96,16 +94,27 @@ public class SimplePrimitiveId implements PrimitiveId, Serializable {
      * @return the parsed list of {@code OsmPrimitiveType}s.
      */
     public static List<SimplePrimitiveId> fuzzyParse(String s) {
-        final List<SimplePrimitiveId> ids = new ArrayList<>();
-        final Matcher m = ID_PATTERN.matcher(s);
+        final ArrayList<SimplePrimitiveId> ids = new ArrayList<>();
+        final Matcher m = MULTIPLE_IDS_PATTERN.matcher(s);
         while (m.find()) {
             final char firstChar = s.charAt(m.start());
-            ids.add(new SimplePrimitiveId(Long.parseLong(m.group(m.groupCount())),
-                    firstChar == 'n'
+            if (null != m.group(m.groupCount())) {
+                for(long r = Long.parseLong(m.group(m.groupCount())) - 2; r <= Long.parseLong(m.group(m.groupCount())); r ++) {
+                    ids.add(new SimplePrimitiveId(r,
+                            firstChar == 'n'
+                                    ? OsmPrimitiveType.NODE
+                                    : firstChar == 'w'
+                                    ? OsmPrimitiveType.WAY
+                                    : OsmPrimitiveType.RELATION));
+                }
+            } else {
+                ids.add(new SimplePrimitiveId(Long.parseLong(m.group(m.groupCount())) - 2,
+                        firstChar == 'n'
                             ? OsmPrimitiveType.NODE
                             : firstChar == 'w'
                             ? OsmPrimitiveType.WAY
                             : OsmPrimitiveType.RELATION));
+            }
         }
         return ids;
     }
